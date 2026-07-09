@@ -253,20 +253,30 @@ function updateHud() {
 function showTurn() {
   var enteringBoss = !battle.bossPhase && battle.idx >= battle.bossFrom;
   if (enteringBoss) battle.bossPhase = true;
+  /* ボスが既に登場ずみの2問目以降は、出現メッセージなしで次の問題へ直行する */
+  var bossContinuing = battle.bossPhase && !enteringBoss;
+
+  var canvas = $("#enemy-canvas");
+  $("#battle-choices").innerHTML = "";
+  $("#battle-continue").classList.add("hidden");
+
+  if (bossContinuing) {
+    canvas.className = "";   /* ボスは立ったまま。再出現アニメもさせない */
+    updateHud();
+    showQuestion();
+    return;
+  }
 
   var m = currentMonster();
   battle.mob = m;
-  var canvas = $("#enemy-canvas");
   var scale = (battle.bossPhase || battle.mode === "final") ? 12 : 9;
   drawSprite(canvas, m.shape, m.palette, scale);
   canvas.className = "spawn";
   $("#enemy-name").textContent = m.name;
-  $("#battle-choices").innerHTML = "";
-  $("#battle-continue").classList.add("hidden");
   updateHud();
 
   var intro;
-  if (battle.mode === "final" && battle.idx === 0) {
+  if (battle.mode === "final") {
     Sound.boss();
     intro = "じゃあくな けはいが みなぎる…！\n" + m.name + "が すがたを あらわした！！";
   } else if (enteringBoss) {
@@ -321,29 +331,45 @@ function answer(isCorrect, btn) {
     battle.xp += gained;
     save.xp += gained;
 
-    Sound.attack();
-    setTimeout(function () { Sound.correct(); }, 180);
-    canvas.className = "hit";
+    /* 連続正解でこうげきが進化する: 剣 → いなずま → ごうかの まほう */
+    var tier = battle.combo >= 5 ? "fire" : (battle.combo >= 3 ? "bolt" : "slash");
+    var waza = tier === "fire" ? "ごうかの まほうが さくれつ！"
+             : tier === "bolt" ? "いなずまの まほうが ほとばしる！"
+             : "つるぎの いちげき！";
+    if (tier === "bolt") Sound.zap();
+    else if (tier === "fire") Sound.fireball();
+    else Sound.attack();
+    setTimeout(function () { Sound.correct(); }, 240);
+    Fx.attack(tier);
+    Fx.floatText("＋" + gained + " EXP");
 
-    if (battle.bossPhase || battle.mode === "final") {
+    var isBoss = battle.bossPhase || battle.mode === "final";
+    var died = true;
+    if (isBoss) {
       battle.bossHp--;
       battle.bossCorrect++;
-      msg = "かいしんの いちげき！ ボスに ダメージ！\n＋" + gained + " EXP";
-      if (battle.bossHp <= 0) {
-        canvas.className = "die";
-        msg = "とどめの いちげき！！ ボスを たおした！\n＋" + gained + " EXP";
-      }
+      died = battle.bossHp <= 0;
+      msg = waza + " ボスに ダメージ！\n＋" + gained + " EXP";
+      if (died) msg = "とどめの いちげき！！ ボスを たおした！\n＋" + gained + " EXP";
     } else {
-      canvas.className = "die";
-      msg = q.exp
-        ? "せいかい！ " + battle.mob.name + "を たおした！ ＋" + gained + " EXP\n【まめちしき】" + q.exp
-        : "せいかい！ ＋" + gained + " EXP";
+      msg = waza + " " + battle.mob.name + "を たおした！ ＋" + gained + " EXP"
+          + (q.exp ? "\n【まめちしき】" + q.exp : "");
       if (comboBonus > 0) msg = "れんぞく せいかい！ " + msg;
     }
+    /* エフェクトが当たってから敵がやられる（ひと呼吸おいて命中感を出す） */
+    setTimeout(function () {
+      canvas.className = died ? "die" : "hit";
+      if (died) {
+        Fx.particles(battle.mob.palette, isBoss ? 18 : 12);
+        if (isBoss) Fx.flash("rgba(255,210,59,.3)", 350);
+      }
+    }, 160);
   } else {
     battle.combo = 0;
     battle.hearts--;
     Sound.wrong();
+    Fx.claw();
+    Fx.floatText("－♥ ダメージ！", "#ff5d7a");
     $("#screen-battle").classList.add("shake");
     setTimeout(function () { $("#screen-battle").classList.remove("shake"); }, 420);
     msg = "ミス！ こうげきを うけた…\nせいかいは 「" + q.c[q.a] + "」\n【かいせつ】" + q.exp;
@@ -363,6 +389,8 @@ function nextTurn() {
   $("#battle-continue").classList.add("hidden");
   battle.idx++;
   if (battle.hearts <= 0) { endBattle(false); return; }
+  // 最終決戦はボスのHPを削りきった時点で勝利（残りの問題は出題しない）
+  if (battle.mode === "final" && battle.bossHp <= 0) { endBattle(true); return; }
   if (battle.idx >= battle.qs.length) {
     // 最終決戦はボスを討伐しきれなければ失敗
     if (battle.mode === "final" && battle.bossHp > 0) { endBattle(false); return; }
@@ -379,7 +407,7 @@ function endBattle(cleared) {
   var bonus = 0;
 
   if (cleared) {
-    var miss = battle.qs.length - battle.correct;
+    var miss = battle.idx - battle.correct;   /* 実際に解いた数から計算（最終決戦の早期勝利にも対応） */
     stars = miss === 0 ? 3 : (miss <= 2 ? 2 : 1);
     bonus = battle.mode === "review" ? 15 : 30;
     if (stars === 3) bonus += 20;
@@ -429,7 +457,7 @@ function endBattle(cleared) {
   $("#result-stars").textContent = cleared && battle.mode !== "review"
     ? "★".repeat(stars) + "☆".repeat(3 - stars) : "";
   $("#result-detail").textContent =
-    "せいかい " + battle.correct + "/" + battle.qs.length +
+    "せいかい " + battle.correct + "/" + battle.idx +
     "　かくとく " + battle.xp + " EXP";
 
   var lvEl = $("#result-levelup");

@@ -45,6 +45,8 @@ var Sound = (function () {
     correct: function () { playSeq([[523, 90], [659, 90], [784, 90], [1047, 160]]); },
     wrong:   function () { playSeq([[220, 140], [180, 220]], "sawtooth", 0.06); },
     attack:  function () { playSeq([[980, 40], [1400, 40], [700, 60]], "triangle", 0.1); },
+    zap:     function () { playSeq([[1800, 40], [1200, 40], [2000, 40], [700, 100]], "sawtooth", 0.05); },
+    fireball:function () { playSeq([[160, 80], [220, 80], [300, 100], [130, 180]], "sawtooth", 0.09); },
     levelup: function () { playSeq([[523, 110], [659, 110], [784, 110], [1047, 110], [784, 90], [1047, 320]]); },
     clear:   function () { playSeq([[659, 120], [659, 120], [659, 120], [523, 120], [659, 120], [784, 350]]); },
     boss:    function () { playSeq([[110, 200], [104, 200], [98, 350]], "sawtooth", 0.09); },

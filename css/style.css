@@ -250,6 +250,71 @@ input[type="text"]:focus, select:focus { border-color: var(--key); outline: none
 #enemy-canvas.die { animation: die .6s steps(6) forwards; }
 @keyframes die { to { transform: scale(1.1); opacity: 0; filter: brightness(4); } }
 
+/* ---------- バトルエフェクト ---------- */
+#fx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.fx-sprite { position: absolute; transform: translate(-50%, -50%); image-rendering: pixelated; }
+
+.fx-slash { animation: fxSlash .38s steps(4) forwards; }
+@keyframes fxSlash {
+  0%   { opacity: 0; transform: translate(-30%, -70%) scale(.5); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-64%, -32%) scale(1.05); }
+}
+
+.fx-bolt { animation: fxBolt .42s steps(5) forwards; }
+@keyframes fxBolt {
+  0%   { opacity: 0; transform: translate(-50%, -130%) scale(.8); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  60%  { opacity: 1; filter: brightness(2.2); }
+  100% { opacity: 0; transform: translate(-50%, -42%) scale(1.1); }
+}
+
+.fx-fire { animation: fxFire .5s steps(6) forwards; }
+@keyframes fxFire {
+  0%   { opacity: 0; transform: translate(-50%, -18%) scale(.4); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -85%) scale(1.35); }
+}
+
+.fx-burst { animation: fxBurst .4s steps(4) forwards; }
+@keyframes fxBurst {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(.3); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+}
+
+.fx-claw { animation: fxClaw .45s steps(5) forwards; }
+@keyframes fxClaw {
+  0%   { opacity: 0; transform: translate(-82%, -82%) scale(.7); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-18%, -18%) scale(1.1); }
+}
+
+.fx-particle {
+  position: absolute;
+  width: 7px; height: 7px;
+  animation: fxPart .6s steps(6) forwards;
+}
+@keyframes fxPart { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
+
+.fx-float {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--key);
+  font-size: 15px;
+  text-shadow: 2px 2px 0 #000;
+  white-space: nowrap;
+  animation: fxFloat .9s steps(8) forwards;
+}
+@keyframes fxFloat { to { transform: translate(-50%, -190%); opacity: 0; } }
+
+.fx-flash { position: absolute; inset: 0; animation: fxFlash .28s steps(3) forwards; }
+@keyframes fxFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+
 .shake { animation: shake .4s steps(8); }
 @keyframes shake {
   20% { transform: translate(-8px, 2px); }
