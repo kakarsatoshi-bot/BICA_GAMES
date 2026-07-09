@@ -1,21 +1,46 @@
 /* =========================================================
  * MOS QUEST 試験日カウントダウン
- * GAME_CONFIG.EXAM_DATE（例: "2026-09-15"）が設定されているときだけ、
- * メニュー画面に「王さま／お姫さま／魔王」がランダムに一言くちを出す。
- * 未設定（空文字）なら Countdown.isEnabled() が false になり、非表示のまま。
+ * GAME_CONFIG.EXAM_DATES（例: ["2026-09-04", "2026-12-06"]）に
+ * わかっている試験日をすべて入れておくと、メニュー画面に
+ * 「王さま／お姫さま／魔王」がランダムに一言くちを出す。
+ *
+ * 試験日は学校ごとに決まる（規則性なし）ため、先生が把握している
+ * 日付を配列にリストしておく方式。今日から見て一番近い「未来の」日付を
+ * 自動で選ぶので、1つの試験日が過ぎればリストの次の日付に自動で切り替わる。
+ * すべて過ぎている場合は、一番新しい過去日を使って労いメッセージを出し続ける。
+ * 空配列 [] のままなら Countdown.isEnabled() が false になり、非表示のまま。
  * ========================================================= */
 
 var Countdown = (function () {
 
+  function parseDates() {
+    return (GAME_CONFIG.EXAM_DATES || [])
+      .map(function (s) { return new Date(s + "T00:00:00"); })
+      .filter(function (d) { return !isNaN(d.getTime()); })
+      .sort(function (a, b) { return a - b; });
+  }
+
+  /* 今日から見て「今から扱うべき」試験日を1つ選ぶ。
+   * 未来の日付があれば、その中で一番近いもの。すべて過去なら一番新しい過去日。 */
+  function activeExamDate() {
+    var dates = parseDates();
+    if (!dates.length) return null;
+    var now = new Date();
+    var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var upcoming = dates.filter(function (d) { return d >= todayStart; });
+    return upcoming.length ? upcoming[0] : dates[dates.length - 1];
+  }
+
   function daysLeft() {
-    var target = new Date(GAME_CONFIG.EXAM_DATE + "T00:00:00");
+    var target = activeExamDate();
+    if (!target) return null;
     var now = new Date();
     var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return Math.round((target - todayStart) / (24 * 60 * 60 * 1000));
   }
 
   function isEnabled() {
-    return !!(GAME_CONFIG.EXAM_DATE && !isNaN(new Date(GAME_CONFIG.EXAM_DATE + "T00:00:00").getTime()));
+    return parseDates().length > 0;
   }
 
   /* 話者ごとのスプライトと、残り日数の階層ごとのセリフ */
