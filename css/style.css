@@ -1,0 +1,383 @@
+/* =========================================================
+ * MOS QUEST レトロRPGスタイル
+ * ファミコン/スーファミ風：ドット文字・白枠ウィンドウ・紺背景
+ * ========================================================= */
+
+:root {
+  --bg: #0a0a1e;
+  --bg2: #101034;
+  --white: #f8f8f8;
+  --key: #ffd23b;       /* キーカラー（金） */
+  --accent: #6ee7ff;
+  --danger: #ff5d7a;
+  --ok: #6ef08c;
+  --winbg: #05051a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: "DotGothic16", "MS Gothic", monospace;
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: none;
+  image-rendering: pixelated;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 20% 10%, #16163f 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 30%, #16163f 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 70%, #16163f 0 2px, transparent 3px);
+  background-size: 240px 240px;
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 12px 60px;
+}
+
+/* ---------- 画面切り替え ---------- */
+.screen { display: none; }
+.screen.active { display: block; animation: fadein .25s steps(4); }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.hidden { display: none !important; }
+
+/* ---------- ウィンドウ（RPG風の白枠） ---------- */
+.window {
+  background: var(--winbg);
+  border: 4px solid var(--white);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--winbg), 0 0 0 5px #4a4a7a;
+  padding: 14px 16px;
+  margin: 14px 0;
+}
+.window.narrow { max-width: 440px; margin: 8vh auto; }
+.window-title {
+  font-size: 18px;
+  color: var(--key);
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* ---------- ボタン ---------- */
+.btn {
+  display: block;
+  width: 100%;
+  background: var(--winbg);
+  color: var(--white);
+  border: 3px solid var(--white);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 16px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+}
+.btn:hover, .btn:focus {
+  border-color: var(--key);
+  color: var(--key);
+  outline: none;
+}
+.btn:hover::before, .btn:focus::before {
+  content: "▶";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translate(-100%, -50%);
+  color: var(--key);
+  font-size: 13px;
+}
+.btn:active { transform: translateY(2px); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn-big { text-align: center; font-size: 18px; padding: 13px; }
+.btn-small { width: auto; display: inline-block; font-size: 13px; padding: 4px 10px; margin: 0; }
+.btn-danger { border-color: var(--danger); color: var(--danger); text-align: center; }
+.btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+.btn-back { width: auto; display: inline-block; margin: 0; font-size: 14px; padding: 6px 12px; }
+
+.blink { animation: blink 1.2s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .55; } }
+
+/* ---------- タイトル ---------- */
+#screen-title { text-align: center; }
+.title-frame { padding-top: 7vh; }
+.title-deco { display: flex; justify-content: center; gap: 28px; margin-bottom: 18px; }
+.title-deco canvas { animation: bob 1.6s steps(2) infinite; }
+.title-deco canvas:nth-child(2) { animation-delay: .4s; }
+.title-deco canvas:nth-child(3) { animation-delay: .8s; }
+@keyframes bob { 50% { transform: translateY(-6px); } }
+
+.game-logo {
+  font-size: 64px;
+  line-height: 1.05;
+  letter-spacing: 6px;
+  color: var(--key);
+  text-shadow:
+    4px 4px 0 #a05a00,
+    8px 8px 0 #101034;
+  margin: 6px 0 10px;
+}
+.game-subtitle { color: var(--accent); margin-bottom: 30px; }
+#title-start { max-width: 340px; margin: 0 auto; }
+.title-continue { margin-top: 14px; color: var(--ok); font-size: 14px; min-height: 1.5em; }
+.title-copy { margin-top: 7vh; font-size: 12px; color: #7a7aa0; }
+
+/* ---------- 登録 ---------- */
+.field-label { display: block; margin: 12px 0 4px; color: var(--accent); font-size: 14px; }
+input[type="text"], select {
+  width: 100%;
+  background: #101040;
+  border: 3px solid var(--white);
+  border-radius: 6px;
+  color: var(--white);
+  font-family: inherit;
+  font-size: 17px;
+  padding: 9px 10px;
+}
+input[type="text"]:focus, select:focus { border-color: var(--key); outline: none; }
+.note { font-size: 12px; color: #9a9ac0; margin-top: 10px; }
+
+/* ---------- プレイヤーヘッダー ---------- */
+.player-header { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.ph-name { font-size: 20px; color: var(--white); margin-right: 10px; }
+.ph-class { font-size: 13px; color: #9a9ac0; }
+.ph-level { font-size: 20px; color: var(--key); margin-right: 10px; }
+.ph-rank { font-size: 13px; color: var(--accent); }
+.ph-right { text-align: right; }
+.xpbar {
+  grid-column: 1 / -1;
+  height: 12px;
+  border: 2px solid var(--white);
+  border-radius: 4px;
+  background: #101040;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.xpfill { height: 100%; background: var(--key); transition: width .5s steps(8); }
+.xptext { grid-column: 1 / -1; font-size: 12px; color: #9a9ac0; text-align: right; }
+
+/* ---------- メニュー ---------- */
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.menu-btn { font-size: 16px; padding: 16px 12px; margin: 0; }
+.menu-icon { display: block; font-size: 26px; margin-bottom: 6px; }
+.menu-btn.locked { opacity: .55; }
+.menu-lock { display: block; font-size: 10px; color: #9a9ac0; margin-top: 4px; }
+.badge {
+  position: absolute;
+  top: -8px; right: -8px;
+  background: var(--danger);
+  color: var(--white);
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  min-width: 26px; height: 26px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 13px;
+}
+.menu-hint { font-size: 12px; color: #9a9ac0; margin-top: 14px; text-align: center; }
+
+/* ---------- クエスト一覧 ---------- */
+.screen-header { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.screen-header h2 { font-size: 20px; color: var(--key); }
+.quest-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+.quest-card:hover { border-color: var(--key); }
+.quest-card.locked { opacity: .5; cursor: default; filter: grayscale(1); }
+.quest-card canvas { flex-shrink: 0; }
+.quest-name { font-size: 17px; }
+.quest-desc { font-size: 12px; color: #9a9ac0; }
+.quest-stars { color: var(--key); font-size: 14px; letter-spacing: 3px; }
+
+/* ---------- バトル ---------- */
+.battle-hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--accent);
+  margin: 6px 0;
+}
+.battle-hud #battle-quest-name { flex: 1; }
+.hearts { color: var(--danger); font-size: 20px; letter-spacing: 2px; }
+
+.battle-stage {
+  height: 220px;
+  border: 4px solid var(--white);
+  border-radius: 8px;
+  background:
+    linear-gradient(#050518 0 62%, #14143c 62% 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.nametag {
+  margin-top: 8px;
+  background: var(--winbg);
+  border: 2px solid var(--white);
+  border-radius: 4px;
+  font-size: 13px;
+  padding: 1px 12px;
+}
+.bosshp {
+  position: absolute;
+  top: 10px; left: 10px; right: 10px;
+  height: 12px;
+  border: 2px solid var(--white);
+  border-radius: 4px;
+  background: #101040;
+  overflow: hidden;
+}
+#boss-hpfill { height: 100%; width: 100%; background: var(--danger); transition: width .4s steps(6); }
+
+#enemy-canvas.spawn { animation: spawn .35s steps(4); }
+@keyframes spawn { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#enemy-canvas.hit { animation: hit .4s steps(4); }
+@keyframes hit { 25% { transform: translateX(-8px); } 50% { transform: translateX(8px); filter: brightness(3); } 75% { transform: translateX(-4px); } }
+#enemy-canvas.die { animation: die .6s steps(6) forwards; }
+@keyframes die { to { transform: scale(1.1); opacity: 0; filter: brightness(4); } }
+
+.shake { animation: shake .4s steps(8); }
+@keyframes shake {
+  20% { transform: translate(-8px, 2px); }
+  40% { transform: translate(8px, -2px); }
+  60% { transform: translate(-6px, 0); }
+  80% { transform: translate(6px, 0); }
+}
+
+.msg-window { min-height: 110px; position: relative; cursor: pointer; }
+#battle-msg { white-space: pre-wrap; font-size: 15px; }
+.btn-continue {
+  width: auto;
+  position: absolute;
+  right: 10px; bottom: 6px;
+  border: none;
+  font-size: 14px;
+  color: var(--key);
+  background: transparent;
+  margin: 0; padding: 2px 6px;
+}
+.btn-continue:hover::before { content: none; }
+
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice {
+  background: var(--winbg);
+  color: var(--white);
+  border: 3px solid var(--white);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+  min-height: 58px;
+}
+.choice:hover:not(:disabled) { border-color: var(--key); color: var(--key); }
+.choice:disabled { opacity: .6; cursor: default; }
+.choice.picked-right { border-color: var(--ok); color: var(--ok); opacity: 1; }
+.choice.picked-wrong { border-color: var(--danger); color: var(--danger); opacity: 1; }
+
+/* ---------- リザルト ---------- */
+.result-window { text-align: center; }
+#result-title { font-size: 24px; margin-bottom: 8px; }
+.result-clear { color: var(--key); }
+.result-fail { color: var(--danger); }
+.result-stars { font-size: 30px; color: var(--key); letter-spacing: 6px; min-height: 1.3em; }
+#result-sub { white-space: pre-wrap; font-size: 14px; margin: 8px 0; }
+.result-detail { color: var(--accent); margin-bottom: 8px; }
+.levelup {
+  white-space: pre-wrap;
+  color: var(--ok);
+  border: 2px dashed var(--ok);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 10px 0;
+  animation: blink 1s steps(2) infinite;
+}
+
+/* ---------- ランキング ---------- */
+.table-window { padding: 6px; overflow-x: auto; }
+.ranking-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ranking-table th, .ranking-table td {
+  border-bottom: 2px solid #2a2a5a;
+  padding: 7px 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+.ranking-table th { color: var(--accent); font-weight: normal; }
+.ranking-table tr.me td { color: var(--key); background: #1a1a3f; }
+
+/* ---------- ステータス ---------- */
+.status-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  font-size: 14px;
+}
+.status-stats dt { color: var(--accent); }
+.status-stats dd { text-align: right; }
+
+.mastery-subject { color: var(--key); font-size: 15px; margin: 12px 0 4px; }
+.mastery-row { display: flex; align-items: center; gap: 4px; margin: 4px 0; }
+.mastery-label { font-size: 11px; color: #9a9ac0; width: 150px; flex-shrink: 0; }
+.mastery-cell {
+  width: 16px; height: 16px;
+  border: 2px solid #3a3a6a;
+  border-radius: 3px;
+  display: inline-block;
+}
+.mastery-cell.mx { background: #14143c; }
+.mastery-cell.m0 { background: #b03030; }
+.mastery-cell.m1 { background: #c06a2a; }
+.mastery-cell.m2 { background: #c0a02a; }
+.mastery-cell.m3 { background: #7ab02a; }
+.mastery-cell.m4 { background: #3ab05a; }
+.mastery-cell.m5 { background: #2ae08c; border-color: var(--ok); }
+
+/* ---------- その他 ---------- */
+#btn-mute {
+  position: fixed;
+  right: 10px; bottom: 10px;
+  z-index: 50;
+}
+#toast {
+  position: fixed;
+  left: 50%; bottom: 70px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--winbg);
+  border: 3px solid var(--key);
+  border-radius: 6px;
+  color: var(--key);
+  padding: 10px 18px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: all .25s;
+  z-index: 100;
+  max-width: 90vw;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- スマホ対応 ---------- */
+@media (max-width: 480px) {
+  .game-logo { font-size: 46px; }
+  .menu-grid { grid-template-columns: 1fr 1fr; }
+  .choices { grid-template-columns: 1fr; }
+  .choice { min-height: 0; }
+  .battle-stage { height: 180px; }
+  .mastery-label { width: 110px; }
+}

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOS QUEST - ワード・エクセルぼうけんの書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ タイトル ============ -->
+  <div class="screen active" id="screen-title">
+    <div class="title-frame">
+      <div class="title-deco">
+        <canvas id="title-sprite-1"></canvas>
+        <canvas id="title-sprite-2"></canvas>
+        <canvas id="title-sprite-3"></canvas>
+      </div>
+      <h1 class="game-logo">MOS<br>QUEST</h1>
+      <p class="game-subtitle">〜 ワード・エクセル ぼうけんの書 〜</p>
+      <button class="btn btn-big blink" id="title-start">ぼうけんを はじめる</button>
+      <p class="title-continue" id="title-continue-info"></p>
+      <p class="title-copy">BICA MOS対策クエスト</p>
+    </div>
+  </div>
+
+  <!-- ============ なまえ登録 ============ -->
+  <div class="screen" id="screen-register">
+    <div class="window narrow">
+      <h2 class="window-title">ぼうけんしゃ とうろく</h2>
+      <label class="field-label">なまえ（10もじまで）</label>
+      <input type="text" id="register-name" maxlength="10" placeholder="れい：やまだ たろう">
+      <label class="field-label">クラス</label>
+      <select id="register-class"></select>
+      <button class="btn btn-big" id="register-submit">ぼうけんに でる！</button>
+      <p class="note">※なまえとクラス、レベルは クラスの ランキングに ひょうじされるよ</p>
+    </div>
+  </div>
+
+  <!-- ============ メインメニュー（マップ） ============ -->
+  <div class="screen" id="screen-menu">
+    <div class="window player-header">
+      <div class="ph-left">
+        <span class="ph-name" id="menu-name"></span>
+        <span class="ph-class" id="menu-class"></span>
+      </div>
+      <div class="ph-right">
+        <span class="ph-level" id="menu-level"></span>
+        <span class="ph-rank" id="menu-rank"></span>
+      </div>
+      <div class="xpbar"><div class="xpfill" id="menu-xpfill"></div></div>
+      <div class="xptext" id="menu-xptext"></div>
+    </div>
+
+    <div class="menu-grid">
+      <button class="btn menu-btn" id="menu-excel">
+        <span class="menu-icon">🗼</span>エクセルの とう
+      </button>
+      <button class="btn menu-btn" id="menu-word">
+        <span class="menu-icon">🏰</span>ワードの しろ
+      </button>
+      <button class="btn menu-btn" id="menu-review">
+        <span class="menu-icon">⛩️</span>ふっかつの ほこら
+        <span class="badge hidden" id="menu-review-badge"></span>
+      </button>
+      <button class="btn menu-btn" id="menu-final">
+        <span class="menu-icon">🌋</span>まおうの しろ
+        <span class="menu-lock" id="menu-final-lock"></span>
+      </button>
+      <button class="btn menu-btn" id="menu-ranking">
+        <span class="menu-icon">👑</span>ランキング
+      </button>
+      <button class="btn menu-btn" id="menu-status">
+        <span class="menu-icon">📜</span>ぼうけんの しょ
+      </button>
+    </div>
+    <p class="menu-hint">「ふっかつのほこら」では わすれかけた もんだいと まちがえた もんだいを 復習できるぞ！</p>
+  </div>
+
+  <!-- ============ クエスト選択 ============ -->
+  <div class="screen" id="screen-quests">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2 id="quests-title"></h2>
+    </div>
+    <div id="quest-list"></div>
+  </div>
+
+  <!-- ============ バトル ============ -->
+  <div class="screen" id="screen-battle">
+    <div class="battle-hud">
+      <button class="btn btn-small" id="battle-quit">にげる</button>
+      <span id="battle-quest-name"></span>
+      <span id="battle-progress"></span>
+      <span class="hearts" id="battle-hearts"></span>
+    </div>
+
+    <div class="battle-stage">
+      <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpfill"></div></div>
+      <canvas id="enemy-canvas"></canvas>
+      <div class="nametag" id="enemy-name"></div>
+    </div>
+
+    <div class="window msg-window">
+      <div id="battle-msg"></div>
+      <button class="btn btn-continue hidden blink" id="battle-continue">▼ すすむ</button>
+    </div>
+
+    <div class="choices" id="battle-choices"></div>
+  </div>
+
+  <!-- ============ リザルト ============ -->
+  <div class="screen" id="screen-result">
+    <div class="window narrow result-window">
+      <h2 id="result-title"></h2>
+      <div class="result-stars" id="result-stars"></div>
+      <p id="result-sub"></p>
+      <p class="result-detail" id="result-detail"></p>
+      <div class="levelup hidden" id="result-levelup"></div>
+      <button class="btn btn-big" id="result-next">マップに もどる</button>
+      <button class="btn" id="result-retry">もういちど ちょうせん</button>
+    </div>
+  </div>
+
+  <!-- ============ ランキング ============ -->
+  <div class="screen" id="screen-ranking">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2>👑 ぼうけんしゃ ランキング</h2>
+    </div>
+    <p class="note" id="ranking-note"></p>
+    <div class="window table-window">
+      <table class="ranking-table">
+        <thead>
+          <tr><th>順位</th><th>なまえ</th><th>クラス</th><th>Lv</th><th>EXP</th><th>★</th></tr>
+        </thead>
+        <tbody id="ranking-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ ステータス ============ -->
+  <div class="screen" id="screen-status">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2>📜 ぼうけんの しょ</h2>
+    </div>
+    <div class="window player-header">
+      <div class="ph-left">
+        <span class="ph-name" id="status-name"></span>
+        <span class="ph-class" id="status-class"></span>
+      </div>
+      <div class="ph-right">
+        <span class="ph-level" id="status-level"></span>
+        <span class="ph-rank" id="status-rank"></span>
+      </div>
+      <div class="xpbar"><div class="xpfill" id="status-xpfill"></div></div>
+      <div class="xptext" id="status-xptext"></div>
+    </div>
+    <div class="window">
+      <dl class="status-stats" id="status-stats"></dl>
+    </div>
+    <div class="window">
+      <h3 class="window-title">きおくの ちず（もんだいごとの しゅうじゅく度）</h3>
+      <p class="note">くらい = みちょうせん ／ 赤っぽい = にがて ／ 緑 = マスター。「ふっかつのほこら」で きたえよう！</p>
+      <div id="status-mastery"></div>
+    </div>
+    <button class="btn btn-danger" id="btn-reset">ぼうけんのしょを けす（さいしょから）</button>
+  </div>
+
+</div>
+
+<button class="btn btn-small" id="btn-mute" title="おとの ON/OFF">♪ ON</button>
+<div id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/api.js"></script>
+<script src="js/questions_excel.js"></script>
+<script src="js/questions_word.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
