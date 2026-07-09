@@ -57,6 +57,14 @@
       <div class="xptext" id="menu-xptext"></div>
     </div>
 
+    <div class="window messenger hidden" id="menu-messenger">
+      <canvas id="messenger-sprite"></canvas>
+      <div class="messenger-bubble">
+        <div class="messenger-name" id="messenger-name"></div>
+        <div class="messenger-text" id="messenger-text"></div>
+      </div>
+    </div>
+
     <div class="menu-grid">
       <button class="btn menu-btn" id="menu-excel">
         <span class="menu-icon">🗼</span>エクセルの とう
@@ -169,8 +177,19 @@
       <p class="note">くらい = みちょうせん ／ 赤っぽい = にがて ／ 緑 = マスター。「ふっかつのほこら」で きたえよう！</p>
       <div id="status-mastery"></div>
     </div>
+    <button class="btn" id="btn-bestiary">📖 モンスター図鑑を みる</button>
     <button class="btn" id="btn-edit-profile">なまえ・クラスを かえる</button>
     <button class="btn btn-danger" id="btn-reset">ぼうけんのしょを けす（さいしょから）</button>
+  </div>
+
+  <!-- ============ モンスター図鑑 ============ -->
+  <div class="screen" id="screen-bestiary">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2>📖 モンスター図鑑</h2>
+    </div>
+    <p class="note" id="bestiary-progress"></p>
+    <div id="bestiary-list"></div>
   </div>
 
 </div>
@@ -195,6 +214,8 @@
 <script src="js/sound.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/backgrounds.js"></script>
+<script src="js/bestiary.js"></script>
+<script src="js/countdown.js"></script>
 <script src="js/srs.js"></script>
 <script src="js/api.js"></script>
 <script src="js/questions_excel.js"></script>

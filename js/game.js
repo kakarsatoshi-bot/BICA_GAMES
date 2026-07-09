@@ -76,7 +76,8 @@ function newSave(name, klass) {
     records: {},   // qid -> SRS記録
     quests: {},    // questId -> {stars, clears, bossWins}
     stats: { answered: 0, correct: 0, bossWins: 0, bestCombo: 0 },
-    finalClear: false
+    finalClear: false,
+    seenMonsters: []   // モンスター図鑑：遭遇ずみのモンスター名
   };
 }
 function totalStars() {
@@ -309,12 +310,27 @@ function beginBattle() {
   showTurn();
 }
 
+/* モンスター図鑑：遭遇したモンスターを記録する */
+function recordSeenMonster(name) {
+  if (save.seenMonsters.indexOf(name) < 0) save.seenMonsters.push(name);
+}
+
 function currentMonster() {
+  battle.isRare = false;
   if (battle.mode === "final") {
     return { shape: "demon", palette: "dark", name: "まおうデリート" };
   }
   if (battle.bossPhase) return battle.quest.boss;
-  if (battle.mode === "review" || battle.mode === "exam") {
+  if (battle.mode === "exam") {
+    var examMobs = ALL_QUESTS.map(function (q) { return q.mob; });
+    return examMobs[Math.floor(Math.random() * examMobs.length)];
+  }
+  /* クエスト・復習中のみ、ごく低確率で激レアモンスターが出現する */
+  if (Math.random() < RARE_MONSTER_CHANCE) {
+    battle.isRare = true;
+    return RARE_MONSTER;
+  }
+  if (battle.mode === "review") {
     var mobs = ALL_QUESTS.map(function (q) { return q.mob; });
     return mobs[Math.floor(Math.random() * mobs.length)];
   }
@@ -349,6 +365,8 @@ function showTurn() {
   if (battle.mode === "exam") {
     var em = currentMonster();
     battle.mob = em;
+    recordSeenMonster(em.name);
+    persist();
     drawSprite(canvas, em.shape, em.palette, 9);
     canvas.className = "spawn";
     $("#enemy-name").textContent = em.name;
@@ -366,6 +384,8 @@ function showTurn() {
 
   var m = currentMonster();
   battle.mob = m;
+  recordSeenMonster(m.name);
+  persist();
   var scale = (battle.bossPhase || battle.mode === "final") ? 12 : 9;
   drawSprite(canvas, m.shape, m.palette, scale);
   canvas.className = "spawn";
@@ -373,7 +393,10 @@ function showTurn() {
   updateHud();
 
   var intro;
-  if (battle.mode === "final") {
+  if (battle.isRare) {
+    Sound.heal();
+    intro = RARE_MONSTER_INTRO[Math.floor(Math.random() * RARE_MONSTER_INTRO.length)];
+  } else if (battle.mode === "final") {
     Sound.boss();
     intro = "じゃあくな けはいが みなぎる…！\n" + m.name + "が すがたを あらわした！！";
   } else if (enteringBoss) {
@@ -433,6 +456,7 @@ function answer(isCorrect, btn) {
     if (battle.bossPhase || battle.mode === "final") gained = 15;
     var comboBonus = Math.min((battle.combo - 1) * 2, 10);
     gained += comboBonus;
+    if (battle.isRare) gained += 20;   /* 激レアモンスターのラッキーボーナス */
     battle.xp += gained;
     save.xp += gained;
 
@@ -456,6 +480,10 @@ function answer(isCorrect, btn) {
       died = battle.bossHp <= 0;
       msg = waza + " ボスに ダメージ！\n＋" + gained + " EXP";
       if (died) msg = "とどめの いちげき！！ ボスを たおした！\n＋" + gained + " EXP";
+    } else if (battle.isRare) {
+      msg = RARE_MONSTER_DEFEAT[Math.floor(Math.random() * RARE_MONSTER_DEFEAT.length)]
+          + " ラッキーEXP＋" + gained + "！"
+          + (q.exp ? "\n【まめちしき】" + q.exp : "");
     } else {
       msg = waza + " " + battle.mob.name + "を たおした！ ＋" + gained + " EXP"
           + (q.exp ? "\n【まめちしき】" + q.exp : "");
@@ -672,8 +700,20 @@ function openMenu() {
     ? (save.finalClear ? "とうばつずみ！ なんども ちょうせんできる" : "ふういんが とかれた…！")
     : "ぜんぶの クエストを クリアすると かいほう";
 
+  renderMessenger();
   show("screen-menu");
   syncNow();
+}
+
+/* 試験日カウントダウンの一言（王さま／お姫さま／まおう）を表示する */
+function renderMessenger() {
+  var box = $("#menu-messenger");
+  var line = Countdown.pickLine();
+  if (!line) { box.classList.add("hidden"); return; }
+  drawSprite($("#messenger-sprite"), line.speaker.shape, line.speaker.palette, 5);
+  $("#messenger-name").textContent = line.speaker.label;
+  $("#messenger-text").textContent = line.text;
+  box.classList.remove("hidden");
 }
 
 function openQuestList(subjectKey) {
@@ -795,6 +835,43 @@ function openStatus() {
   show("screen-status");
 }
 
+/* =========================================================
+ * モンスター図鑑
+ * ======================================================= */
+function openBestiary() {
+  var list = buildBestiaryList(ALL_QUESTS);
+  var box = $("#bestiary-list");
+  box.innerHTML = "";
+  var seenCount = 0;
+
+  list.forEach(function (m) {
+    var seen = save.seenMonsters.indexOf(m.name) >= 0;
+    if (seen) seenCount++;
+
+    var div = document.createElement("div");
+    div.className = "bestiary-card window" + (seen ? "" : " locked");
+
+    var cv = document.createElement("canvas");
+    if (seen) drawSprite(cv, m.shape, m.palette, 5);
+
+    var info = document.createElement("div");
+    info.className = "bestiary-info";
+    var nm = document.createElement("div");
+    nm.className = "bestiary-name";
+    nm.textContent = seen ? m.name + (m.rare ? "　✨げきレア" : "") : "？？？";
+    var bio = document.createElement("div");
+    bio.className = "bestiary-bio";
+    bio.textContent = seen ? (BESTIARY[m.name] || "") : "まだ であっていない…";
+    info.appendChild(nm); info.appendChild(bio);
+
+    div.appendChild(cv); div.appendChild(info);
+    box.appendChild(div);
+  });
+
+  $("#bestiary-progress").textContent = seenCount + " / " + list.length + " たいと であった";
+  show("screen-bestiary");
+}
+
 function resetData() {
   if (!confirm("ぼうけんのしょを けしますか？\n（レベル・復習記録が すべて きえます）")) return;
   if (!confirm("ほんとうに よろしいですか？")) return;
@@ -908,6 +985,7 @@ function updateMuteButton() {
 
 window.addEventListener("DOMContentLoaded", function () {
   save = loadSave();
+  if (save) save.seenMonsters = save.seenMonsters || [];   /* 旧セーブとの後方互換 */
   $("#title-start").textContent = save ? "ぼうけんを つづける" : "ぼうけんを はじめる";
   if (save) {
     var li = levelInfo(save.xp);
@@ -927,6 +1005,7 @@ window.addEventListener("DOMContentLoaded", function () {
   /* ※Enterキーでの送信はしない（日本語入力の確定で誤って先に進むのを防ぐため） */
   $("#register-cancel").onclick = function () { Sound.select(); openStatus(); };
   $("#btn-edit-profile").onclick = openProfileEdit;
+  $("#btn-bestiary").onclick = function () { Sound.select(); openBestiary(); };
 
   /* ご意見箱 */
   $("#btn-feedback").onclick = openFeedback;
