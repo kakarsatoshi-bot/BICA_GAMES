@@ -107,7 +107,9 @@ function syncNow() {
     correct: save.stats.correct,
     accuracy: save.stats.answered ? Math.round(save.stats.correct / save.stats.answered * 100) : 0,
     bossWins: save.stats.bossWins,
-    finalClear: save.finalClear ? 1 : 0
+    finalClear: save.finalClear ? 1 : 0,
+    examExcel: save.exams && save.exams.excel ? save.exams.excel.best : 0,
+    examWord: save.exams && save.exams.word ? save.exams.word.best : 0
   });
 }
 
@@ -152,9 +154,27 @@ function finishType() {
  * ======================================================= */
 var battle = null;
 
+/* クエストのプールから出題する8問を選ぶ。
+ * 優先順: 未挑戦 → 復習期限が来ている → 記憶が弱い（ボックスが低い）順。
+ * 何度も周回すると自然と「まだ覚えていない問題」だけが出るようになり、
+ * 全問題の取りこぼしなく合格レベルまで習熟できる。 */
+function sampleQuestQuestions(quest, n) {
+  var now = Date.now();
+  var unseen = [], due = [], rest = [];
+  quest.questions.forEach(function (q) {
+    var r = save.records[q.id];
+    if (!r) unseen.push(q);
+    else if (r.due <= now && r.box < SRS.MAX_BOX) due.push(q);
+    else rest.push(q);
+  });
+  rest.sort(function (a, b) { return save.records[a.id].box - save.records[b.id].box; });
+  var picked = shuffle(unseen).concat(shuffle(due)).concat(rest).slice(0, n);
+  return shuffle(picked);
+}
+
 /* クエスト（通常）開始 */
 function startQuest(quest) {
-  var qs = shuffle(quest.questions);
+  var qs = sampleQuestQuestions(quest, 8);
   battle = {
     mode: "quest",
     quest: quest,
@@ -196,6 +216,61 @@ function startReview() {
   beginBattle();
 }
 
+/* もぎけんてい: 科目えらび */
+function openExamSelect() {
+  $("#quests-title").textContent = "もぎ けんてい";
+  var box = $("#quest-list");
+  box.innerHTML = "";
+  [
+    { key: "excel", label: "Excel もぎけんてい", shape: "wizard", palette: "green" },
+    { key: "word",  label: "Word もぎけんてい",  shape: "wizard", palette: "blue" }
+  ].forEach(function (ex) {
+    var div = document.createElement("div");
+    div.className = "quest-card window";
+    var cv = document.createElement("canvas");
+    drawSprite(cv, ex.shape, ex.palette, 4);
+    var info = document.createElement("div");
+    info.className = "quest-info";
+    var nm = document.createElement("div");
+    nm.className = "quest-name";
+    nm.textContent = ex.label;
+    var ds = document.createElement("div");
+    ds.className = "quest-desc";
+    ds.textContent = "20もん / 1000てんまんてん / ごうかくライン 700てん";
+    var st = document.createElement("div");
+    st.className = "quest-stars";
+    var best = save.exams && save.exams[ex.key] ? save.exams[ex.key].best : 0;
+    st.textContent = best > 0 ? "さいこう " + best + " てん" : "みちょうせん";
+    info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
+    div.appendChild(cv); div.appendChild(info);
+    div.onclick = function () { Sound.select(); startExam(ex.key); };
+    box.appendChild(div);
+  });
+  show("screen-quests");
+}
+
+/* もぎけんてい開始（本試験と同じ1000点満点・合格ライン700点） */
+function startExam(subjectKey) {
+  var sub = SUBJECTS.filter(function (s) { return s.subject === subjectKey; })[0];
+  var per = Math.ceil(20 / sub.quests.length);
+  var pool = [];
+  sub.quests.forEach(function (q) { pool = pool.concat(sampleQuestQuestions(q, per)); });
+  var qs = shuffle(pool).slice(0, 20);
+  battle = {
+    mode: "exam",
+    subjectKey: subjectKey,
+    quest: null,
+    label: (subjectKey === "excel" ? "Excel" : "Word") + " もぎけんてい",
+    qs: qs,
+    bossFrom: 9999, bossHp: 0, bossMax: 0,
+    idx: 0, hearts: 1, maxHearts: 1, noFail: true,
+    correct: 0, combo: 0, xp: 0,
+    bossPhase: false, bossCorrect: 0,
+    perQuest: {}
+  };
+  beginBattle();
+}
+
 /* まおうの城（最終決戦）開始 */
 function startFinal() {
   var pool = Object.keys(QUESTION_INDEX);
@@ -226,6 +301,7 @@ function beginBattle() {
   /* クエストごとの背景を描画 */
   var theme = battle.mode === "review" ? "shrine"
             : battle.mode === "final" ? "final"
+            : battle.mode === "exam" ? "temple"
             : StageBg.forQuest(battle.quest.id);
   StageBg.draw($("#stage-bg"), theme);
 
@@ -238,7 +314,7 @@ function currentMonster() {
     return { shape: "demon", palette: "dark", name: "まおうデリート" };
   }
   if (battle.bossPhase) return battle.quest.boss;
-  if (battle.mode === "review") {
+  if (battle.mode === "review" || battle.mode === "exam") {
     var mobs = ALL_QUESTS.map(function (q) { return q.mob; });
     return mobs[Math.floor(Math.random() * mobs.length)];
   }
@@ -247,7 +323,9 @@ function currentMonster() {
 
 function updateHud() {
   var h = "";
-  for (var i = 0; i < battle.maxHearts; i++) h += i < battle.hearts ? "♥" : "♡";
+  if (!battle.noFail) {
+    for (var i = 0; i < battle.maxHearts; i++) h += i < battle.hearts ? "♥" : "♡";
+  }
   $("#battle-hearts").textContent = h;
   $("#battle-progress").textContent = (battle.idx + 1) + "/" + battle.qs.length;
   if (battle.bossPhase || battle.mode === "final") {
@@ -266,6 +344,18 @@ function showTurn() {
   var canvas = $("#enemy-canvas");
   $("#battle-choices").innerHTML = "";
   $("#battle-continue").classList.add("hidden");
+
+  /* もぎけんていは出現メッセージなしでテンポよく出題する */
+  if (battle.mode === "exam") {
+    var em = currentMonster();
+    battle.mob = em;
+    drawSprite(canvas, em.shape, em.palette, 9);
+    canvas.className = "spawn";
+    $("#enemy-name").textContent = em.name;
+    updateHud();
+    showQuestion();
+    return;
+  }
 
   if (bossContinuing) {
     canvas.className = "";   /* ボスは立ったまま。再出現アニメもさせない */
@@ -322,6 +412,14 @@ function answer(isCorrect, btn) {
   SRS.record(save.records, q.id, isCorrect);
   save.stats.answered++;
 
+  /* もぎけんてい: 分野（クエスト）ごとの正答を記録して苦手診断に使う */
+  if (battle.mode === "exam") {
+    var qname = QUESTION_INDEX[q.id].quest.name;
+    var pq = battle.perQuest[qname] || (battle.perQuest[qname] = { right: 0, total: 0 });
+    pq.total++;
+    if (isCorrect) pq.right++;
+  }
+
   var canvas = $("#enemy-canvas");
   var msg;
 
@@ -331,7 +429,7 @@ function answer(isCorrect, btn) {
     battle.combo++;
     if (battle.combo > save.stats.bestCombo) save.stats.bestCombo = battle.combo;
 
-    var gained = battle.mode === "review" ? 6 : 10;
+    var gained = battle.mode === "review" ? 6 : battle.mode === "exam" ? 8 : 10;
     if (battle.bossPhase || battle.mode === "final") gained = 15;
     var comboBonus = Math.min((battle.combo - 1) * 2, 10);
     gained += comboBonus;
@@ -373,10 +471,10 @@ function answer(isCorrect, btn) {
     }, 160);
   } else {
     battle.combo = 0;
-    battle.hearts--;
+    if (!battle.noFail) battle.hearts--;
     Sound.wrong();
     Fx.claw();
-    Fx.floatText("－♥ ダメージ！", "#ff5d7a");
+    Fx.floatText(battle.noFail ? "ミス…" : "－♥ ダメージ！", "#ff5d7a");
     $("#screen-battle").classList.add("shake");
     setTimeout(function () { $("#screen-battle").classList.remove("shake"); }, 420);
     msg = "ミス！ こうげきを うけた…\nせいかいは 「" + q.c[q.a] + "」\n【かいせつ】" + q.exp;
@@ -407,8 +505,62 @@ function nextTurn() {
   showTurn();
 }
 
+/* ---------- 結果（もぎけんてい） ---------- */
+function endExam() {
+  var prevLevel = levelInfo(save.xp - battle.xp).level;
+  var score = Math.round(battle.correct / battle.qs.length * 1000);
+  var pass = score >= 700;
+  var bonus = pass ? 50 : 10;
+  save.xp += bonus;
+  battle.xp += bonus;
+
+  save.exams = save.exams || {};
+  var ex = save.exams[battle.subjectKey] || { best: 0, tries: 0 };
+  ex.tries++;
+  if (score > ex.best) ex.best = score;
+  save.exams[battle.subjectKey] = ex;
+
+  persist();
+  syncNow();
+
+  Sound[pass ? "clear" : "fail"]();
+  $("#result-title").textContent = pass ? "ごうかく！！" : "あと すこし…！";
+  $("#result-title").className = pass ? "result-clear" : "result-fail";
+  $("#result-stars").textContent = pass ? "🎖" : "";
+
+  var lines = ["スコア " + score + " ／ 1000（ごうかくライン 700）"];
+  var weak = [];
+  for (var name in battle.perQuest) {
+    var r = battle.perQuest[name];
+    if (r.right < r.total) weak.push(name + "（" + r.right + "/" + r.total + "）");
+  }
+  lines.push(weak.length ? "にがてな ぶんや: " + weak.join("、") : "ぜんぶんや パーフェクト！");
+  lines.push(pass
+    ? "この ちょうしなら ほんばんも だいじょうぶだ！"
+    : "にがてを「ふっかつのほこら」で とっくんして さいちょうせんだ！");
+  $("#result-sub").textContent = lines.join("\n");
+  $("#result-detail").textContent =
+    "せいかい " + battle.correct + "/" + battle.qs.length +
+    "　かくとく " + battle.xp + " EXP";
+
+  var newLi = levelInfo(save.xp);
+  var lvEl = $("#result-levelup");
+  if (newLi.level > prevLevel) {
+    setTimeout(function () { Sound.levelup(); }, 600);
+    var rankUp = rankFor(newLi.level) !== rankFor(prevLevel);
+    lvEl.textContent = "レベルアップ！ Lv" + prevLevel + " → Lv" + newLi.level +
+      (rankUp ? "\nランクアップ！ →「" + rankFor(newLi.level) + "」" : "");
+    lvEl.classList.remove("hidden");
+  } else {
+    lvEl.classList.add("hidden");
+  }
+  $("#result-retry").classList.remove("hidden");
+  show("screen-result");
+}
+
 /* ---------- 結果 ---------- */
 function endBattle(cleared) {
+  if (battle.mode === "exam") { endExam(); return; }
   var prevLevel = levelInfo(save.xp - battle.xp).level;
   var stars = 0;
   var bonus = 0;
@@ -487,6 +639,7 @@ function retryBattle() {
   Sound.select();
   if (battle.mode === "quest") startQuest(battle.quest);
   else if (battle.mode === "review") startReview();
+  else if (battle.mode === "exam") startExam(battle.subjectKey);
   else startFinal();
 }
 
@@ -599,6 +752,12 @@ function openStatus() {
     ["ボスとうばつ", save.stats.bossWins + " 体"],
     ["クエストたっせい", clearedCount() + " / " + ALL_QUESTS.length],
     ["あつめた ★", totalStars() + " / " + (ALL_QUESTS.length * 3)],
+    ["もぎけんてい さいこう", (function () {
+      var ex = save.exams || {};
+      var e = ex.excel ? ex.excel.best + "てん" : "—";
+      var w = ex.word ? ex.word.best + "てん" : "—";
+      return "Excel " + e + " / Word " + w;
+    })()],
     ["ふくしゅう まち", SRS.dueList(save.records).length + " もん"],
     ["しょうごう", save.finalClear ? "まおうを たおせし者" : rankFor(li.level)]
   ].forEach(function (pair) {
@@ -787,6 +946,7 @@ window.addEventListener("DOMContentLoaded", function () {
     }
     Sound.select(); startFinal();
   };
+  $("#menu-exam").onclick = function () { Sound.select(); openExamSelect(); };
   $("#menu-ranking").onclick = function () { Sound.select(); openRanking(); };
   $("#menu-status").onclick = function () { Sound.select(); openStatus(); };
 

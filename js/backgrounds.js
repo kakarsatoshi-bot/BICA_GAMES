@@ -158,6 +158,33 @@ var StageBg = (function () {
       ground(ctx, "#38284f", "#4a3866");
     },
 
+    /* XL6 ブックの大としょかん */
+    library: function (ctx) {
+      band(ctx, 0, HORIZON, "#241a12");
+      var cols = ["#8a4a2a", "#2a6a8a", "#4a8a3d", "#8a2a4a", "#8a7a2a"];
+      for (var s = 0; s < 2; s++) {                        /* 本棚2段 */
+        var y0 = 3 + s * 9;
+        px(ctx, 4, y0 + 6, 88, 2, "#4a3319");              /* 棚板 */
+        for (var x = 6; x < 90; x += 4) {
+          var bh = 4 + (x % 3);
+          px(ctx, x, y0 + 6 - bh, 3, bh, cols[Math.floor(x / 4) % cols.length]);
+        }
+      }
+      ground(ctx, "#33241a", "#4a3626");
+    },
+
+    /* WD6 ぶんしょ管理の宝物庫 */
+    vault: function (ctx) {
+      band(ctx, 0, HORIZON, "#1d1428");
+      stars(ctx, 17, "#8a7a3d");
+      px(ctx, 10, 15, 10, 6, "#6b4a2a"); px(ctx, 10, 13, 10, 2, "#8a5f33");  /* 宝箱 */
+      px(ctx, 14, 15, 2, 2, "#ffd23b");
+      px(ctx, 76, 15, 10, 6, "#6b4a2a"); px(ctx, 76, 13, 10, 2, "#8a5f33");
+      px(ctx, 80, 15, 2, 2, "#ffd23b");
+      tri(ctx, 30, HORIZON, 3, "#c0a02a"); tri(ctx, 64, HORIZON, 4, "#c0a02a"); /* 金貨の山 */
+      ground(ctx, "#2b1f38", "#3d2f4d");
+    },
+
     /* ふっかつのほこら（復習） */
     shrine: function (ctx) {
       band(ctx, 0, HORIZON, "#101c33");
@@ -190,8 +217,8 @@ var StageBg = (function () {
 
   /* クエストID → 背景テーマの対応表（新しいクエストを足したらここにも追記） */
   var QUEST_BG = {
-    XL1: "forest", XL2: "cave", XL3: "castle", XL4: "wild", XL5: "tower",
-    WD1: "grass", WD2: "valley", WD3: "lake", WD4: "fort", WD5: "temple"
+    XL1: "forest", XL2: "cave", XL3: "castle", XL4: "wild", XL5: "tower", XL6: "library",
+    WD1: "grass", WD2: "valley", WD3: "lake", WD4: "fort", WD5: "temple", WD6: "vault"
   };
 
   function draw(canvas, theme) {
