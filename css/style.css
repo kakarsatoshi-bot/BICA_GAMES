@@ -309,18 +309,6 @@ input[type="text"]:focus, select:focus { border-color: var(--key); outline: none
   animation: blink 1s steps(2) infinite;
 }
 
-/* ---------- ランキング ---------- */
-.table-window { padding: 6px; overflow-x: auto; }
-.ranking-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ranking-table th, .ranking-table td {
-  border-bottom: 2px solid #2a2a5a;
-  padding: 7px 6px;
-  text-align: left;
-  white-space: nowrap;
-}
-.ranking-table th { color: var(--accent); font-weight: normal; }
-.ranking-table tr.me td { color: var(--key); background: #1a1a3f; }
-
 /* ---------- ステータス ---------- */
 .status-stats {
   display: grid;

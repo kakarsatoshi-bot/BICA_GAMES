@@ -1,8 +1,13 @@
 /* =========================================================
- * MOS QUEST ランキング同期API（Google Apps Script 連携）
+ * MOS QUEST 成績送信API（Google Apps Script 連携）
  *
  * GAME_CONFIG.SYNC_URL が未設定なら何もしない（オフラインでも遊べる）。
  * GAS側のコードは リポジトリの gas/mos_quest_leaderboard.gs を参照。
+ *
+ * 送信専用（write-only）。生徒全員の成績をまとめて読み取れるAPIは
+ * 個人情報保護のため意図的に用意していない。ランキング（成績一覧）は
+ * 先生がスプレッドシートを組織内限定で共有し、Classroom等で配布する運用にしている。
+ * 詳しくは game/README.md を参照。
  *
  * CORSのプリフライトを避けるため text/plain でPOSTする（GASの定石）。
  * ========================================================= */
@@ -19,21 +24,12 @@ var Api = (function () {
     fetch(GAME_CONFIG.SYNC_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "sync", player: payload })
+      body: JSON.stringify({ action: "sync", apiKey: GAME_CONFIG.API_KEY || "", player: payload })
     })
       .then(function (res) { return res.json(); })
       .then(function () { if (onDone) onDone(true); })
       .catch(function () { if (onDone) onDone(false); });
   }
 
-  /* ランキング一覧を取得 */
-  function getRanking(onDone) {
-    if (!enabled()) { onDone(null); return; }
-    fetch(GAME_CONFIG.SYNC_URL + "?action=ranking&limit=" + (GAME_CONFIG.RANKING_LIMIT || 30))
-      .then(function (res) { return res.json(); })
-      .then(function (data) { onDone(data && data.ok ? data.ranking : null); })
-      .catch(function () { onDone(null); });
-  }
-
-  return { enabled: enabled, syncProfile: syncProfile, getRanking: getRanking };
+  return { enabled: enabled, syncProfile: syncProfile };
 })();

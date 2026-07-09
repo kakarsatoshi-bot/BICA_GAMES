@@ -530,38 +530,23 @@ function openQuestList(subjectKey) {
 
 /* =========================================================
  * ランキング
+ * 個人情報保護のため、生徒全員の成績を一覧で読み取れるAPIはあえて用意していない。
+ * ここでは自分の最新の成績をサーバーへ送るだけ（write-only）。
+ * クラス全体のランキングは、先生がスプレッドシートを Google Classroom 等の
+ * 学内システム経由で共有する運用（詳しくは game/README.md を参照）。
  * ======================================================= */
 function openRanking() {
   show("screen-ranking");
-  var box = $("#ranking-body");
   if (!Api.enabled()) {
-    box.innerHTML = "";
-    $("#ranking-note").textContent = "せんせいが ランキングを せっていすると ここに クラスの なかまが ひょうじされるよ！（いまは オフラインモード）";
+    $("#ranking-note").textContent = "せんせいが せっていすると、きみの せいせきが せんせいの きろくに とどくよ！（いまは オフラインモード）";
     return;
   }
-  $("#ranking-note").textContent = "つうしんちゅう…";
-  box.innerHTML = "";
+  $("#ranking-note").textContent = "そうしんちゅう…";
   syncNow();
-  Api.getRanking(function (list) {
-    if (!list) {
-      $("#ranking-note").textContent = "つうしんに しっぱいした… でんぱの よいばしょで もういちど ためしてみよう。";
-      return;
-    }
-    $("#ranking-note").textContent = "EXPが おおい じゅんの ぼうけんしゃ ランキング！";
-    box.innerHTML = "";
-    list.forEach(function (row, i) {
-      var tr = document.createElement("tr");
-      if (row.id === save.player.id) tr.className = "me";
-      var medal = i === 0 ? "🏆" : (i === 1 ? "🥈" : (i === 2 ? "🥉" : (i + 1)));
-      [medal, row.name, row.klass, "Lv" + row.level, row.xp + " EXP", "★" + row.stars]
-        .forEach(function (val) {
-          var td = document.createElement("td");
-          td.textContent = val;
-          tr.appendChild(td);
-        });
-      box.appendChild(tr);
-    });
-  });
+  setTimeout(function () {
+    $("#ranking-note").textContent =
+      "きみの せいせきを せんせいに とどけたよ！\nクラスの ランキングは せんせいが Classroom（クラスルーム）で きょうゆうする せいせきひょうを みてね。";
+  }, 500);
 }
 
 /* =========================================================

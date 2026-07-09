@@ -32,12 +32,12 @@
   <div class="screen" id="screen-register">
     <div class="window narrow">
       <h2 class="window-title">ぼうけんしゃ とうろく</h2>
-      <label class="field-label">なまえ（10もじまで）</label>
-      <input type="text" id="register-name" maxlength="10" placeholder="れい：やまだ たろう">
+      <label class="field-label">なまえ（10もじまで・ニックネームでもOK！）</label>
+      <input type="text" id="register-name" maxlength="10" placeholder="れい：たろう ／ ゆうしゃT">
       <label class="field-label">クラス</label>
       <select id="register-class"></select>
       <button class="btn btn-big" id="register-submit">ぼうけんに でる！</button>
-      <p class="note">※なまえとクラス、レベルは クラスの ランキングに ひょうじされるよ</p>
+      <p class="note">※なまえとクラス、レベルは せんせいの きろくに とどくよ。ほんみょうでなくても だいじょうぶ！</p>
     </div>
   </div>
 
@@ -130,16 +130,10 @@
   <div class="screen" id="screen-ranking">
     <div class="screen-header">
       <button class="btn btn-back">◀ マップ</button>
-      <h2>👑 ぼうけんしゃ ランキング</h2>
+      <h2>👑 せいせき の きろく</h2>
     </div>
-    <p class="note" id="ranking-note"></p>
-    <div class="window table-window">
-      <table class="ranking-table">
-        <thead>
-          <tr><th>順位</th><th>なまえ</th><th>クラス</th><th>Lv</th><th>EXP</th><th>★</th></tr>
-        </thead>
-        <tbody id="ranking-body"></tbody>
-      </table>
+    <div class="window">
+      <p class="note" id="ranking-note" style="white-space:pre-wrap;"></p>
     </div>
   </div>
 
