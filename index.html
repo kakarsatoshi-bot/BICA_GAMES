@@ -28,15 +28,16 @@
     </div>
   </div>
 
-  <!-- ============ なまえ登録 ============ -->
+  <!-- ============ なまえ登録・へんこう ============ -->
   <div class="screen" id="screen-register">
     <div class="window narrow">
-      <h2 class="window-title">ぼうけんしゃ とうろく</h2>
+      <h2 class="window-title" id="register-title">ぼうけんしゃ とうろく</h2>
       <label class="field-label">なまえ（10もじまで・ニックネームでもOK！）</label>
       <input type="text" id="register-name" maxlength="10" placeholder="れい：たろう ／ ゆうしゃT">
       <label class="field-label">クラス</label>
       <select id="register-class"></select>
       <button class="btn btn-big" id="register-submit">ぼうけんに でる！</button>
+      <button class="btn hidden" id="register-cancel">やめる</button>
       <p class="note">※なまえとクラス、レベルは せんせいの きろくに とどくよ。ほんみょうでなくても だいじょうぶ！</p>
     </div>
   </div>
@@ -100,6 +101,7 @@
     </div>
 
     <div class="battle-stage">
+      <canvas id="stage-bg"></canvas>
       <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpfill"></div></div>
       <canvas id="enemy-canvas"></canvas>
       <div class="nametag" id="enemy-name"></div>
@@ -164,11 +166,24 @@
       <p class="note">くらい = みちょうせん ／ 赤っぽい = にがて ／ 緑 = マスター。「ふっかつのほこら」で きたえよう！</p>
       <div id="status-mastery"></div>
     </div>
+    <button class="btn" id="btn-edit-profile">なまえ・クラスを かえる</button>
     <button class="btn btn-danger" id="btn-reset">ぼうけんのしょを けす（さいしょから）</button>
   </div>
 
 </div>
 
+<!-- ============ ご意見箱 ============ -->
+<div class="modal hidden" id="feedback-modal">
+  <div class="window feedback-window">
+    <h2 class="window-title">📮 ご意見箱</h2>
+    <p class="note">ゲームの かんそう・もんだいの まちがい・「こうしてほしい！」を せんせいに とどけよう！（なまえも いっしょに とどくよ）</p>
+    <textarea id="feedback-text" maxlength="500" rows="5" placeholder="れい：〇〇の もんだいの こたえが おかしいかも？"></textarea>
+    <button class="btn btn-big" id="feedback-send">おくる</button>
+    <button class="btn" id="feedback-close">やめる</button>
+  </div>
+</div>
+
+<button class="btn btn-small" id="btn-feedback" title="ご意見箱">📮</button>
 <button class="btn btn-small" id="btn-mute" title="おとの ON/OFF">♪ ON</button>
 <div id="toast"></div>
 
@@ -176,6 +191,7 @@
 <script src="js/sprites.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/fx.js"></script>
+<script src="js/backgrounds.js"></script>
 <script src="js/srs.js"></script>
 <script src="js/api.js"></script>
 <script src="js/questions_excel.js"></script>

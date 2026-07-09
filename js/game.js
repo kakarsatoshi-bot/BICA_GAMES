@@ -222,6 +222,13 @@ function beginBattle() {
   $("#battle-choices").innerHTML = "";
   $("#battle-continue").classList.add("hidden");
   $("#boss-hpbar").classList.add("hidden");
+
+  /* クエストごとの背景を描画 */
+  var theme = battle.mode === "review" ? "shrine"
+            : battle.mode === "final" ? "final"
+            : StageBg.forQuest(battle.quest.id);
+  StageBg.draw($("#stage-bg"), theme);
+
   show("screen-battle");
   showTurn();
 }
@@ -637,12 +644,9 @@ function resetData() {
 }
 
 /* =========================================================
- * 起動・登録
+ * 起動・登録・なまえの変更
  * ======================================================= */
-function startAdventure() {
-  Sound.select();
-  if (save) { openMenu(); return; }
-  /* 登録画面のクラス選択肢を生成 */
+function populateClassSelect(selected) {
   var sel = $("#register-class");
   sel.innerHTML = "";
   GAME_CONFIG.CLASSES.forEach(function (c) {
@@ -650,6 +654,29 @@ function startAdventure() {
     op.value = c; op.textContent = c;
     sel.appendChild(op);
   });
+  if (selected && GAME_CONFIG.CLASSES.indexOf(selected) >= 0) sel.value = selected;
+}
+
+function startAdventure() {
+  Sound.select();
+  if (save) { openMenu(); return; }
+  populateClassSelect(null);
+  $("#register-title").textContent = "ぼうけんしゃ とうろく";
+  $("#register-submit").textContent = "ぼうけんに でる！";
+  $("#register-cancel").classList.add("hidden");
+  $("#register-name").value = "";
+  show("screen-register");
+  $("#register-name").focus();
+}
+
+/* ぼうけんのしょ画面からの「なまえ・クラスをかえる」 */
+function openProfileEdit() {
+  Sound.select();
+  populateClassSelect(save.player.klass);
+  $("#register-title").textContent = "なまえ・クラスの へんこう";
+  $("#register-submit").textContent = "へんこうを ほぞん";
+  $("#register-cancel").classList.remove("hidden");
+  $("#register-name").value = save.player.name;
   show("screen-register");
   $("#register-name").focus();
 }
@@ -658,11 +685,62 @@ function submitRegister() {
   var name = $("#register-name").value.trim();
   if (!name) { toast("なまえを いれてね！"); return; }
   if (name.length > 10) { toast("なまえは 10もじ いないで！"); return; }
+
+  if (save) {
+    /* 変更モード: IDはそのままなので、せんせいの記録も同じ行が更新される */
+    save.player.name = name;
+    save.player.klass = $("#register-class").value;
+    persist();
+    Sound.heal();
+    syncNow();
+    toast("なまえ・クラスを へんこうしたよ！");
+    openStatus();
+    return;
+  }
+
   save = newSave(name, $("#register-class").value);
   persist();
   Sound.levelup();
   syncNow();
   openMenu();
+}
+
+/* =========================================================
+ * ご意見箱（どの画面からでも投稿できる）
+ * ======================================================= */
+function openFeedback() {
+  Sound.select();
+  $("#feedback-text").value = "";
+  $("#feedback-modal").classList.remove("hidden");
+  $("#feedback-text").focus();
+}
+
+function closeFeedback() {
+  $("#feedback-modal").classList.add("hidden");
+}
+
+function submitFeedback() {
+  var text = $("#feedback-text").value.trim();
+  if (!text) { toast("かきたいことを いれてね！"); return; }
+  if (!Api.enabled()) { toast("せんせいが つうしんを せっていすると つかえるよ！"); return; }
+
+  var btn = $("#feedback-send");
+  btn.disabled = true;
+  Api.sendFeedback({
+    name: save && save.player ? save.player.name : "（とうろくまえ）",
+    klass: save && save.player ? save.player.klass : "",
+    text: text,
+    place: (document.querySelector(".screen.active") || {}).id || ""
+  }, function (ok) {
+    btn.disabled = false;
+    if (ok) {
+      closeFeedback();
+      Sound.heal();
+      toast("ごいけん ありがとう！ せんせいに とどけたよ！");
+    } else {
+      toast("そうしんに しっぱいした… もういちど ためしてみてね");
+    }
+  });
 }
 
 function updateMuteButton() {
@@ -687,9 +765,17 @@ window.addEventListener("DOMContentLoaded", function () {
   /* イベント登録 */
   $("#title-start").onclick = startAdventure;
   $("#register-submit").onclick = submitRegister;
-  $("#register-name").addEventListener("keydown", function (e) {
-    if (e.key === "Enter") submitRegister();
-  });
+  /* ※Enterキーでの送信はしない（日本語入力の確定で誤って先に進むのを防ぐため） */
+  $("#register-cancel").onclick = function () { Sound.select(); openStatus(); };
+  $("#btn-edit-profile").onclick = openProfileEdit;
+
+  /* ご意見箱 */
+  $("#btn-feedback").onclick = openFeedback;
+  $("#feedback-close").onclick = closeFeedback;
+  $("#feedback-send").onclick = submitFeedback;
+  $("#feedback-modal").onclick = function (e) {
+    if (e.target === this) closeFeedback();   /* 外側クリックで閉じる */
+  };
 
   $("#menu-excel").onclick = function () { Sound.select(); openQuestList("excel"); };
   $("#menu-word").onclick = function () { Sound.select(); openQuestList("word"); };

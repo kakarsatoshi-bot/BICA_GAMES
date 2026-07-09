@@ -14,5 +14,5 @@ var GAME_CONFIG = {
   API_KEY: "GGpsZJmbZ2ro8-0otcZ2k1TDTl5rR59E",
 
   // 生徒が登録時に選ぶクラス名のリスト。自由に書き換えてください。
-  CLASSES: ["1年A組", "1年B組", "2年A組", "2年B組"]
+  CLASSES: ["1年IT", "2年IT", "1年SE", "2年SE"]
 };

@@ -31,5 +31,18 @@ var Api = (function () {
       .catch(function () { if (onDone) onDone(false); });
   }
 
-  return { enabled: enabled, syncProfile: syncProfile };
+  /* ご意見箱の投稿を送信する（こちらも送信専用） */
+  function sendFeedback(payload, onDone) {
+    if (!enabled()) { if (onDone) onDone(false); return; }
+    fetch(GAME_CONFIG.SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "feedback", apiKey: GAME_CONFIG.API_KEY || "", feedback: payload })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) { if (onDone) onDone(!!(data && data.ok)); })
+      .catch(function () { if (onDone) onDone(false); });
+  }
+
+  return { enabled: enabled, syncProfile: syncProfile, sendFeedback: sendFeedback };
 })();
