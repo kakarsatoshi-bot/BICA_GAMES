@@ -713,6 +713,13 @@ function renderMessenger() {
   drawSprite($("#messenger-sprite"), line.speaker.shape, line.speaker.palette, 5);
   $("#messenger-name").textContent = line.speaker.label;
   $("#messenger-text").textContent = line.text;
+  var headEl = $("#messenger-headline");
+  if (line.headline) {
+    headEl.textContent = line.headline;
+    headEl.classList.remove("hidden");
+  } else {
+    headEl.classList.add("hidden");
+  }
   box.classList.remove("hidden");
 }
 

@@ -43,6 +43,20 @@ var Countdown = (function () {
     return parseDates().length > 0;
   }
 
+  /* "9月4日" のような表示用の日付文字列を作る */
+  function formatDate(d) {
+    return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  }
+
+  /* 「次のMOS試験日 9月4日まで あと57日」のような見出し文。
+   * 試験日をすべて過ぎている（days < 0）ときは表示しない（null）。 */
+  function headline() {
+    var target = activeExamDate();
+    var d = daysLeft();
+    if (!target || d === null || d < 0) return null;
+    return "次のMOS試験日 " + formatDate(target) + "まで あと" + d + "日";
+  }
+
   /* 話者ごとのスプライトと、残り日数の階層ごとのセリフ */
   var SPEAKERS = {
     king:    { shape: "wizard", palette: "gold",   label: "王さま" },
@@ -103,7 +117,7 @@ var Countdown = (function () {
     var tier = TIERS.filter(function (t) { return t.test(d); })[0];
     var sp = SPEAKERS[tier.speaker];
     var line = tier.lines[Math.floor(Math.random() * tier.lines.length)].replace("{d}", d);
-    return { speaker: sp, text: line, days: d };
+    return { speaker: sp, text: line, days: d, headline: headline() };
   }
 
   return { isEnabled: isEnabled, daysLeft: daysLeft, pickLine: pickLine };
