@@ -71,13 +71,18 @@ function persist() {
 }
 function newSave(name, klass) {
   return {
-    player: { id: uid(), name: name, klass: klass, createdAt: Date.now() },
+    player: { id: uid(), name: name, klass: klass, createdAt: Date.now(), equippedTitle: null },
     xp: 0,
     records: {},   // qid -> SRS記録
     quests: {},    // questId -> {stars, clears, bossWins}
-    stats: { answered: 0, correct: 0, bossWins: 0, bestCombo: 0 },
+    stats: { answered: 0, correct: 0, bossWins: 0, bestCombo: 0, missionsCompleted: 0 },
     finalClear: false,
-    seenMonsters: []   // モンスター図鑑：遭遇ずみのモンスター名
+    seenMonsters: [],   // モンスター図鑑：遭遇ずみのモンスター名
+    streak: { current: 0, longest: 0, lastLoginDate: null },
+    missions: { date: null, list: [] },
+    achievements: {},   // achievementId -> かいほうした時刻
+    titles: [],         // たからばこで手に入れた しょうごう
+    shinyMonsters: {}   // モンスター名 -> たからばこで手に入れた色ちがいのパレット名
   };
 }
 function totalStars() {
@@ -508,6 +513,19 @@ function answer(isCorrect, btn) {
     msg = "ミス！ こうげきを うけた…\nせいかいは 「" + q.c[q.a] + "」\n【かいせつ】" + q.exp;
   }
 
+  /* デイリーミッションの進捗を更新し、達成したぶんだけボーナスEXPを加える */
+  var missionHits = [Missions.record(save, "answered", 1)];
+  if (isCorrect) {
+    missionHits.push(Missions.record(save, "correct", 1));
+    missionHits.push(Missions.record(save, "comboReach", battle.combo));
+    if (battle.mode === "review") missionHits.push(Missions.record(save, "reviewCorrect", 1));
+  }
+  missionHits.filter(Boolean).forEach(function (m) {
+    save.xp += MISSION_BONUS_XP;
+    battle.xp += MISSION_BONUS_XP;
+    toast("📋 ミッション達成！「" + m.label + "」＋" + MISSION_BONUS_XP + "EXP");
+  });
+
   persist();
   updateHud();
   typeMsg(msg, function () {
@@ -551,6 +569,9 @@ function endExam() {
   persist();
   syncNow();
 
+  var newAchievements = Achievements.check(save);
+  if (newAchievements.length) { persist(); showAchievementToasts(newAchievements); }
+
   Sound[pass ? "clear" : "fail"]();
   $("#result-title").textContent = pass ? "ごうかく！！" : "あと すこし…！";
   $("#result-title").className = pass ? "result-clear" : "result-fail";
@@ -593,6 +614,8 @@ function endBattle(cleared) {
   var stars = 0;
   var bonus = 0;
 
+  var chestReward = null;
+  var missionHits = [];
   if (cleared) {
     var miss = battle.idx - battle.correct;   /* 実際に解いた数から計算（最終決戦の早期勝利にも対応） */
     stars = miss === 0 ? 3 : (miss <= 2 ? 2 : 1);
@@ -605,6 +628,12 @@ function endBattle(cleared) {
       if (stars > rec.stars) rec.stars = stars;
       if (battle.bossCorrect >= 3) { rec.bossWins++; save.stats.bossWins++; }
       save.quests[battle.quest.id] = rec;
+
+      missionHits.push(Missions.record(save, "questClear", 1));
+      if (battle.bossCorrect >= 3) missionHits.push(Missions.record(save, "bossWin", 1));
+
+      chestReward = Treasure.grant(save, battle.quest);
+      if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; }
     }
     if (battle.mode === "final") {
       save.finalClear = true;
@@ -613,7 +642,14 @@ function endBattle(cleared) {
     }
     save.xp += bonus;
     battle.xp += bonus;
+
+    missionHits.filter(Boolean).forEach(function (m) {
+      save.xp += MISSION_BONUS_XP;
+      battle.xp += MISSION_BONUS_XP;
+    });
   }
+
+  var newAchievements = Achievements.check(save);
 
   persist();
   syncNow();
@@ -660,6 +696,13 @@ function endBattle(cleared) {
 
   var retryBtn = $("#result-retry");
   retryBtn.classList.toggle("hidden", battle.mode === "review" && cleared);
+
+  renderChestBox(chestReward);
+  missionHits.filter(Boolean).forEach(function (m) {
+    toast("📋 ミッション達成！「" + m.label + "」＋" + MISSION_BONUS_XP + "EXP");
+  });
+  if (newAchievements.length) showAchievementToasts(newAchievements);
+
   show("screen-result");
 }
 
@@ -679,7 +722,8 @@ function renderPlayerHeader(prefix) {
   $("#" + prefix + "-name").textContent = save.player.name;
   $("#" + prefix + "-class").textContent = save.player.klass;
   $("#" + prefix + "-level").textContent = "Lv " + li.level;
-  $("#" + prefix + "-rank").textContent = rankFor(li.level);
+  $("#" + prefix + "-rank").textContent = rankFor(li.level) +
+    (save.player.equippedTitle ? "・「" + save.player.equippedTitle + "」" : "");
   var fill = $("#" + prefix + "-xpfill");
   if (fill) fill.style.width = Math.floor(li.cur / li.need * 100) + "%";
   var xptext = $("#" + prefix + "-xptext");
@@ -700,9 +744,126 @@ function openMenu() {
     ? (save.finalClear ? "とうばつずみ！ なんども ちょうせんできる" : "ふういんが とかれた…！")
     : "ぜんぶの クエストを クリアすると かいほう";
 
+  /* Streak.checkLogin/Achievements.check は同じ日のうちは isNewDay:false／解除済みで
+   * 実質なにもしないので、メニューを開くたびに呼んでも安全（新規登録直後もここで初期化される）。 */
+  var streakResult = Streak.checkLogin(save);
+  Missions.ensureToday(save);
+  var newAchievements = Achievements.check(save);
+  persist();
+
+  renderStreakChip();
+  renderMissions();
+
   renderMessenger();
   show("screen-menu");
   syncNow();
+
+  if (streakResult.isNewDay) showStreakBanner(streakResult);
+  if (newAchievements.length) showAchievementToasts(newAchievements);
+}
+
+/* ---------- ストリーク ---------- */
+function renderStreakChip() {
+  var chip = $("#menu-streak-chip");
+  if (save.streak.current > 0) {
+    chip.textContent = "🔥 " + save.streak.current + "日目";
+    chip.classList.remove("hidden");
+  } else {
+    chip.classList.add("hidden");
+  }
+}
+
+function showStreakBanner(result) {
+  if (!result.isNewDay) return;
+  var due = SRS.dueList(save.records).length;
+  var msg = result.broken
+    ? "あたらしい れんぞくきろく、はじめよう！（さいちょう記録は " + result.longest + "日）"
+    : "🔥 れんぞく " + result.streak + "日目！ よくきたね！";
+  if (due > 0) msg += "\nふっかつのほこらに " + due + "もん 復習まちだよ！";
+  toast(msg);
+  if (result.streak > 0 && (result.streak === 7 || result.streak === 14 || result.streak === 30 || result.streak % 30 === 0)) {
+    Sound.heal();
+  }
+}
+
+/* ---------- デイリーミッション ---------- */
+function renderMissions() {
+  var box = $("#menu-missions");
+  var list = $("#missions-list");
+  list.innerHTML = "";
+  save.missions.list.forEach(function (m) {
+    var row = document.createElement("div");
+    row.className = "mission-row" + (m.done ? " done" : "");
+    var label = document.createElement("span");
+    label.textContent = (m.done ? "✅ " : "・") + m.label;
+    var prog = document.createElement("span");
+    prog.className = "mission-progress";
+    prog.textContent = Math.min(m.progress, m.target) + " / " + m.target;
+    row.appendChild(label);
+    row.appendChild(prog);
+    list.appendChild(row);
+  });
+  box.classList.toggle("hidden", save.missions.list.length === 0);
+}
+
+/* ---------- 実績 ---------- */
+function showAchievementToasts(list) {
+  list.forEach(function (a, i) {
+    setTimeout(function () { toast("🏅 実績解除：" + a.name); }, i * 2400);
+  });
+}
+
+function openAchievements() {
+  var box = $("#achievements-list");
+  box.innerHTML = "";
+  var unlockedCount = 0;
+  ACHIEVEMENTS.forEach(function (a) {
+    var unlocked = !!save.achievements[a.id];
+    if (unlocked) unlockedCount++;
+    var div = document.createElement("div");
+    div.className = "achievement-card window" + (unlocked ? "" : " locked");
+    var icon = document.createElement("span");
+    icon.className = "achievement-icon";
+    icon.textContent = unlocked ? "🏅" : "🔒";
+    var info = document.createElement("div");
+    var nm = document.createElement("div");
+    nm.className = "achievement-name";
+    nm.textContent = unlocked ? a.name : "？？？";
+    var ds = document.createElement("div");
+    ds.className = "achievement-desc";
+    ds.textContent = unlocked ? a.desc : "まだ みたされていない…";
+    info.appendChild(nm); info.appendChild(ds);
+    div.appendChild(icon); div.appendChild(info);
+    box.appendChild(div);
+  });
+  $("#achievements-progress").textContent = unlockedCount + " / " + ACHIEVEMENTS.length + " かいほう ずみ";
+  show("screen-achievements");
+}
+
+/* ---------- たからばこ ---------- */
+function renderChestBox(reward) {
+  var box = $("#chest-box");
+  if (!reward) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  var cv = $("#chest-canvas");
+  cv.className = "";
+  drawSprite(cv, "chestClosed", "gold", 6);
+  var rewardText = $("#chest-reward-text");
+  rewardText.classList.add("hidden");
+  var openBtn = $("#chest-open");
+  openBtn.classList.remove("hidden");
+  var opened = false;
+  openBtn.onclick = function () {
+    if (opened) return;
+    opened = true;
+    Sound.chest();
+    cv.classList.add("opening");
+    if (reward.type === "palette") drawSprite(cv, reward.shape, reward.palette, 6);
+    else drawSprite(cv, "chestOpen", "gold", 6);
+    rewardText.textContent = reward.label;
+    rewardText.classList.remove("hidden");
+    openBtn.classList.add("hidden");
+  };
 }
 
 /* 試験日カウントダウンの一言（王さま／お姫さま／まおう）を表示する */
@@ -839,6 +1000,29 @@ function openStatus() {
       map.appendChild(row);
     });
   });
+
+  /* たからばこで手に入れた しょうごう */
+  var tbox = $("#titles-box");
+  if (save.titles.length) {
+    tbox.classList.remove("hidden");
+    var sel = $("#title-select");
+    sel.innerHTML = '<option value="">（なし）</option>';
+    save.titles.forEach(function (t) {
+      var op = document.createElement("option");
+      op.value = t; op.textContent = t;
+      if (save.player.equippedTitle === t) op.selected = true;
+      sel.appendChild(op);
+    });
+    sel.onchange = function () {
+      save.player.equippedTitle = sel.value || null;
+      persist();
+      Sound.select();
+      renderPlayerHeader("status");
+    };
+  } else {
+    tbox.classList.add("hidden");
+  }
+
   show("screen-status");
 }
 
@@ -858,14 +1042,17 @@ function openBestiary() {
     var div = document.createElement("div");
     div.className = "bestiary-card window" + (seen ? "" : " locked");
 
+    var shinyPal = save.shinyMonsters[m.name];
     var cv = document.createElement("canvas");
-    if (seen) drawSprite(cv, m.shape, m.palette, 5);
+    if (seen) drawSprite(cv, m.shape, shinyPal || m.palette, 5);
 
     var info = document.createElement("div");
     info.className = "bestiary-info";
     var nm = document.createElement("div");
     nm.className = "bestiary-name";
-    nm.textContent = seen ? m.name + (m.rare ? "　✨げきレア" : "") : "？？？";
+    nm.textContent = seen
+      ? m.name + (m.rare ? "　✨げきレア" : "") + (shinyPal ? "　🌟シャイニー" : "")
+      : "？？？";
     var bio = document.createElement("div");
     bio.className = "bestiary-bio";
     bio.textContent = seen ? (BESTIARY[m.name] || "") : "まだ であっていない…";
@@ -992,7 +1179,18 @@ function updateMuteButton() {
 
 window.addEventListener("DOMContentLoaded", function () {
   save = loadSave();
-  if (save) save.seenMonsters = save.seenMonsters || [];   /* 旧セーブとの後方互換 */
+  if (save) {
+    /* 旧セーブとの後方互換：新しく追加したフィールドがなければ初期値を補う */
+    save.seenMonsters = save.seenMonsters || [];
+    save.streak = save.streak || { current: 0, longest: 0, lastLoginDate: null };
+    save.missions = save.missions || { date: null, list: [] };
+    save.achievements = save.achievements || {};
+    save.titles = save.titles || [];
+    save.shinyMonsters = save.shinyMonsters || {};
+    save.stats.missionsCompleted = save.stats.missionsCompleted || 0;
+    save.player.equippedTitle = save.player.equippedTitle || null;
+    persist();
+  }
   $("#title-start").textContent = save ? "ぼうけんを つづける" : "ぼうけんを はじめる";
   if (save) {
     var li = levelInfo(save.xp);
@@ -1013,6 +1211,7 @@ window.addEventListener("DOMContentLoaded", function () {
   $("#register-cancel").onclick = function () { Sound.select(); openStatus(); };
   $("#btn-edit-profile").onclick = openProfileEdit;
   $("#btn-bestiary").onclick = function () { Sound.select(); openBestiary(); };
+  $("#btn-achievements").onclick = function () { Sound.select(); openAchievements(); };
 
   /* ご意見箱 */
   $("#btn-feedback").onclick = openFeedback;

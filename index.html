@@ -52,9 +52,15 @@
       <div class="ph-right">
         <span class="ph-level" id="menu-level"></span>
         <span class="ph-rank" id="menu-rank"></span>
+        <span class="streak-chip hidden" id="menu-streak-chip"></span>
       </div>
       <div class="xpbar"><div class="xpfill" id="menu-xpfill"></div></div>
       <div class="xptext" id="menu-xptext"></div>
+    </div>
+
+    <div class="window missions-box hidden" id="menu-missions">
+      <div class="window-title">📋 きょうの ミッション</div>
+      <div id="missions-list"></div>
     </div>
 
     <div class="window messenger hidden" id="menu-messenger">
@@ -138,6 +144,11 @@
       <p id="result-sub"></p>
       <p class="result-detail" id="result-detail"></p>
       <div class="levelup hidden" id="result-levelup"></div>
+      <div class="window chest-box hidden" id="chest-box">
+        <canvas id="chest-canvas"></canvas>
+        <p id="chest-reward-text" class="hidden"></p>
+        <button class="btn btn-big" id="chest-open">たからばこを あける</button>
+      </div>
       <button class="btn btn-big" id="result-next">マップに もどる</button>
       <button class="btn" id="result-retry">もういちど ちょうせん</button>
     </div>
@@ -180,7 +191,12 @@
       <p class="note">くらい = みちょうせん ／ 赤っぽい = にがて ／ 緑 = マスター。「ふっかつのほこら」で きたえよう！</p>
       <div id="status-mastery"></div>
     </div>
+    <div class="window hidden" id="titles-box">
+      <h3 class="window-title">しょうごう</h3>
+      <select id="title-select"></select>
+    </div>
     <button class="btn" id="btn-bestiary">📖 モンスター図鑑を みる</button>
+    <button class="btn" id="btn-achievements">🏅 実績を みる</button>
     <button class="btn" id="btn-edit-profile">なまえ・クラスを かえる</button>
     <button class="btn btn-danger" id="btn-reset">ぼうけんのしょを けす（さいしょから）</button>
   </div>
@@ -193,6 +209,16 @@
     </div>
     <p class="note" id="bestiary-progress"></p>
     <div id="bestiary-list"></div>
+  </div>
+
+  <!-- ============ 実績 ============ -->
+  <div class="screen" id="screen-achievements">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2>🏅 じっせき</h2>
+    </div>
+    <p class="note" id="achievements-progress"></p>
+    <div id="achievements-list"></div>
   </div>
 
 </div>
@@ -223,6 +249,10 @@
 <script src="js/api.js"></script>
 <script src="js/questions_excel.js"></script>
 <script src="js/questions_word.js"></script>
+<script src="js/streak.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/treasure.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
