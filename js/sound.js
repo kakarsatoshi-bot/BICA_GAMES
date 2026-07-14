@@ -52,6 +52,7 @@ var Sound = (function () {
     boss:    function () { playSeq([[110, 200], [104, 200], [98, 350]], "sawtooth", 0.09); },
     fail:    function () { playSeq([[392, 200], [370, 200], [349, 200], [330, 450]], "triangle", 0.08); },
     heal:    function () { playSeq([[784, 80], [988, 80], [1175, 200]], "sine", 0.09); },
+    chest:   function () { playSeq([[440, 70], [660, 70], [880, 70], [1175, 90], [1568, 220]], "square", 0.09); },
 
     toggleMute: function () {
       muted = !muted;

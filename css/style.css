@@ -163,6 +163,30 @@ input[type="text"]:focus, select:focus { border-color: var(--key); outline: none
 .xpfill { height: 100%; background: var(--key); transition: width .5s steps(8); }
 .xptext { grid-column: 1 / -1; font-size: 12px; color: #9a9ac0; text-align: right; }
 
+/* ---------- ログインストリーク ---------- */
+.streak-chip { display: block; font-size: 13px; color: var(--key); margin-top: 2px; }
+
+/* ---------- デイリーミッション ---------- */
+.missions-box { padding: 10px 14px; }
+.mission-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin: 4px 0; gap: 8px; }
+.mission-row.done { color: var(--ok); text-decoration: line-through; }
+.mission-progress { color: #9a9ac0; font-size: 12px; white-space: nowrap; }
+
+/* ---------- 実績 ---------- */
+.achievement-card { display: flex; align-items: center; gap: 14px; padding: 10px 14px; }
+.achievement-card.locked { filter: grayscale(1) brightness(.5); }
+.achievement-icon { font-size: 22px; flex-shrink: 0; }
+.achievement-name { font-size: 15px; color: var(--key); }
+.achievement-card.locked .achievement-name { color: #7a7aa0; }
+.achievement-desc { font-size: 12px; color: #9a9ac0; margin-top: 2px; }
+
+/* ---------- たからばこ ---------- */
+.chest-box { text-align: center; }
+#chest-canvas { image-rendering: pixelated; margin: 6px auto; display: block; }
+#chest-canvas.opening { animation: chestBounce .4s steps(4); }
+@keyframes chestBounce { 30% { transform: scale(1.15); } 60% { transform: scale(.95); } }
+#chest-reward-text { color: var(--key); margin: 8px 0; }
+
 /* ---------- メッセンジャー（試験日カウントダウン） ---------- */
 .messenger { padding: 10px 14px; }
 .messenger-headline {
