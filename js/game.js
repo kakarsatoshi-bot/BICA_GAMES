@@ -303,6 +303,11 @@ function beginBattle() {
   $("#battle-choices").innerHTML = "";
   $("#battle-continue").classList.add("hidden");
   $("#boss-hpbar").classList.add("hidden");
+  $("#hotspot-stage").classList.add("hidden");
+  $("#hotspot-stage").innerHTML = "";
+  $("#battle-stage").classList.remove("hotspot-mode");
+  $("#enemy-canvas").classList.remove("hidden");
+  $("#enemy-name").classList.remove("hidden");
 
   /* クエストごとの背景を描画 */
   var theme = battle.mode === "review" ? "shrine"
@@ -419,6 +424,7 @@ function showTurn() {
 function showQuestion() {
   var q = battle.qs[battle.idx];
   typeMsg(q.q);
+  renderQuestionVisual(q);
   var box = $("#battle-choices");
   box.innerHTML = "";
   var order = shuffle([0, 1, 2, 3]);
@@ -429,6 +435,40 @@ function showQuestion() {
     btn.onclick = function () { answer(ci === q.a, btn); };
     box.appendChild(btn);
   });
+}
+
+/* 画面ホットスポット問題（type:"hotspot"）のときはモンスターを隠してリボンUIモックアップ
+ * ＋番号バッジを表示する。通常の問題ではモンスター表示に戻す。 */
+function renderQuestionVisual(q) {
+  var hotspotBox = $("#hotspot-stage");
+  var stage = $("#battle-stage");
+  if (q.type === "hotspot") {
+    /* 先に表示状態にしてからでないと getBoundingClientRect() が全部0を返すため、
+     * hidden解除 → 描画・座標計測 の順を必ず守る。 */
+    hotspotBox.classList.remove("hidden");
+    stage.classList.add("hotspot-mode");
+    $("#enemy-canvas").classList.add("hidden");
+    $("#enemy-name").classList.add("hidden");
+
+    var mockup = RIBBON_MOCKUPS[q.ui];
+    mockup.render(hotspotBox);
+    q.markers.forEach(function (m) {
+      var pos = ribbonMarkerPosition(hotspotBox, m.target);
+      if (!pos) return;
+      var badge = document.createElement("span");
+      badge.className = "hotspot-badge";
+      badge.textContent = m.n;
+      badge.style.left = pos.x + "px";
+      badge.style.top = pos.y + "px";
+      hotspotBox.appendChild(badge);
+    });
+  } else {
+    hotspotBox.classList.add("hidden");
+    hotspotBox.innerHTML = "";
+    stage.classList.remove("hotspot-mode");
+    $("#enemy-canvas").classList.remove("hidden");
+    $("#enemy-name").classList.remove("hidden");
+  }
 }
 
 function answer(isCorrect, btn) {

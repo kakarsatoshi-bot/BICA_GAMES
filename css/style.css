@@ -317,6 +317,70 @@ input[type="text"]:focus, select:focus { border-color: var(--key); outline: none
 #enemy-canvas.die { animation: die .6s steps(6) forwards; }
 @keyframes die { to { transform: scale(1.1); opacity: 0; filter: brightness(4); } }
 
+/* ---------- ホットスポット問題（リボンUIモックアップ） ---------- */
+.battle-stage.hotspot-mode { height: 260px; }
+#hotspot-stage {
+  position: absolute;
+  inset: 8px;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.hotspot-badge {
+  position: absolute;
+  width: 20px; height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--key);
+  color: #141423;
+  border: 2px solid #141423;
+  box-shadow: 0 0 0 2px #fff;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ribbon-mock {
+  background: #fff;
+  color: #222;
+  font-family: "Segoe UI", "Yu Gothic", "Meiryo", sans-serif;
+  font-size: 11px;
+  height: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ribbon-tabs { display: flex; gap: 12px; color: #666; border-bottom: 1px solid #d8d8d8; padding-bottom: 4px; margin-bottom: 6px; white-space: nowrap; overflow: hidden; }
+.ribbon-tabs .ribbon-tab-active { color: #185abd; font-weight: bold; border-bottom: 2px solid #185abd; padding-bottom: 4px; }
+.ribbon-groups { display: flex; flex-wrap: wrap; gap: 5px; }
+.ribbon-group { background: #f3f3f3; border: 1px solid #e3e3e3; border-radius: 3px; padding: 4px 5px; display: flex; align-items: center; justify-content: center; }
+.ribbon-btn {
+  min-width: 22px; height: 22px; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid #ccc; border-radius: 2px; color: #333;
+}
+.ribbon-btn-b { font-weight: bold; }
+.ribbon-btn-i { font-style: italic; }
+.ribbon-btn-u { text-decoration: underline; }
+.ribbon-btn-a { font-weight: bold; border-bottom: 3px solid #d33; }
+.ribbon-btn-wide { padding: 3px 8px; white-space: nowrap; background: #fff; border: 1px solid #ccc; border-radius: 2px; color: #333; }
+.ribbon-select { padding: 3px 8px; background: #fff; border: 1px solid #ccc; border-radius: 2px; color: #333; white-space: nowrap; }
+.ribbon-sheet { margin-top: 8px; border: 1px solid #d8d8d8; border-radius: 2px; }
+.ribbon-formula-bar { background: #f7f7f7; border-bottom: 1px solid #d8d8d8; padding: 3px 6px; font-family: monospace; color: #333; }
+.ribbon-grid {
+  height: 42px;
+  background-image:
+    repeating-linear-gradient(to right, #eee 0, #eee 1px, transparent 1px, transparent 48px),
+    repeating-linear-gradient(to bottom, #eee 0, #eee 1px, transparent 1px, transparent 16px);
+}
+.ribbon-doc { padding: 10px 8px; }
+.ribbon-doc-line { height: 8px; background: #e4e4e4; border-radius: 2px; margin-bottom: 8px; }
+.ribbon-doc-line.short { width: 60%; }
+
 /* ---------- バトルエフェクト ---------- */
 #fx-layer {
   position: absolute;
