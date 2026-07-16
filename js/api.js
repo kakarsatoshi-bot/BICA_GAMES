@@ -2,7 +2,7 @@
  * MOS QUEST 成績送信API（Google Apps Script 連携）
  *
  * GAME_CONFIG.SYNC_URL が未設定なら何もしない（オフラインでも遊べる）。
- * GAS側のコードは リポジトリの gas/mos_quest_leaderboard.gs を参照。
+ * GAS側のコードは リポジトリの gas/mos_quest_backend.gs を参照。
  *
  * 送信専用（write-only）。生徒全員の成績をまとめて読み取れるAPIは
  * 個人情報保護のため意図的に用意していない。ランキング（成績一覧）は
