@@ -50,6 +50,7 @@
       英語 → 日本語 で出題する（クイズのみ）
     </label>
 
+    <button class="btn list-link-btn" id="start-list">📋 日本語⇔英語 対応表を見る</button>
     <button class="btn btn-small btn-danger" id="reset-progress">学習記録をリセット</button>
   </div>
 
@@ -89,6 +90,22 @@
     <div class="quiz-choices" id="quiz-choices"></div>
     <div class="quiz-explain hidden" id="quiz-explain"></div>
     <button class="btn btn-big hidden" id="quiz-next">つぎへ ▶</button>
+  </div>
+
+  <!-- ============ 対応表（一覧） ============ -->
+  <div class="screen" id="screen-list">
+    <div class="screen-header">
+      <button class="btn btn-back" data-target="screen-home">◀ ホーム</button>
+      <span id="list-count"></span>
+    </div>
+    <input type="text" id="list-search" class="list-search" placeholder="検索する（日本語 または English）">
+    <div class="category-grid list-category-grid">
+      <button class="btn list-cat-btn" data-cat="all">すべて</button>
+      <button class="btn list-cat-btn" data-cat="common">きょうつう</button>
+      <button class="btn list-cat-btn" data-cat="excel">Excel</button>
+      <button class="btn list-cat-btn" data-cat="word">Word</button>
+    </div>
+    <div id="list-rows"></div>
   </div>
 
   <!-- ============ 結果 ============ -->

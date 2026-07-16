@@ -16,7 +16,9 @@ var state = {
   quizQuestions: [],
   quizIndex: 0,
   quizScore: 0,
-  quizMissed: []
+  quizMissed: [],
+  listCategory: "all",
+  listQuery: ""
 };
 
 /* ---------- storage ---------- */
@@ -278,6 +280,57 @@ document.getElementById("result-home").addEventListener("click", function () {
   showScreen("screen-home");
   renderHome();
 });
+
+/* ---------- list mode (対応表) ---------- */
+document.getElementById("start-list").addEventListener("click", function () {
+  state.listCategory = state.category === "review" ? "all" : state.category;
+  state.listQuery = "";
+  document.getElementById("list-search").value = "";
+  showScreen("screen-list");
+  renderList();
+});
+document.querySelectorAll(".list-cat-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    state.listCategory = btn.dataset.cat;
+    renderList();
+  });
+});
+document.getElementById("list-search").addEventListener("input", function (e) {
+  state.listQuery = e.target.value;
+  renderList();
+});
+
+function renderList() {
+  var pool = wordsByCategory(state.listCategory);
+  var q = state.listQuery.trim().toLowerCase();
+  if (q) {
+    pool = pool.filter(function (w) {
+      return w.jp.toLowerCase().indexOf(q) !== -1 ||
+        w.reading.toLowerCase().indexOf(q) !== -1 ||
+        w.en.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+  document.getElementById("list-count").textContent = pool.length + " 語";
+  document.querySelectorAll(".list-cat-btn").forEach(function (btn) {
+    btn.classList.toggle("active", btn.dataset.cat === state.listCategory);
+  });
+
+  var rowsEl = document.getElementById("list-rows");
+  if (pool.length === 0) {
+    rowsEl.innerHTML = "<p class='note'>一致する単語がありません。</p>";
+    return;
+  }
+  rowsEl.innerHTML = pool.map(function (w) {
+    return "<div class='list-row'>" +
+      "<span class='cat-chip cat-" + w.category + "'>" + (CAT_LABEL[w.category] || w.category) + "</span>" +
+      "<div class='list-row-main'>" +
+      "<span class='list-row-jp'>" + toRuby(w) + "</span>" +
+      "<span class='list-row-en'>" + escapeHtml(w.en) + "</span>" +
+      "</div>" +
+      "<p class='list-row-desc'>" + escapeHtml(w.desc) + "</p>" +
+      "</div>";
+  }).join("");
+}
 
 /* ---------- init ---------- */
 renderHome();
