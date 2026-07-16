@@ -95,7 +95,8 @@ function newSave(name, klass) {
     missions: { date: null, list: [] },
     achievements: {},   // achievementId -> かいほうした時刻
     titles: [],         // たからばこで手に入れた しょうごう
-    shinyMonsters: {}   // モンスター名 -> たからばこで手に入れた色ちがいのパレット名
+    shinyMonsters: {},  // モンスター名 -> たからばこで手に入れた色ちがいのパレット名
+    practical: {}       // practicalId -> {bestScore, maxScore, passed, tries}（じっせん道場の記録）
   };
 }
 function totalStars() {
@@ -1354,6 +1355,7 @@ window.addEventListener("DOMContentLoaded", function () {
     save.stats.missionsCompleted = save.stats.missionsCompleted || 0;
     save.player.equippedTitle = save.player.equippedTitle || null;
     save.expertClear = save.expertClear || false;
+    save.practical = save.practical || {};
     persist();
   }
   $("#title-start").textContent = save ? "ぼうけんを つづける" : "ぼうけんを はじめる";
@@ -1404,6 +1406,7 @@ window.addEventListener("DOMContentLoaded", function () {
     Sound.select(); openExpertQuests();
   };
   $("#menu-exam").onclick = function () { Sound.select(); openExamSelect(); };
+  $("#menu-practical").onclick = function () { Sound.select(); openPractical(); };
   $("#menu-ranking").onclick = function () { Sound.select(); openRanking(); };
   $("#menu-status").onclick = function () { Sound.select(); openStatus(); };
 

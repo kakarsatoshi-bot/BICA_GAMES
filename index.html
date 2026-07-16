@@ -96,6 +96,9 @@
       <button class="btn menu-btn" id="menu-exam">
         <span class="menu-icon">📝</span>もぎ けんてい
       </button>
+      <button class="btn menu-btn" id="menu-practical">
+        <span class="menu-icon">🛠️</span>じっせん どうじょう
+      </button>
       <button class="btn menu-btn" id="menu-ranking">
         <span class="menu-icon">👑</span>ランキング
       </button>
@@ -226,6 +229,16 @@
     <div id="achievements-list"></div>
   </div>
 
+  <!-- ============ じっせん道場 ============ -->
+  <div class="screen" id="screen-practical">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2>🛠️ じっせん道場</h2>
+    </div>
+    <p class="note">じっさいのExcelファイルをダウンロードして操作し、アップロードすると採点されるぞ！（せんせいが せっていしていないと つかえないよ）</p>
+    <div id="practical-list"></div>
+  </div>
+
 </div>
 
 <!-- ============ ご意見箱 ============ -->
@@ -255,11 +268,13 @@
 <script src="js/questions_excel.js"></script>
 <script src="js/questions_word.js"></script>
 <script src="js/questions_excel_expert.js"></script>
+<script src="js/questions_excel_practical.js"></script>
 <script src="js/ribbonMockups.js"></script>
 <script src="js/streak.js"></script>
 <script src="js/achievements.js"></script>
 <script src="js/missions.js"></script>
 <script src="js/treasure.js"></script>
+<script src="js/practical.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
