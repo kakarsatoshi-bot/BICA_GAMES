@@ -85,8 +85,10 @@ body {
 .mode-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; border: 2px solid #e2e5ee; }
 .mode-icon { font-size: 22px; }
 
-.reverse-toggle { display: block; margin: 20px 0 24px; font-size: 14px; color: var(--muted); }
+.reverse-toggle { display: block; margin: 20px 0 16px; font-size: 14px; color: var(--muted); }
 .reverse-toggle input { margin-right: 6px; }
+
+.list-link-btn { width: 100%; background: #fff; border: 2px solid #e2e5ee; font-weight: 500; margin-bottom: 10px; }
 
 /* ---------- category chips ---------- */
 .cat-chip { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 999px; color: #fff; margin-bottom: 10px; }
@@ -168,6 +170,41 @@ body {
 .explain-desc { margin: 0; color: var(--muted); font-size: 14px; }
 
 #quiz-next { margin-top: 18px; }
+
+/* ---------- list (対応表) ---------- */
+.list-search {
+  width: 100%;
+  font-size: 15px;
+  font-family: inherit;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 2px solid #e2e5ee;
+  margin-bottom: 12px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.list-category-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; }
+.list-cat-btn { font-size: 13px; padding: 10px 4px; }
+.list-cat-btn.active { background: var(--text); color: #fff; }
+
+.list-row {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+.list-row .cat-chip { margin-bottom: 6px; }
+.list-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.list-row-jp { font-size: 17px; font-weight: 700; }
+.list-row-jp ruby rt { font-size: 10px; color: var(--muted); }
+.list-row-en { font-size: 14px; color: var(--color-word); font-weight: 700; }
+.list-row-desc { margin: 4px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
 
 /* ---------- result ---------- */
 .result-big { font-size: 20px; font-weight: 700; text-align: center; margin: 12px 0; }
