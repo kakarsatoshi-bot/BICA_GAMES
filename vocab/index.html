@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOS単語帳 - MOS Vocabulary Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ ホーム ============ -->
+  <div class="screen active" id="screen-home">
+    <header class="home-header">
+      <h1 class="app-logo">MOS単語帳</h1>
+      <p class="app-subtitle">MOS Vocabulary Cards for Japanese Learners</p>
+    </header>
+
+    <div class="stat-bar-wrap">
+      <div class="stat-bar"><div class="stat-bar-fill" id="stat-bar-fill"></div></div>
+      <p class="stat-text">おぼえた単語: <span id="stat-total">0 / 0</span></p>
+    </div>
+
+    <h2 class="section-title">1. カテゴリーを選ぶ</h2>
+    <div class="category-grid">
+      <button class="btn cat-btn active" data-cat="all">すべて<span class="cat-count" id="count-all"></span></button>
+      <button class="btn cat-btn" data-cat="common">きょうつう<span class="cat-count" id="count-common"></span></button>
+      <button class="btn cat-btn" data-cat="excel">Excel<span class="cat-count" id="count-excel"></span></button>
+      <button class="btn cat-btn" data-cat="word">Word<span class="cat-count" id="count-word"></span></button>
+      <button class="btn cat-btn" data-cat="review">復習<span class="cat-count" id="count-review"></span></button>
+    </div>
+
+    <h2 class="section-title">2. モードを選ぶ</h2>
+    <div class="mode-grid">
+      <button class="btn btn-big mode-btn" id="start-flashcard">
+        <span class="mode-icon">🃏</span>
+        <span>フラッシュカードで覚える</span>
+      </button>
+      <button class="btn btn-big mode-btn" id="start-quiz">
+        <span class="mode-icon">📝</span>
+        <span>クイズに挑戦する</span>
+      </button>
+    </div>
+
+    <label class="reverse-toggle">
+      <input type="checkbox" id="reverse-mode">
+      英語 → 日本語 で出題する（クイズのみ）
+    </label>
+
+    <button class="btn btn-small btn-danger" id="reset-progress">学習記録をリセット</button>
+  </div>
+
+  <!-- ============ フラッシュカード ============ -->
+  <div class="screen" id="screen-flashcard">
+    <div class="screen-header">
+      <button class="btn btn-back" data-target="screen-home">◀ ホーム</button>
+      <span id="fc-progress"></span>
+    </div>
+    <div class="card-wrap">
+      <div class="flashcard" id="flashcard">
+        <div class="card-face card-front">
+          <span class="cat-chip" id="fc-cat-chip"></span>
+          <div class="card-term" id="fc-term"></div>
+          <p class="card-hint">タップして めくる ／ Tap to flip</p>
+        </div>
+        <div class="card-face card-back">
+          <div class="card-en" id="fc-en"></div>
+          <div class="card-desc" id="fc-desc"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fc-actions hidden" id="fc-actions">
+      <button class="btn btn-again" id="fc-again">❓ もう一度</button>
+      <button class="btn btn-known" id="fc-known">✅ おぼえた</button>
+    </div>
+  </div>
+
+  <!-- ============ クイズ ============ -->
+  <div class="screen" id="screen-quiz">
+    <div class="screen-header">
+      <button class="btn btn-back" data-target="screen-home">◀ ホーム</button>
+      <span id="quiz-progress"></span>
+      <span id="quiz-score"></span>
+    </div>
+    <div class="quiz-question" id="quiz-question"></div>
+    <div class="quiz-choices" id="quiz-choices"></div>
+    <div class="quiz-explain hidden" id="quiz-explain"></div>
+    <button class="btn btn-big hidden" id="quiz-next">つぎへ ▶</button>
+  </div>
+
+  <!-- ============ 結果 ============ -->
+  <div class="screen" id="screen-result">
+    <div class="screen-header">
+      <h2>けっか</h2>
+    </div>
+    <div id="result-body"></div>
+    <button class="btn btn-big" id="result-home">ホームに もどる</button>
+  </div>
+
+</div>
+
+<script src="js/words.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
