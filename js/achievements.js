@@ -36,7 +36,14 @@ var ACHIEVEMENTS = [
   { id: "rare_found", name: "げきレア発見", desc: "げきレアモンスターに であう",
     check: function (s) { return s.seenMonsters.indexOf(RARE_MONSTER.name) >= 0; } },
   { id: "mission30", name: "デイリー皆勤賞", desc: "デイリーミッションを 30回 たっせいする",
-    check: function (s) { return s.stats.missionsCompleted >= 30; } }
+    check: function (s) { return s.stats.missionsCompleted >= 30; } },
+  { id: "practical_first_pass", name: "じっせん道場デビュー", desc: "はじめて じっせん課題に ごうかくする",
+    check: function (s) { for (var k in s.practical) { if (s.practical[k].passed) return true; } return false; } },
+  { id: "practical_master", name: "実践道場マスター", desc: "すべての じっせん課題に ごうかくする",
+    check: function (s) {
+      if (typeof PRACTICAL_TASKS === "undefined" || !PRACTICAL_TASKS.length) return false;
+      return PRACTICAL_TASKS.every(function (t) { return s.practical[t.id] && s.practical[t.id].passed; });
+    } }
 ];
 
 /* まだ解除していない実績のうち、条件を満たしたものを解除して返す（新規解除分の配列）。 */

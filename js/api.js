@@ -2,7 +2,7 @@
  * MOS QUEST 成績送信API（Google Apps Script 連携）
  *
  * GAME_CONFIG.SYNC_URL が未設定なら何もしない（オフラインでも遊べる）。
- * GAS側のコードは リポジトリの gas/mos_quest_leaderboard.gs を参照。
+ * GAS側のコードは リポジトリの gas/mos_quest_backend.gs を参照。
  *
  * 送信専用（write-only）。生徒全員の成績をまとめて読み取れるAPIは
  * 個人情報保護のため意図的に用意していない。ランキング（成績一覧）は
@@ -44,5 +44,20 @@ var Api = (function () {
       .catch(function () { if (onDone) onDone(false); });
   }
 
-  return { enabled: enabled, syncProfile: syncProfile, sendFeedback: sendFeedback };
+  /* じっせん道場：アップロードされたファイル（Base64）をGAS側へ送って採点してもらう。
+   * 正解データはサーバー側にしか存在しないため、結果（score/maxScore/pass）だけが返ってくる。
+   * onDone(null) は「未設定」または「通信/採点エラー」のどちらかを表す。 */
+  function gradePractical(payload, onDone) {
+    if (!enabled()) { if (onDone) onDone(null); return; }
+    fetch(GAME_CONFIG.SYNC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "gradePractical", apiKey: GAME_CONFIG.API_KEY || "", practical: payload })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) { if (onDone) onDone(data && data.ok ? data : null); })
+      .catch(function () { if (onDone) onDone(null); });
+  }
+
+  return { enabled: enabled, syncProfile: syncProfile, sendFeedback: sendFeedback, gradePractical: gradePractical };
 })();

@@ -31,6 +31,18 @@ SUBJECTS.forEach(function (sub) {
   });
 });
 
+/* SRS.dueList/weakList は save.records 全体（エキスパートの問題を答えた記録も含む）を
+ * 見境なく返すため、まおうの城・ふっかつのほこら等の「Specialist側」の消費先では
+ * 必ずこのフィルターを通す（そうしないとエキスパート限定のidがQUESTION_INDEXに無く
+ * qs.map(...).q が undefined になってクラッシュする）。エキスパート側は
+ * EXPERT_QUESTION_INDEX で同様にフィルターする（startExpert() 参照）。 */
+function specialistDueList() {
+  return SRS.dueList(save.records).filter(function (id) { return !!QUESTION_INDEX[id]; });
+}
+function specialistWeakList() {
+  return SRS.weakList(save.records).filter(function (id) { return !!QUESTION_INDEX[id]; });
+}
+
 /* ---------- レベル・ランク ---------- */
 function xpNeedFor(level) { return 30 + (level - 1) * 12; }  // そのレベルで必要なEXP
 function levelInfo(xp) {
@@ -77,12 +89,14 @@ function newSave(name, klass) {
     quests: {},    // questId -> {stars, clears, bossWins}
     stats: { answered: 0, correct: 0, bossWins: 0, bestCombo: 0, missionsCompleted: 0 },
     finalClear: false,
+    expertClear: false,   // まおうの城のさらに奥、エキスパートのかくしダンジョン討伐ずみか
     seenMonsters: [],   // モンスター図鑑：遭遇ずみのモンスター名
     streak: { current: 0, longest: 0, lastLoginDate: null },
     missions: { date: null, list: [] },
     achievements: {},   // achievementId -> かいほうした時刻
     titles: [],         // たからばこで手に入れた しょうごう
-    shinyMonsters: {}   // モンスター名 -> たからばこで手に入れた色ちがいのパレット名
+    shinyMonsters: {},  // モンスター名 -> たからばこで手に入れた色ちがいのパレット名
+    practical: {}       // practicalId -> {bestScore, maxScore, passed, tries}（じっせん道場の記録）
   };
 }
 function totalStars() {
@@ -197,10 +211,10 @@ function startQuest(quest) {
 
 /* 復習（ふっかつのほこら）開始 */
 function startReview() {
-  var due = SRS.dueList(save.records).slice(0, 10);
+  var due = specialistDueList().slice(0, 10);
   var label = "ふっかつのほこら（復習）";
   if (due.length === 0) {
-    var weak = SRS.weakList(save.records).slice(0, 8);
+    var weak = specialistWeakList().slice(0, 8);
     if (weak.length === 0) {
       toast("復習する もんだいは まだ ない！ クエストに でよう！");
       return;
@@ -280,7 +294,7 @@ function startExam(subjectKey) {
 /* まおうの城（最終決戦）開始 */
 function startFinal() {
   var pool = Object.keys(QUESTION_INDEX);
-  var weak = SRS.weakList(save.records).slice(0, 6);
+  var weak = specialistWeakList().slice(0, 6);
   var rest = shuffle(pool.filter(function (id) { return weak.indexOf(id) < 0; }));
   var ids = weak.concat(rest).slice(0, 12);
   var qs = shuffle(ids.map(function (qid) { return QUESTION_INDEX[qid].q; }));
@@ -288,6 +302,27 @@ function startFinal() {
     mode: "final",
     quest: null,
     label: "まおうの城",
+    qs: qs,
+    bossFrom: 0,               // 全問ボス戦
+    bossHp: 9, bossMax: 9,     // 12問中9問せいかいで討伐
+    idx: 0, hearts: 5, maxHearts: 5,
+    correct: 0, combo: 0, xp: 0,
+    bossPhase: false, bossCorrect: 0
+  };
+  beginBattle();
+}
+
+/* エキスパートのかくしダンジョン最終決戦（まおうの城のさらに奥） */
+function startExpert() {
+  var pool = Object.keys(EXPERT_QUESTION_INDEX);
+  var weak = SRS.weakList(save.records).filter(function (id) { return !!EXPERT_QUESTION_INDEX[id]; }).slice(0, 6);
+  var rest = shuffle(pool.filter(function (id) { return weak.indexOf(id) < 0; }));
+  var ids = weak.concat(rest).slice(0, 12);
+  var qs = shuffle(ids.map(function (qid) { return EXPERT_QUESTION_INDEX[qid].q; }));
+  battle = {
+    mode: "expert",
+    quest: null,
+    label: "エキスパートの奥義",
     qs: qs,
     bossFrom: 0,               // 全問ボス戦
     bossHp: 9, bossMax: 9,     // 12問中9問せいかいで討伐
@@ -312,6 +347,7 @@ function beginBattle() {
   /* クエストごとの背景を描画 */
   var theme = battle.mode === "review" ? "shrine"
             : battle.mode === "final" ? "final"
+            : battle.mode === "expert" ? "final"   // 専用の背景テーマは未作成。まおうの城の溶岩背景を流用する
             : battle.mode === "exam" ? "temple"
             : StageBg.forQuest(battle.quest.id);
   StageBg.draw($("#stage-bg"), theme);
@@ -329,6 +365,9 @@ function currentMonster() {
   battle.isRare = false;
   if (battle.mode === "final") {
     return { shape: "demon", palette: "dark", name: "まおうデリート" };
+  }
+  if (battle.mode === "expert") {
+    return { shape: "demon", palette: "purple", name: "しんおうデリート" };
   }
   if (battle.bossPhase) return battle.quest.boss;
   if (battle.mode === "exam") {
@@ -409,6 +448,9 @@ function showTurn() {
   } else if (battle.mode === "final") {
     Sound.boss();
     intro = "じゃあくな けはいが みなぎる…！\n" + m.name + "が すがたを あらわした！！";
+  } else if (battle.mode === "expert") {
+    Sound.boss();
+    intro = "けたはずれの プレッシャーが おそいかかる…！\n真の おうしゃ「" + m.name + "」が すがたを あらわした！！";
   } else if (enteringBoss) {
     Sound.boss();
     intro = "つよそうな けはいが する…！\nボス「" + m.name + "」が あらわれた！！";
@@ -580,11 +622,11 @@ function nextTurn() {
   $("#battle-continue").classList.add("hidden");
   battle.idx++;
   if (battle.hearts <= 0) { endBattle(false); return; }
-  // 最終決戦はボスのHPを削りきった時点で勝利（残りの問題は出題しない）
-  if (battle.mode === "final" && battle.bossHp <= 0) { endBattle(true); return; }
+  // 最終決戦（まおう/エキスパート）はボスのHPを削りきった時点で勝利（残りの問題は出題しない）
+  if ((battle.mode === "final" || battle.mode === "expert") && battle.bossHp <= 0) { endBattle(true); return; }
   if (battle.idx >= battle.qs.length) {
     // 最終決戦はボスを討伐しきれなければ失敗
-    if (battle.mode === "final" && battle.bossHp > 0) { endBattle(false); return; }
+    if ((battle.mode === "final" || battle.mode === "expert") && battle.bossHp > 0) { endBattle(false); return; }
     endBattle(true);
     return;
   }
@@ -680,6 +722,11 @@ function endBattle(cleared) {
       save.stats.bossWins++;
       bonus = 100;
     }
+    if (battle.mode === "expert") {
+      save.expertClear = true;
+      save.stats.bossWins++;
+      bonus = 150;
+    }
     save.xp += bonus;
     battle.xp += bonus;
 
@@ -701,6 +748,9 @@ function endBattle(cleared) {
     if (battle.mode === "final") {
       title = "まおうデリートを たおした！！";
       sub = "MOSの ちしきが せかいを すくった！\nきみこそ しんの MOSマスターだ！";
+    } else if (battle.mode === "expert") {
+      title = "しんおうデリートを たおした！！";
+      sub = "エキスパートの おくぎを てにいれた！\nきみは まことの MOSエキスパートだ！";
     } else if (battle.mode === "review") {
       title = "ふくしゅう かんりょう！";
       sub = "きおくが しっかり ていちゃくした！";
@@ -751,6 +801,7 @@ function retryBattle() {
   if (battle.mode === "quest") startQuest(battle.quest);
   else if (battle.mode === "review") startReview();
   else if (battle.mode === "exam") startExam(battle.subjectKey);
+  else if (battle.mode === "expert") startExpert();
   else startFinal();
 }
 
@@ -772,7 +823,7 @@ function renderPlayerHeader(prefix) {
 
 function openMenu() {
   renderPlayerHeader("menu");
-  var due = SRS.dueList(save.records).length;
+  var due = specialistDueList().length;
   var badge = $("#menu-review-badge");
   if (due > 0) { badge.textContent = due; badge.classList.remove("hidden"); }
   else badge.classList.add("hidden");
@@ -783,6 +834,12 @@ function openMenu() {
   $("#menu-final-lock").textContent = allCleared
     ? (save.finalClear ? "とうばつずみ！ なんども ちょうせんできる" : "ふういんが とかれた…！")
     : "ぜんぶの クエストを クリアすると かいほう";
+
+  var expertBtn = $("#menu-expert");
+  expertBtn.classList.toggle("locked", !save.finalClear);
+  $("#menu-expert-lock").textContent = save.finalClear
+    ? (save.expertClear ? "とうばつずみ！ なんども ちょうせんできる" : "かくされた みちが あらわれた…！")
+    : "まおうの城を クリアすると かいほう";
 
   /* Streak.checkLogin/Achievements.check は同じ日のうちは isNewDay:false／解除済みで
    * 実質なにもしないので、メニューを開くたびに呼んでも安全（新規登録直後もここで初期化される）。 */
@@ -815,7 +872,7 @@ function renderStreakChip() {
 
 function showStreakBanner(result) {
   if (!result.isNewDay) return;
-  var due = SRS.dueList(save.records).length;
+  var due = specialistDueList().length;
   var msg = result.broken
     ? "あたらしい れんぞくきろく、はじめよう！（さいちょう記録は " + result.longest + "日）"
     : "🔥 れんぞく " + result.streak + "日目！ よくきたね！";
@@ -964,6 +1021,74 @@ function openQuestList(subjectKey) {
   show("screen-quests");
 }
 
+/* エキスパートのかくしダンジョン：クエスト一覧＋末尾の裏ボスカード */
+function openExpertQuests() {
+  $("#quests-title").textContent = EXPERT_QUEST_DATA_EXCEL.label;
+  var box = $("#quest-list");
+  box.innerHTML = "";
+
+  var quests = EXPERT_QUEST_DATA_EXCEL.quests;
+  var allExpertCleared = true;
+
+  quests.forEach(function (quest, i) {
+    var prev = i === 0 ? null : quests[i - 1];
+    var unlocked = i === 0 || (save.quests[prev.id] && save.quests[prev.id].stars > 0);
+    var rec = save.quests[quest.id] || { stars: 0 };
+    if (rec.stars === 0) allExpertCleared = false;
+
+    var div = document.createElement("div");
+    div.className = "quest-card window" + (unlocked ? "" : " locked");
+
+    var cv = document.createElement("canvas");
+    drawSprite(cv, quest.mob.shape, quest.mob.palette, 4);
+
+    var info = document.createElement("div");
+    info.className = "quest-info";
+    var nm = document.createElement("div");
+    nm.className = "quest-name";
+    nm.textContent = (i + 1) + ". " + quest.name;
+    var ds = document.createElement("div");
+    ds.className = "quest-desc";
+    ds.textContent = unlocked ? quest.desc : "まえの クエストを クリアすると かいほう";
+    var st = document.createElement("div");
+    st.className = "quest-stars";
+    st.textContent = "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars);
+    info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
+
+    div.appendChild(cv);
+    div.appendChild(info);
+    if (unlocked) {
+      div.onclick = function () { Sound.select(); startQuest(quest); };
+    }
+    box.appendChild(div);
+  });
+
+  /* 末尾に裏ボスカードを1枚追加する。全エキスパートクエストをクリアするまでロック */
+  var bossDiv = document.createElement("div");
+  bossDiv.className = "quest-card window" + (allExpertCleared ? "" : " locked");
+  var bossCv = document.createElement("canvas");
+  drawSprite(bossCv, "demon", "purple", 4);
+  var bossInfo = document.createElement("div");
+  bossInfo.className = "quest-info";
+  var bossNm = document.createElement("div");
+  bossNm.className = "quest-name";
+  bossNm.textContent = (quests.length + 1) + ". しんおうデリート";
+  var bossDs = document.createElement("div");
+  bossDs.className = "quest-desc";
+  bossDs.textContent = allExpertCleared
+    ? (save.expertClear ? "とうばつずみ！ なんども ちょうせんできる" : "すべてのクエストをクリアした者だけが いどめる")
+    : "すべてのエキスパートクエストを クリアすると かいほう";
+  bossInfo.appendChild(bossNm); bossInfo.appendChild(bossDs);
+  bossDiv.appendChild(bossCv);
+  bossDiv.appendChild(bossInfo);
+  if (allExpertCleared) {
+    bossDiv.onclick = function () { Sound.select(); startExpert(); };
+  }
+  box.appendChild(bossDiv);
+
+  show("screen-quests");
+}
+
 /* =========================================================
  * ランキング
  * 個人情報保護のため、生徒全員の成績を一覧で読み取れるAPIはあえて用意していない。
@@ -1006,7 +1131,7 @@ function openStatus() {
       var w = ex.word ? ex.word.best + "てん" : "—";
       return "Excel " + e + " / Word " + w;
     })()],
-    ["ふくしゅう まち", SRS.dueList(save.records).length + " もん"],
+    ["ふくしゅう まち", specialistDueList().length + " もん"],
     ["しょうごう", save.finalClear ? "まおうを たおせし者" : rankFor(li.level)]
   ].forEach(function (pair) {
     var dt = document.createElement("dt"); dt.textContent = pair[0];
@@ -1229,6 +1354,8 @@ window.addEventListener("DOMContentLoaded", function () {
     save.shinyMonsters = save.shinyMonsters || {};
     save.stats.missionsCompleted = save.stats.missionsCompleted || 0;
     save.player.equippedTitle = save.player.equippedTitle || null;
+    save.expertClear = save.expertClear || false;
+    save.practical = save.practical || {};
     persist();
   }
   $("#title-start").textContent = save ? "ぼうけんを つづける" : "ぼうけんを はじめる";
@@ -1271,7 +1398,15 @@ window.addEventListener("DOMContentLoaded", function () {
     }
     Sound.select(); startFinal();
   };
+  $("#menu-expert").onclick = function () {
+    if (!save.finalClear) {
+      toast("まだ かくされている… まおうの城を さきに クリアせよ！");
+      return;
+    }
+    Sound.select(); openExpertQuests();
+  };
   $("#menu-exam").onclick = function () { Sound.select(); openExamSelect(); };
+  $("#menu-practical").onclick = function () { Sound.select(); openPractical(); };
   $("#menu-ranking").onclick = function () { Sound.select(); openRanking(); };
   $("#menu-status").onclick = function () { Sound.select(); openStatus(); };
 
