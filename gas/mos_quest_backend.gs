@@ -41,6 +41,7 @@ function doPost(e) {
 
   switch (body.action) {
     case "sync": return handleSync(body.player);
+    case "getRanking": return handleGetRanking();
     case "feedback": return handleFeedback(body.feedback);
     case "gradePractical": return handleGradePractical(body.practical);
     default: return jsonResponse({ ok: false, error: "unknown action" });
@@ -100,6 +101,53 @@ function handleSync(player) {
 }
 
 /* =========================================================
+ * ランキング取得（getRanking） — js/api.js の getRanking() から呼ばれる
+ *
+ * ⚠️ このエンドポイントは全生徒の「なまえ・クラス・レベル・XP等」を
+ *    まとめて返す（read API）。他の action（sync/feedback/gradePractical）が
+ *    すべて write-only なのとは異なり、これは意図的に「ゲーム内でクラス全員の
+ *    ランキングを見せたい」という要望に応えて追加したもの。
+ *    生徒ID・正答数など、発表に不要な内部情報は返さない。
+ * ======================================================= */
+function handleGetRanking() {
+  var playersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_PLAYERS);
+  if (!playersSheet) return jsonResponse({ ok: true, ranking: [] });
+
+  return jsonResponse({ ok: true, ranking: getSortedRankingRows_(playersSheet) });
+}
+
+/* Playersシートを読み、レベル→XPの順で並べ替えた「発表用の項目だけ」の配列を返す。
+ * generateRankingPdf() と handleGetRanking() の両方から使う共通ロジック。 */
+function getSortedRankingRows_(playersSheet) {
+  var data = playersSheet.getDataRange().getValues();
+  var header = data[0];
+  var colIndex = {};
+  header.forEach(function (name, i) { colIndex[name] = i; });
+
+  var rows = data.slice(1).filter(function (r) { return r[colIndex.id]; });
+  rows.sort(function (a, b) {
+    var levelDiff = (b[colIndex.level] || 0) - (a[colIndex.level] || 0);
+    if (levelDiff !== 0) return levelDiff;
+    return (b[colIndex.xp] || 0) - (a[colIndex.xp] || 0);
+  });
+
+  return rows.map(function (r, i) {
+    var accuracy = r[colIndex.accuracy];
+    return {
+      rank: i + 1,
+      id: r[colIndex.id],
+      name: r[colIndex.name],
+      klass: r[colIndex.klass],
+      level: r[colIndex.level],
+      xp: r[colIndex.xp],
+      stars: r[colIndex.stars],
+      questsCleared: r[colIndex.questsCleared],
+      accuracy: (typeof accuracy === "number") ? Math.round(accuracy * 1000) / 10 : accuracy
+    };
+  });
+}
+
+/* =========================================================
  * ランキングPDF作成（先生がスプレッドシート上のメニューから手動実行）
  * ======================================================= */
 
@@ -123,18 +171,7 @@ function generateRankingPdf() {
     return;
   }
 
-  var data = playersSheet.getDataRange().getValues();
-  var header = data[0]; // id, name, klass, level, xp, rank, stars, questsCleared, answered, correct, accuracy, bossWins, finalClear, examExcel, examWord, updatedAt
-  var rows = data.slice(1).filter(function (r) { return r[0]; }); // idが空の行は無視
-
-  var colIndex = {};
-  header.forEach(function (name, i) { colIndex[name] = i; });
-
-  rows.sort(function (a, b) {
-    var levelDiff = (b[colIndex.level] || 0) - (a[colIndex.level] || 0);
-    if (levelDiff !== 0) return levelDiff;
-    return (b[colIndex.xp] || 0) - (a[colIndex.xp] || 0);
-  });
+  var rows = getSortedRankingRows_(playersSheet);
 
   var rankingSheet = ss.getSheetByName(SHEET_RANKING);
   if (rankingSheet) {
@@ -147,17 +184,10 @@ function generateRankingPdf() {
   rankingSheet.appendRow(outHeader);
   rankingSheet.getRange(1, 1, 1, outHeader.length).setFontWeight("bold").setBackground("#f4b400");
 
-  rows.forEach(function (r, i) {
-    var accuracy = r[colIndex.accuracy];
+  rows.forEach(function (r) {
     rankingSheet.appendRow([
-      i + 1,
-      r[colIndex.name],
-      r[colIndex.klass],
-      r[colIndex.level],
-      r[colIndex.xp],
-      r[colIndex.stars],
-      r[colIndex.questsCleared],
-      (typeof accuracy === "number") ? (Math.round(accuracy * 1000) / 10) + "%" : accuracy
+      r.rank, r.name, r.klass, r.level, r.xp, r.stars, r.questsCleared,
+      (typeof r.accuracy === "number") ? r.accuracy + "%" : r.accuracy
     ]);
   });
 
