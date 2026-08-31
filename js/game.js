@@ -1091,23 +1091,49 @@ function openExpertQuests() {
 
 /* =========================================================
  * ランキング
- * 個人情報保護のため、生徒全員の成績を一覧で読み取れるAPIはあえて用意していない。
- * ここでは自分の最新の成績をサーバーへ送るだけ（write-only）。
- * クラス全体のランキングは、先生がスプレッドシートを Google Classroom 等の
- * 学内システム経由で共有する運用（詳しくは game/README.md を参照）。
+ * ゲーム内でクラス全員のランキングを表示する（read API: Api.getRanking）。
+ * 自分の最新の成績を送信してから、サーバー側で並べ替え済みの一覧を取得して表示する。
  * ======================================================= */
 function openRanking() {
   show("screen-ranking");
+  $("#ranking-list").innerHTML = "";
   if (!Api.enabled()) {
-    $("#ranking-note").textContent = "せんせいが せっていすると、きみの せいせきが せんせいの きろくに とどくよ！（いまは オフラインモード）";
+    $("#ranking-note").textContent = "せんせいが せっていすると、ランキングが みられるようになるよ！（いまは オフラインモード）";
     return;
   }
   $("#ranking-note").textContent = "そうしんちゅう…";
   syncNow();
-  setTimeout(function () {
-    $("#ranking-note").textContent =
-      "きみの せいせきを せんせいに とどけたよ！\nクラスの ランキングは せんせいが Classroom（クラスルーム）で きょうゆうする せいせきひょうを みてね。";
-  }, 500);
+  Api.getRanking(function (ranking) {
+    if (!ranking) {
+      $("#ranking-note").textContent = "ランキングを とりよせられなかったよ…（つうしんエラー）。じかんを おいて もういちど ためしてね。";
+      return;
+    }
+    if (!ranking.length) {
+      $("#ranking-note").textContent = "まだ だれも せいせきを とどけていないみたい。";
+      return;
+    }
+    $("#ranking-note").textContent = "";
+    var myId = save.player.id;
+    var box = $("#ranking-list");
+    ranking.forEach(function (r) {
+      var row = document.createElement("div");
+      row.className = "ranking-row window" + (r.id === myId ? " me" : "");
+      var rankEl = document.createElement("span");
+      rankEl.className = "ranking-rank";
+      rankEl.textContent = r.rank <= 3 ? ["🥇", "🥈", "🥉"][r.rank - 1] : r.rank;
+      var info = document.createElement("div");
+      info.className = "ranking-info";
+      var nameEl = document.createElement("div");
+      nameEl.className = "ranking-name";
+      nameEl.textContent = r.name + "（" + r.klass + "）";
+      var statsEl = document.createElement("div");
+      statsEl.className = "ranking-stats";
+      statsEl.textContent = "Lv." + r.level + " / XP " + r.xp + " / ⭐" + r.stars;
+      info.appendChild(nameEl); info.appendChild(statsEl);
+      row.appendChild(rankEl); row.appendChild(info);
+      box.appendChild(row);
+    });
+  });
 }
 
 /* =========================================================
