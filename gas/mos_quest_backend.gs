@@ -24,6 +24,7 @@
 var SHEET_PLAYERS = "Players";
 var SHEET_FEEDBACK = "ご意見箱";
 var SHEET_PRACTICAL = "Practical";
+var SHEET_RANKING = "ランキング";
 
 /* ---------- エントリーポイント ---------- */
 function doPost(e) {
@@ -96,6 +97,100 @@ function handleSync(player) {
     sheet.appendRow(row);
   }
   return jsonResponse({ ok: true });
+}
+
+/* =========================================================
+ * ランキングPDF作成（先生がスプレッドシート上のメニューから手動実行）
+ * ======================================================= */
+
+/* スプレッドシートを開いたときに「MOS QUEST」メニューを追加する。
+ * これでApps Scriptエディタを開かなくても、シート上の操作だけでPDFを作れる。 */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("MOS QUEST")
+    .addItem("ランキングPDFを作成", "generateRankingPdf")
+    .addToUi();
+}
+
+/* Playersシートのデータをレベル→XPの順で並べ替え、発表用の「ランキング」シートを
+ * 作り直したうえで、そのシートだけをPDFとしてDriveに保存する。
+ * 生徒ID・正答数などの内部情報は出力せず、発表に必要な項目だけに絞る。 */
+function generateRankingPdf() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var playersSheet = ss.getSheetByName(SHEET_PLAYERS);
+  if (!playersSheet) {
+    SpreadsheetApp.getUi().alert("「Players」シートが見つかりません。まだ誰も成績を送信していない可能性があります。");
+    return;
+  }
+
+  var data = playersSheet.getDataRange().getValues();
+  var header = data[0]; // id, name, klass, level, xp, rank, stars, questsCleared, answered, correct, accuracy, bossWins, finalClear, examExcel, examWord, updatedAt
+  var rows = data.slice(1).filter(function (r) { return r[0]; }); // idが空の行は無視
+
+  var colIndex = {};
+  header.forEach(function (name, i) { colIndex[name] = i; });
+
+  rows.sort(function (a, b) {
+    var levelDiff = (b[colIndex.level] || 0) - (a[colIndex.level] || 0);
+    if (levelDiff !== 0) return levelDiff;
+    return (b[colIndex.xp] || 0) - (a[colIndex.xp] || 0);
+  });
+
+  var rankingSheet = ss.getSheetByName(SHEET_RANKING);
+  if (rankingSheet) {
+    rankingSheet.clear();
+  } else {
+    rankingSheet = ss.insertSheet(SHEET_RANKING);
+  }
+
+  var outHeader = ["順位", "なまえ", "クラス", "レベル", "XP", "つ星", "クエスト達成数", "正答率"];
+  rankingSheet.appendRow(outHeader);
+  rankingSheet.getRange(1, 1, 1, outHeader.length).setFontWeight("bold").setBackground("#f4b400");
+
+  rows.forEach(function (r, i) {
+    var accuracy = r[colIndex.accuracy];
+    rankingSheet.appendRow([
+      i + 1,
+      r[colIndex.name],
+      r[colIndex.klass],
+      r[colIndex.level],
+      r[colIndex.xp],
+      r[colIndex.stars],
+      r[colIndex.questsCleared],
+      (typeof accuracy === "number") ? (Math.round(accuracy * 1000) / 10) + "%" : accuracy
+    ]);
+  });
+
+  rankingSheet.autoResizeColumns(1, outHeader.length);
+  ss.setActiveSheet(rankingSheet);
+
+  var pdfBlob = exportSheetAsPdf(ss, rankingSheet);
+  var file = DriveApp.getRootFolder().createFile(pdfBlob)
+    .setName("ランキング_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmm") + ".pdf");
+
+  SpreadsheetApp.getUi().alert(
+    "ランキングPDFを作成しました。\n\nGoogleドライブのマイドライブ直下に保存されています:\n" + file.getUrl()
+  );
+}
+
+/* 指定したシート1枚だけを、Sheets APIのPDFエクスポートURLを使ってPDF化する。 */
+function exportSheetAsPdf(ss, sheet) {
+  var url = "https://docs.google.com/spreadsheets/d/" + ss.getId() + "/export"
+    + "?format=pdf"
+    + "&gid=" + sheet.getSheetId()
+    + "&size=A4"
+    + "&portrait=false"
+    + "&fitw=true"
+    + "&gridlines=false"
+    + "&printtitle=false"
+    + "&sheetnames=false"
+    + "&pagenumbers=false"
+    + "&top_margin=0.5&bottom_margin=0.5&left_margin=0.5&right_margin=0.5";
+
+  var response = UrlFetchApp.fetch(url, {
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }
+  });
+  return response.getBlob();
 }
 
 /* =========================================================
