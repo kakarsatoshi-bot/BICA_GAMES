@@ -1,0 +1,499 @@
+/* =========================================================
+ * MOS QUEST えんしゅつ用スタイル
+ * 粒・光は juice.js がキャンバスに描く。ここは文字・帯・ゲージなど
+ * 画面の部品のうごきを受け持つ。
+ *
+ * ⚠️ 光の点滅に弱い人のために：はやい点滅（1秒に3回をこえるもの）を作らない。
+ *    「ひかえめ」設定（html.fx-low）では、くり返すうごきを止める（このファイルの最後）。
+ * ========================================================= */
+
+/* ---------- 全画面にかぶせる層 ---------- */
+#juice-canvas {
+  position: fixed;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 95;
+  image-rendering: pixelated;
+}
+#juice-text {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 96;
+  overflow: hidden;
+}
+
+/* ヒットストップ：命中の一瞬だけ、画面のうごきを止める */
+html.hitstop *, html.hitstop *::before, html.hitstop *::after {
+  animation-play-state: paused !important;
+}
+
+/* ---------- ポンと出る文字 ---------- */
+.jz-pop {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  color: var(--key);
+  text-shadow: 2px 2px 0 #000;
+  white-space: nowrap;
+  animation: jzPop 1s steps(12) forwards;
+}
+@keyframes jzPop {
+  0%   { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
+  15%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  30%  { transform: translate(-50%, -60%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -220%) scale(1); opacity: 0; }
+}
+
+/* ---------- まんなかにドンと出る文字 ---------- */
+.jz-announce {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: clamp(20px, 7vw, 32px);
+  letter-spacing: 2px;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+  animation: jzAnnounce .9s cubic-bezier(.2, 1.4, .4, 1) forwards;
+}
+@keyframes jzAnnounce {
+  0%   { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+  18%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  78%  { transform: translate(-50%, -50%) scale(1.04); opacity: 1; }
+  100% { transform: translate(-50%, -80%) scale(1.04); opacity: 0; }
+}
+.jz-announce.crit    { color: var(--key); text-shadow: 3px 3px 0 #a02000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000; }
+.jz-announce.fever   { color: #ff9d3b; animation-duration: 1.1s; }
+.jz-announce.special { color: var(--accent); }
+.jz-announce.shiny   { color: #fff7a0; animation-duration: 1.2s; }
+.jz-announce.perfect { color: var(--ok); font-size: clamp(26px, 9vw, 44px); animation-duration: 1.4s; }
+.jz-announce.record  { color: var(--accent); font-size: clamp(24px, 8vw, 40px); animation-duration: 1.6s; }
+.jz-announce.floor   { color: #c79bff; font-size: clamp(18px, 6vw, 26px); }
+
+/* ---------- 上から降りてくるお知らせの帯 ---------- */
+.jz-banner {
+  position: absolute;
+  left: 50%; top: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--winbg);
+  border: 3px solid var(--key);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--winbg), 0 6px 0 rgba(0, 0, 0, .45);
+  padding: 8px 16px;
+  width: max-content;
+  max-width: min(92vw, 520px);
+  animation: jzBannerIn .35s cubic-bezier(.2, 1.5, .4, 1) both;
+}
+.jz-banner.out { animation: jzBannerOut .3s steps(5) forwards; }
+@keyframes jzBannerIn  { from { transform: translate(-50%, -160%); } to { transform: translate(-50%, 0); } }
+@keyframes jzBannerOut { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -160%); opacity: 0; } }
+.jz-banner-icon { font-size: 26px; flex-shrink: 0; }
+.jz-banner-head { font-size: 12px; color: var(--accent); line-height: 1.3; }
+.jz-banner-body { font-size: 15px; color: var(--key); line-height: 1.4; }
+.jz-banner.levelup { border-color: var(--ok); }
+.jz-banner.levelup .jz-banner-body { color: var(--ok); }
+.jz-banner.mission { border-color: var(--accent); }
+
+/* ---------- 画面の切りかえ（帯が閉じて、開く） ---------- */
+.jz-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 97;
+  display: flex;
+  flex-direction: column;
+}
+.jz-wipe span {
+  flex: 1;
+  background: #05051a;
+  box-shadow: inset 0 -2px 0 var(--key);
+  transform: translateX(-101%);
+  animation: jzWipeIn .3s steps(8) forwards;
+}
+.jz-wipe span:nth-child(even) { transform: translateX(101%); animation-name: jzWipeInR; }
+.jz-wipe-plain span { animation-duration: .18s; }
+.jz-wipe span:nth-child(2) { animation-delay: .02s; }
+.jz-wipe span:nth-child(3) { animation-delay: .04s; }
+.jz-wipe span:nth-child(4) { animation-delay: .06s; }
+.jz-wipe span:nth-child(5) { animation-delay: .08s; }
+.jz-wipe span:nth-child(6) { animation-delay: .1s; }
+.jz-wipe.open { pointer-events: none; }
+.jz-wipe.open span { transform: none; animation: jzWipeOut .28s steps(8) forwards; animation-delay: 0s; }
+.jz-wipe.open span:nth-child(even) { animation-name: jzWipeOutR; }
+@keyframes jzWipeIn   { to { transform: translateX(0); } }
+@keyframes jzWipeInR  { to { transform: translateX(0); } }
+@keyframes jzWipeOut  { to { transform: translateX(101%); } }
+@keyframes jzWipeOutR { to { transform: translateX(-101%); } }
+
+/* ---------- バトル：敵のうごき ---------- */
+#enemy-canvas.idle { animation: enemyIdle 1.4s steps(2) infinite; }
+@keyframes enemyIdle { 50% { transform: translateY(-5px); } }
+#enemy-canvas.spawn-boss { animation: spawnBoss .6s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes spawnBoss {
+  0%   { transform: translateY(-140%) scale(1.2); opacity: 0; }
+  60%  { transform: translateY(0) scale(1.1, .9); opacity: 1; }
+  100% { transform: none; }
+}
+#enemy-canvas.lunge { animation: enemyLunge .42s steps(7); }
+@keyframes enemyLunge {
+  30% { transform: translateY(24px) scale(1.35); }
+  60% { transform: translateY(24px) scale(1.35); }
+}
+#enemy-canvas.gone { opacity: 0; }
+#enemy-canvas.shiny { filter: drop-shadow(0 0 4px #fff7a0) drop-shadow(0 0 10px #ffd23b); }
+#enemy-canvas.rare  { filter: drop-shadow(0 0 4px #b8f3ff) drop-shadow(0 0 10px #6ee7ff); }
+.nametag.shiny { border-color: var(--key); color: var(--key); }
+
+/* ---------- バトル：技・ダメージの文字 ---------- */
+.fx-float-crit { font-size: 22px; color: #fff; text-shadow: 2px 2px 0 #a02000, 0 0 8px #ffd23b; animation-duration: 1.1s; }
+.fx-float-bad  { font-size: 17px; }
+.fx-float-quick { font-size: 13px; color: var(--accent); }
+
+/* ひっさつわざのカットイン（ステージを横切る帯）。枠はステージと同じ位置に重ねる */
+.fx-cutin-wrap { position: absolute; overflow: hidden; border-radius: 8px; }
+.fx-cutin {
+  position: absolute;
+  left: -10%; right: -10%;
+  top: 50%;
+  height: 86px;
+  margin-top: -43px;
+  background: linear-gradient(180deg, #2a0a4a, #101034);
+  border-top: 3px solid var(--key);
+  border-bottom: 3px solid var(--key);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  overflow: hidden;
+  animation: fxCutin 1s steps(24) forwards;
+}
+.fx-cutin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 34px, rgba(255, 255, 255, .1) 34px 40px);
+  animation: fxSpeedLines .5s linear infinite;
+}
+.fx-cutin-label { position: relative; font-size: 13px; color: var(--accent); letter-spacing: 4px; line-height: 1.3; }
+.fx-cutin-name {
+  position: relative;
+  font-size: clamp(17px, 5.4vw, 26px);
+  color: var(--key);
+  text-shadow: 3px 3px 0 #000;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+@keyframes fxCutin {
+  0%   { transform: translateX(-110%) skewY(-4deg); }
+  14%  { transform: translateX(0) skewY(-4deg); }
+  82%  { transform: translateX(0) skewY(-4deg); opacity: 1; }
+  100% { transform: translateX(110%) skewY(-4deg); opacity: 0; }
+}
+@keyframes fxSpeedLines { to { transform: translateX(40px); } }
+
+/* ボス登場の「WARNING」 */
+.fx-warning {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 5;
+  animation: fxWarnFade 1.5s steps(12) forwards;
+}
+.fx-warning-row {
+  width: calc(100% + 200px);   /* 横に流れても右はしが切れないように、はみ出す分だけ長くする */
+  white-space: nowrap;
+  font-size: 18px;
+  letter-spacing: 3px;
+  line-height: 1.5;
+  color: #ffe0e6;
+  background: #a0102a;
+  border-top: 2px solid var(--key);
+  border-bottom: 2px solid var(--key);
+  animation: fxMarquee 1.5s linear forwards;
+}
+.fx-warning-row:last-child { animation-name: fxMarqueeR; }
+@keyframes fxMarquee  { from { transform: translateX(0); } to { transform: translateX(-160px); } }
+@keyframes fxMarqueeR { from { transform: translateX(-160px); } to { transform: translateX(0); } }
+@keyframes fxWarnFade { 0% { opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- バトル：コンボ表示 ---------- */
+.combo-hud {
+  position: absolute;
+  right: 10px; top: 28px;
+  z-index: 4;
+  text-align: right;
+  line-height: 1;
+  pointer-events: none;
+  transform-origin: right top;
+}
+#combo-num { display: block; font-size: 34px; color: var(--key); text-shadow: 3px 3px 0 #000; }
+.combo-label { font-size: 11px; letter-spacing: 2px; color: #fff; text-shadow: 2px 2px 0 #000; }
+.combo-hud.bump { animation: comboBump .3s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes comboBump { 0% { transform: scale(1.9) rotate(-6deg); } 100% { transform: none; } }
+.combo-hud.tier-bolt #combo-num   { color: #fff27a; }
+.combo-hud.tier-fire #combo-num   { color: #ff9d3b; }
+.combo-hud.tier-ice #combo-num    { color: #6ee7ff; }
+.combo-hud.tier-meteor #combo-num { color: #c79bff; }
+.battle-stage.hotspot-mode .combo-hud { top: auto; bottom: 6px; transform: scale(.6); transform-origin: right bottom; }
+
+/* フィーバー（コンボ5いじょう）：ステージのふちが燃える */
+.battle-stage.fever { border-color: #ff9d3b; animation: feverGlow 1.4s ease-in-out infinite; }
+@keyframes feverGlow {
+  0%, 100% { box-shadow: 0 0 0 2px #ff5d3b, 0 0 12px #ff5d3b; }
+  50%      { box-shadow: 0 0 0 2px #ffd23b, 0 0 24px #ffd23b; }
+}
+
+/* ---------- バトル：EXPバー・クイック・ひっさつゲージ ---------- */
+.battle-xp { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--key); margin: 0 0 6px; }
+.battle-xp .xpbar { flex: 1; height: 9px; margin-top: 0; }
+
+.battle-meters { display: flex; gap: 8px; margin-top: 6px; }
+.quick-bar, .special-gauge {
+  position: relative;
+  flex: 1;
+  height: 17px;
+  border: 2px solid var(--white);
+  border-radius: 4px;
+  background: #101040;
+  overflow: hidden;
+}
+#quick-fill { height: 100%; width: 0; background: #2d8fb0; }
+.quick-bar.off, .quick-bar.expired { opacity: .45; }
+.quick-bar.expired #quick-fill { background: #3a3a6a; }
+.meter-label {
+  position: absolute;
+  inset: 0;
+  font-size: 10px;
+  line-height: 13px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  white-space: nowrap;
+}
+#special-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #9a5fd6, #ff5d7a, #ffd23b);
+  transition: width .4s steps(8);
+}
+.special-gauge.full { border-color: var(--key); animation: gaugeGlow 1s ease-in-out infinite; }
+@keyframes gaugeGlow { 50% { box-shadow: 0 0 0 2px var(--key), 0 0 12px var(--key); } }
+
+/* ---------- バトル：ハート・ボスHP ---------- */
+.hearts { display: inline-block; }
+.hearts.hurt { animation: heartsHurt .45s steps(6); }
+@keyframes heartsHurt {
+  25% { transform: scale(1.5); color: #fff; }
+  50% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.hearts.heal { animation: heartsHeal .5s steps(5); }
+@keyframes heartsHeal { 50% { transform: scale(1.4); color: var(--ok); } }
+
+#boss-hpghost {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%; width: 100%;
+  background: #fff;
+  transition: width .8s ease-in .3s;
+}
+#boss-hpfill { position: relative; }
+
+/* ---------- バトル：せんたくし ---------- */
+.choice { animation: choiceIn .22s steps(4) both; }
+.choice:nth-child(2) { animation-delay: .05s; }
+.choice:nth-child(3) { animation-delay: .1s; }
+.choice:nth-child(4) { animation-delay: .15s; }
+@keyframes choiceIn { from { transform: translateY(10px); opacity: 0; } }
+.choice:active:not(:disabled) { transform: translateY(2px); }
+.choice.picked-right { animation: pickRight .35s steps(5); box-shadow: 0 0 0 2px var(--ok), 0 0 12px var(--ok); }
+@keyframes pickRight { 40% { transform: scale(1.05); } }
+.choice.picked-wrong { animation: pickWrong .35s steps(6); }
+@keyframes pickWrong {
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-3px); }
+}
+/* まちがえたとき、正解のボタンを点線でしめす */
+.choice.was-right { border-color: var(--ok); border-style: dashed; color: var(--ok); opacity: 1; }
+
+/* ---------- リザルト ---------- */
+#result-title { animation: resultSlam .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes resultSlam { 0% { transform: scale(2.4); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.result-star { display: inline-block; color: #3a3a6a; }
+.result-star.on { color: var(--key); text-shadow: 0 0 10px #ffd23b; animation: starStamp .4s cubic-bezier(.2, 1.8, .4, 1); }
+@keyframes starStamp { 0% { transform: scale(3) rotate(-30deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+.result-big { margin: 4px 0; }
+#result-big-label { display: block; font-size: 12px; color: var(--accent); }
+#result-big-num { font-size: 44px; color: var(--key); text-shadow: 3px 3px 0 #a05a00; line-height: 1.15; }
+.result-big.fail #result-big-num { color: var(--white); text-shadow: 3px 3px 0 #3a3a6a; }
+
+.result-tally { margin: 8px auto; max-width: 320px; }
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 2px 0;
+  border-bottom: 2px dotted #2a2a5a;
+  animation: rowIn .25s steps(4) both;
+}
+.result-row span:first-child { color: var(--accent); }
+.result-row.xp span:last-child { color: var(--key); font-size: 18px; }
+@keyframes rowIn { from { transform: translateX(-16px); opacity: 0; } }
+
+.result-xp { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--key); margin: 10px 0 4px; }
+.result-xp .xpbar { flex: 1; margin-top: 0; }
+.result-xp .xpfill { transition: none; }
+#result-xptext { color: #9a9ac0; min-width: 84px; text-align: right; }
+.result-xp.levelup-flash .xpbar { border-color: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+.result-window > .btn, .result-window > .chest-box { animation: rowIn .3s steps(4) both; animation-delay: .8s; }
+
+/* ---------- レベルアップのえんしゅつ ---------- */
+#levelup-overlay { cursor: pointer; background: rgba(5, 5, 26, .94); }
+.levelup-card { text-align: center; animation: resultSlam .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+.levelup-head {
+  font-size: clamp(34px, 11vw, 56px);
+  line-height: 1.2;
+  letter-spacing: 4px;
+  color: var(--key);
+  text-shadow: 4px 4px 0 #a05a00, 8px 8px 0 #101034;
+}
+.levelup-lv { font-size: 28px; margin: 10px 0; color: #fff; text-shadow: 2px 2px 0 #000; }
+#lvup-to { color: var(--ok); font-size: 44px; }
+.levelup-arrow { margin: 0 14px; color: var(--accent); }
+.levelup-line {
+  font-size: 16px;
+  color: var(--accent);
+  text-shadow: 2px 2px 0 #000;
+  margin: 6px 0;
+  animation: rowIn .3s steps(4) both;
+  animation-delay: .5s;
+}
+#lvup-weapon { color: var(--key); animation-delay: .8s; }
+.levelup-tap { margin-top: 18px; font-size: 12px; color: #9a9ac0; }
+
+/* ---------- たからばこ ---------- */
+#chest-canvas.rattle { animation: chestRattle .55s steps(10); }
+@keyframes chestRattle {
+  15% { transform: rotate(-8deg); }
+  30% { transform: rotate(8deg); }
+  45% { transform: rotate(-7deg); }
+  60% { transform: rotate(7deg); }
+  80% { transform: rotate(-4deg) scale(1.08); }
+}
+#chest-rarity { font-size: 12px; letter-spacing: 3px; margin-top: 4px; color: #9a9ac0; }
+.chest-box.rarity-rare { border-color: var(--accent); }
+.chest-box.rarity-rare #chest-rarity { color: var(--accent); }
+.chest-box.rarity-super { border-color: var(--key); }
+.chest-box.rarity-super #chest-rarity { color: var(--key); }
+
+/* ---------- タイトル ---------- */
+.game-logo { animation: logoFloat 3.2s ease-in-out infinite; }
+@keyframes logoFloat { 50% { transform: translateY(-7px); } }
+.title-fx-toggle {
+  display: block;
+  margin: 12px auto 0;
+  background: none;
+  border: none;
+  color: #7a7aa0;
+  font-family: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.title-fx-toggle:hover, .title-fx-toggle:focus { color: var(--key); outline: none; }
+
+/* ---------- メニュー・一覧 ---------- */
+#screen-menu.active .menu-btn { animation: menuPop .28s cubic-bezier(.2, 1.5, .4, 1) both; }
+#screen-menu.active .menu-btn:nth-child(2)  { animation-delay: .03s; }
+#screen-menu.active .menu-btn:nth-child(3)  { animation-delay: .06s; }
+#screen-menu.active .menu-btn:nth-child(4)  { animation-delay: .09s; }
+#screen-menu.active .menu-btn:nth-child(5)  { animation-delay: .12s; }
+#screen-menu.active .menu-btn:nth-child(6)  { animation-delay: .15s; }
+#screen-menu.active .menu-btn:nth-child(7)  { animation-delay: .18s; }
+#screen-menu.active .menu-btn:nth-child(8)  { animation-delay: .21s; }
+#screen-menu.active .menu-btn:nth-child(9)  { animation-delay: .24s; }
+#screen-menu.active .menu-btn:nth-child(10) { animation-delay: .27s; }
+@keyframes menuPop { from { transform: translateY(14px) scale(.92); opacity: 0; } }
+.menu-btn:hover:not(.locked) .menu-icon { animation: iconHop .4s steps(4); }
+@keyframes iconHop { 50% { transform: translateY(-6px) scale(1.15); } }
+.menu-btn.is-new::after {
+  content: "NEW";
+  position: absolute;
+  top: -8px; left: -6px;
+  background: var(--ok);
+  color: #05051a;
+  border: 2px solid var(--white);
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  padding: 0 6px;
+}
+.menu-record { display: block; font-size: 10px; color: var(--key); margin-top: 4px; }
+
+#quest-list .quest-card { animation: rowIn .25s steps(4) both; }
+#quest-list .quest-card:nth-child(2) { animation-delay: .04s; }
+#quest-list .quest-card:nth-child(3) { animation-delay: .08s; }
+#quest-list .quest-card:nth-child(4) { animation-delay: .12s; }
+#quest-list .quest-card:nth-child(5) { animation-delay: .16s; }
+#quest-list .quest-card:nth-child(n+6) { animation-delay: .2s; }
+
+/* ---------- 図鑑・実績・設定 ---------- */
+.bestiary-meta { font-size: 11px; color: var(--accent); margin-top: 3px; }
+.achievement-card.fresh { border-color: var(--key); }
+.achievement-bar { height: 6px; border: 2px solid #3a3a6a; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.achievement-bar > div { height: 100%; background: var(--accent); }
+.setting-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+
+/* ---------- スマホ ---------- */
+@media (max-width: 480px) {
+  #combo-num { font-size: 26px; }
+  #result-big-num { font-size: 36px; }
+  .fx-cutin { height: 72px; margin-top: -36px; }
+  .jz-banner { top: 8px; padding: 6px 12px; }
+}
+
+/* =========================================================
+ * 「ひかえめ」設定：くり返すうごき・大きなうごきを止める
+ * ======================================================= */
+html.fx-low #enemy-canvas.idle,
+html.fx-low .title-deco canvas,
+html.fx-low .game-logo,
+html.fx-low .blink,
+html.fx-low .levelup,
+html.fx-low .battle-stage.fever,
+html.fx-low .special-gauge.full,
+html.fx-low .fx-cutin,
+html.fx-low .fx-cutin::before,
+html.fx-low .fx-warning,
+html.fx-low .fx-warning-row,
+html.fx-low .combo-hud.bump,
+html.fx-low #enemy-canvas.lunge,
+html.fx-low #enemy-canvas.spawn-boss,
+html.fx-low .choice,
+html.fx-low #result-title,
+html.fx-low .result-row,
+html.fx-low .result-star.on,
+html.fx-low .result-window > .btn,
+html.fx-low .result-window > .chest-box,
+html.fx-low .levelup-card,
+html.fx-low .levelup-line,
+html.fx-low #chest-canvas.rattle,
+html.fx-low #screen-menu.active .menu-btn,
+html.fx-low #quest-list .quest-card,
+html.fx-low .menu-btn:hover .menu-icon {
+  animation: none !important;
+}
+html.fx-low .jz-announce, html.fx-low .jz-pop { animation: jzFade 1s steps(4) forwards; }
+@keyframes jzFade { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+html.fx-low .battle-stage.fever { box-shadow: 0 0 0 2px #ff9d3b; }
+html.fx-low .special-gauge.full { box-shadow: 0 0 0 2px var(--key); }

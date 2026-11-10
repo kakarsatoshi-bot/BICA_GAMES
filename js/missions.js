@@ -10,7 +10,15 @@ var MISSION_TEMPLATES = [
   { id: "review1", label: "復習を 1もん せいかいする", type: "reviewCorrect", target: 1 },
   { id: "answer10", label: "10もん こたえる", type: "answered", target: 10 },
   { id: "quest1", label: "クエストを 1つ クリアする", type: "questClear", target: 1 },
-  { id: "bossWin1", label: "ボスを 1体 たおす", type: "bossWin", target: 1 }
+  { id: "bossWin1", label: "ボスを 1体 たおす", type: "bossWin", target: 1 },
+  { id: "combo5", label: "コンボ5いじょう たっせいする", type: "comboReach", target: 5 },
+  { id: "crit1", label: "かいしんの いちげきを 1回 だす", type: "crit", target: 1 },
+  { id: "quick3", label: "クイックせいかいを 3回 きめる", type: "quick", target: 3 },
+  { id: "special1", label: "ひっさつわざを 1回 はなつ", type: "special", target: 1 },
+  { id: "kills8", label: "モンスターを 8体 たおす", type: "kills", target: 8 },
+  /* need: この条件を満たす人にだけ出す（まだ入れない場所のミッションを出さない） */
+  { id: "endless5", label: "むげんの めいきゅうで 5かい もぐる", type: "endlessFloor", target: 5,
+    need: function () { return clearedCount() >= ENDLESS_UNLOCK; } }
 ];
 
 var Missions = (function () {
@@ -24,7 +32,8 @@ var Missions = (function () {
   function ensureToday(save) {
     var today = todayStr();
     if (save.missions.date === today) return false;
-    var picks = shuffle(MISSION_TEMPLATES).slice(0, 3);
+    var avail = MISSION_TEMPLATES.filter(function (t) { return !t.need || t.need(save); });
+    var picks = shuffle(avail).slice(0, 3);
     save.missions = {
       date: today,
       list: picks.map(function (t) {
