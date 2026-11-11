@@ -95,8 +95,18 @@ function loadSave() {
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
+var persistWarned = false;
 function persist() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  /* プライベートブラウズや容量いっぱいの端末では保存に失敗することがある。
+   * そのときもゲームは止めず、いちどだけ知らせる（その回の記録は、閉じると残らない）。 */
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  } catch (e) {
+    if (!persistWarned) {
+      persistWarned = true;
+      setTimeout(function () { toast("この たんまつでは きろくを ほぞんできないみたい…（とじると きえます）"); }, 0);
+    }
+  }
 }
 /* 新しく足した項目が無ければ初期値を入れる（旧セーブとの後方互換。新規セーブにも同じものを通す）。
  * ⚠️ 既にある項目の名前・意味は変えない（生徒のセーブが読めなくなる）。 */
