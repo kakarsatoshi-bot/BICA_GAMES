@@ -500,3 +500,6 @@ html.fx-low .special-gauge.full { box-shadow: 0 0 0 2px var(--key); }
 
 /* 出たばかりの選択肢は一瞬だけ押せない（「すすむ」の連打で、次の問題に答えてしまうのを防ぐ） */
 .choices.arming { pointer-events: none; }
+
+/* メッセージが長くなっても「すすむ」と文字が重ならないよう、下に余白をとる */
+.msg-window { padding-bottom: 30px; }

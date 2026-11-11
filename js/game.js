@@ -119,6 +119,7 @@ function ensureSaveShape(s) {
   s.stats.specials = s.stats.specials || 0; // ひっさつわざ
   s.stats.kills = s.stats.kills || 0;      // たおしたモンスターの合計
   s.gauge = s.gauge || 0;                  // ひっさつゲージ（0〜100）。戦闘をまたいで持ちこす
+  s.hints = s.hints || {};                 // 見せおわった「はじめての ヒント」
   return s;
 }
 function newSave(name, klass) {
@@ -418,6 +419,22 @@ var SPECIAL_MOVES = [
   "Ctrl+Z ブレイカー", "オートSUM キャノン", "ぜったいさんしょう ロック", "フラッシュフィル ストーム",
   "じょうけんしょしき バースト", "スタイル いっかつ ざん", "もくじ じどうせいせい", "ウィンドウわく こてい"
 ];
+
+/* はじめての ヒント：新しいしくみに はじめて出会ったときだけ、メッセージの最後に ひとこと そえる。
+ * （説明書を読まなくても、遊びながら分かるように。1回見せたら save.hints に記録して、もう出さない） */
+var HINTS = {
+  combo:   "れんぞく せいかいで コンボ！ つづけるほど こうげきが しんかして、もらえる EXPも ふえるぞ。",
+  quick:   "「QUICK！」は はやく せいかいした しるし。EXPは かわらないので、あせらず よく よんで こたえよう。",
+  crit:    "かいしんの いちげきは、ときどき でる ラッキーな いちげき。EXPが すこし ふえるぞ。",
+  gauge:   "ひっさつゲージが MAXに なった！ つぎの せいかいで ひっさつわざが でるぞ。",
+  special: "ひっさつわざは EXPが ふえる。ゲージは つぎの たたかいにも もちこせるぞ。",
+  shiny:   "色ちがいの モンスターを たおすと、図鑑に 色ちがいが とうろくされるぞ。"
+};
+function firstHint(key) {
+  if (!key || !HINTS[key] || save.hints[key]) return "";
+  save.hints[key] = 1;
+  return "\n【ヒント】" + HINTS[key];
+}
 
 /* いま戦闘画面で、この問題の番のままか（時間差の演出が、次の問題や別の画面に出ないように） */
 function battleLive(b, turn) {
@@ -1002,6 +1019,12 @@ function answer(isCorrect, btn) {
     }
     if (shinyNew) msg += "\n✨ 色ちがいを 図鑑に とうろくした！";
     if (healed) msg += "\n♥ が 1つ かいふくした！";
+    /* はじめての ヒント（1回の答えにつき1つまで。だいじな順） */
+    msg += firstHint(!special && battle.useGauge && battle.gauge >= 100 ? "gauge"
+          : special ? "special"
+          : battle.combo === 2 ? "combo"
+          : crit ? "crit"
+          : quick ? "quick" : null);
   } else {
     var hadCombo = battle.combo;
     battle.combo = 0;
@@ -1166,6 +1189,10 @@ function startEndless() {
     bossPhase: false, bossCorrect: 0
   };
   save.endless.runs++;
+  if (!save.hints.endless) {
+    save.hints.endless = 1;
+    Juice.banner("🌀", "むげんの めいきゅう", "ミスは 3かいまで。5かいごとの ボスを たおすと ♥が かいふく！", "");
+  }
   beginBattle();
 }
 
