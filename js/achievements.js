@@ -31,13 +31,17 @@ var ACHIEVEMENTS = [
     check: function (s) { var e = s.exams || {}; return (e.excel && e.excel.best >= 900) || (e.word && e.word.best >= 900); } },
   { id: "mastery20", name: "もんだいマスター", desc: "20もん いじょう しゅうじゅく(box5)にする",
     check: function (s) { var n = 0; for (var q in s.records) { if (s.records[q].box >= 5) n++; } return n >= 20; } },
-  { id: "bestiary_full", name: "モンスター博士", desc: "図鑑の モンスターを ぜんぶ みつける",
+  { id: "bestiary_full", name: "モンスター博士", desc: "図鑑の モンスターを ぜんぶ みつける（げきレアは 1体で OK）",
     check: function (s) {
-      /* 図鑑にのっているモンスターだけを数える（図鑑の外のボスに会っても数に入れない） */
-      return buildBestiaryList(ALL_QUESTS).every(function (m) { return s.seenMonsters.indexOf(m.name) >= 0; });
+      /* ふつうのモンスター全部＋げきレアを1体以上（げきレア全種は、べつの実績「げきレア コンプリート」）。
+       * 図鑑の外のボスに会っても数に入れない。 */
+      var list = buildBestiaryList(ALL_QUESTS);
+      var seen = function (m) { return s.seenMonsters.indexOf(m.name) >= 0; };
+      return list.filter(function (m) { return !m.rare; }).every(seen) &&
+             list.filter(function (m) { return m.rare; }).some(seen);
     } },
   { id: "rare_found", name: "げきレア発見", desc: "げきレアモンスターに であう",
-    check: function (s) { return s.seenMonsters.indexOf(RARE_MONSTER.name) >= 0; } },
+    check: function (s) { return RARE_MONSTERS.some(function (r) { return s.seenMonsters.indexOf(r.mob.name) >= 0; }); } },
   { id: "mission30", name: "デイリー皆勤賞", desc: "デイリーミッションを 30回 たっせいする",
     check: function (s) { return s.stats.missionsCompleted >= 30; } },
   { id: "practical_first_pass", name: "じっせん道場デビュー", desc: "はじめて じっせん課題に ごうかくする",

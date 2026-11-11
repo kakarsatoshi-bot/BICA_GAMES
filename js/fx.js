@@ -8,6 +8,18 @@ var Fx = (function () {
 
   function layer() { return document.getElementById("fx-layer"); }
 
+  /* 時間差で出る演出（爆発・カットインなど）が、バトルをはなれたあとの画面に出ないようにする。
+   * cancel() を呼ぶと番号が進み、それより前に予約した演出は何もしなくなる。 */
+  var gen = 0;
+  function later(ms, fn) {
+    var g0 = gen;
+    setTimeout(function () { if (g0 === gen) fn(); }, ms);
+  }
+  function cancel() {
+    gen++;
+    Array.prototype.slice.call(document.querySelectorAll(".fx-cutin-wrap, .fx-warning")).forEach(function (n) { n.remove(); });
+  }
+
   /* 敵スプライトの中心座標（ステージ内の相対位置）。
    * 敵が隠れているとき（ホットスポット問題）はステージの中心を使う。 */
   function enemyPos() {
@@ -81,22 +93,22 @@ var Fx = (function () {
         Juice.line(g.x + Math.cos(a) * 150, g.y + Math.sin(a) * 150, g.x, g.y,
           { color: "#b8f3ff", width: 7, dur: 0.26, delay: i * 0.03 });
       }
-      setTimeout(function () {
+      later(150, function () {
         Juice.burst(g.x, g.y, { n: 30, colors: cols, speed: 380, g: 240, size: 7, shape: "star" });
         Juice.ring(g.x, g.y, { color: "#b8f3ff", r1: 110, width: 10 });
-      }, 150);
+      });
     } else if (kind === "meteor") {
       for (var m = 0; m < 4; m++) {
         (function (m) {
-          setTimeout(function () {
+          later(m * 85, function () {
             var ox = (m - 1.5) * 34, oy = (m % 2) * 18 - 9;
             Juice.line(g.x + 190 + ox, g.y - 210, g.x + ox, g.y + oy, { color: cols[m % 2], width: 12, dur: 0.24 });
-            setTimeout(function () {
+            later(110, function () {
               Juice.burst(g.x + ox, g.y + oy, { n: 14, colors: cols, speed: 340, size: 8 });
               Juice.ring(g.x + ox, g.y + oy, { color: cols[m % 2], r1: 70 });
               Juice.shake(0.22);
-            }, 110);
-          }, m * 85);
+            });
+          });
         })(m);
       }
     } else {
@@ -107,14 +119,14 @@ var Fx = (function () {
       Juice.burst(g.x, g.y, { n: 12, colors: [c0, "#ffffff"], speed: 300, size: 6 });
     }
 
-    setTimeout(function () {
+    later(150, function () {
       sprite("fxBurst", "gold", crit ? 6 : 4, "fx-burst", 420, p.x, p.y);
       if (crit) {
         Juice.ring(g.x, g.y, { color: "#ffffff", r1: 150, width: 12 });
         Juice.burst(g.x, g.y, { n: 28, colors: ["#ffffff", "#ffd23b", "#ff5d7a"], speed: 520, size: 8, shape: "star" });
         Juice.hitStop(90);
       }
-    }, 150);
+    });
     flash("rgba(255,255,255," + (crit ? ".32" : ".2") + ")", 220);
     Juice.shake(crit ? 0.5 : (kind === "slash" ? 0.18 : 0.3));
     Juice.buzz(crit ? [20, 30, 40] : 15);
@@ -123,7 +135,8 @@ var Fx = (function () {
   /* ひっさつわざ：暗転 → 技名のカットイン → 十字の斬撃 → 大爆発 */
   function special(name, onHit) {
     var g = Juice.enemyPoint();
-    Juice.overlay("#05051a", 0.6, 900, 0.75);
+    /* 暗転（画面全体の明るさが急に変わるので、ひかえめ設定では出さない。帯だけで十分伝わる） */
+    if (!Juice.isLow()) Juice.overlay("#05051a", 0.6, 900, 0.75);
     /* カットインは暗転より手前に出す（暗転は全画面のキャンバスに描くので、
      * ステージの中に置くと一緒に暗くなってしまう）。ステージと同じ位置・大きさの枠を上の層に作る */
     var r = Juice.stageRect();
@@ -142,13 +155,13 @@ var Fx = (function () {
     Juice.textLayer().appendChild(wrap);
     setTimeout(function () { wrap.remove(); }, 1000);
 
-    setTimeout(function () {
+    later(520, function () {
       var cols = COLORS.special;
       [[-90, -90, 90, 90], [90, -90, -90, 90], [-110, 0, 110, 0], [0, -110, 0, 110]].forEach(function (v, i) {
         Juice.line(g.x + v[0], g.y + v[1], g.x + v[2], g.y + v[3], { color: cols[(i % 4) + 1], width: 16, dur: 0.28, delay: i * 0.07 });
       });
-    }, 520);
-    setTimeout(function () {
+    });
+    later(860, function () {
       Juice.flash("#ffffff", 0.5, 420);
       Juice.rays(g.x, g.y, { dur: 1.1, len: 320, alpha: 0.5 });
       Juice.ring(g.x, g.y, { color: "#ffffff", r1: 220, width: 16, dur: 0.6 });
@@ -158,7 +171,7 @@ var Fx = (function () {
       Juice.hitStop(130);
       Juice.buzz([30, 40, 30, 40, 80]);
       if (onHit) onHit();
-    }, 860);
+    });
   }
 
   /* 敵の反撃（まちがえたとき）：ツメの引っかき＋赤いフラッシュ */
@@ -185,12 +198,12 @@ var Fx = (function () {
       Juice.shake(0.8);
       Juice.hitStop(110);
       [0, 160, 320].forEach(function (d, i) {
-        setTimeout(function () {
+        later(d + 120, function () {
           var ox = (i - 1) * 60, oy = (i % 2) * 40 - 20;
           Juice.burst(g.x + ox, g.y + oy, { n: 22, colors: ["#ffd23b", "#ff9d3b", "#ffffff"], speed: 420, size: 8 });
           Juice.ring(g.x + ox, g.y + oy, { color: "#ffd23b", r1: 100 });
           if (typeof Sound !== "undefined" && Sound.boom) Sound.boom();
-        }, d + 120);
+        });
       });
     }
   }
@@ -278,6 +291,6 @@ var Fx = (function () {
   return {
     attack: attack, special: special, claw: claw, defeat: defeat,
     particles: particles, floatText: floatText, flash: flash,
-    warning: warning, ambient: ambient, stopAmbient: stopAmbient
+    warning: warning, ambient: ambient, stopAmbient: stopAmbient, cancel: cancel
   };
 })();

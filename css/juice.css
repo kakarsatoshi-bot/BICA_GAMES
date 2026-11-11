@@ -497,3 +497,6 @@ html.fx-low .jz-announce, html.fx-low .jz-pop { animation: jzFade 1s steps(4) fo
 @keyframes jzFade { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
 html.fx-low .battle-stage.fever { box-shadow: 0 0 0 2px #ff9d3b; }
 html.fx-low .special-gauge.full { box-shadow: 0 0 0 2px var(--key); }
+
+/* 出たばかりの選択肢は一瞬だけ押せない（「すすむ」の連打で、次の問題に答えてしまうのを防ぐ） */
+.choices.arming { pointer-events: none; }

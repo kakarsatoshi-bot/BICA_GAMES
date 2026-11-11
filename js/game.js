@@ -118,6 +118,7 @@ function ensureSaveShape(s) {
   s.stats.quicks = s.stats.quicks || 0;    // クイックせいかい
   s.stats.specials = s.stats.specials || 0; // ひっさつわざ
   s.stats.kills = s.stats.kills || 0;      // たおしたモンスターの合計
+  s.gauge = s.gauge || 0;                  // ひっさつゲージ（0〜100）。戦闘をまたいで持ちこす
   return s;
 }
 function newSave(name, klass) {
@@ -179,7 +180,7 @@ function show(id) {
   });
   $("#" + id).classList.add("active");
   /* バトルの外では、ステージの粒を止めて、マップの曲にもどす（リザルトは無音でジングルを聞かせる） */
-  if (id !== "screen-battle") Fx.stopAmbient();
+  if (id !== "screen-battle") { Fx.stopAmbient(); Fx.cancel(); }
   if (id !== "screen-battle" && id !== "screen-result") Sound.playBgm("menu");
 }
 function toast(msg) {
@@ -382,13 +383,16 @@ var TUNE = {
   critBase: 0.08,       // かいしんの いちげきの、もとの確率
   critPerCombo: 0.02,   // コンボ1つごとに上がる確率
   critComboCap: 6,      // ↑が伸びるのはコンボ6まで
-  critQuick: 0.10,      // クイックせいかいのときの上のせ
-  critMul: 1.3,         // かいしんのEXP倍率
-  quickXp: 2,           // クイックせいかいのボーナスEXP
-  specialMul: 1.5,      // ひっさつわざのEXP倍率
-  gaugeCorrect: 14,     // ひっさつゲージ：せいかい1回ぶん（100でMAX。5〜7問に1回くらい）
-  gaugeQuick: 6,        // 　〃　：クイックの上のせ
+  critMul: 1.2,         // かいしんのEXP倍率
+  specialMul: 1.3,      // ひっさつわざのEXP倍率
+  gaugeCorrect: 15,     // ひっさつゲージ：せいかい1回ぶん（100でMAX。6〜7問に1回くらい）
   gaugeCrit: 10,        // 　〃　：かいしんの上のせ
+  /* クイック（早押し）は「見た目・音・実績」だけのごほうびにしてある。
+   * 下の3つを 0 より大きくすると、読むのが速い人ほどEXPが多くなる（ランキングに影響する）。
+   * 日本語を勉強中の人が不利にならないよう、0 のままを すすめる。 */
+  quickXp: 0,           // クイックせいかいのボーナスEXP
+  critQuick: 0,         // クイックせいかいのときの、かいしんの確率の上のせ
+  gaugeQuick: 0,        // クイックせいかいのときの、ひっさつゲージの上のせ
   shinyChance: 0.03,    // 色ちがいのモンスターが出る確率
   shinyXp: 15,          // 色ちがいをたおしたときのボーナスEXP
   feverCombo: 5         // このコンボからフィーバー
@@ -434,8 +438,10 @@ function battleBgm() {
 
 function beginBattle() {
   /* どのモードでも共通の、この戦闘のあいだだけ持つ値 */
-  battle.gauge = 0;                           // ひっさつゲージ（0〜100）
   battle.useGauge = battle.mode !== "exam";   // もぎけんていは本番と同じ気持ちで解くので、ひっさつは無し
+  /* ひっさつゲージ（0〜100）は前の戦闘から持ちこす（「あと少しでMAX」が、もう1回やる理由になる。
+   * 1回の戦闘でためきれない人も、いつかは必殺技が出せる） */
+  battle.gauge = battle.useGauge ? Math.min(100, save.gauge || 0) : 0;
   battle.fever = false;
   battle.maxCombo = 0;
   battle.crits = 0;
@@ -448,6 +454,7 @@ function beginBattle() {
 
   resultToken++;
   closeLevelUp();
+  flushPendingLevelUp();
   Sound.encounter();
   Juice.transition("battle", function () {
     if (battle !== b) return;
@@ -665,6 +672,10 @@ function prepareEndlessFloor() {
     setStageTheme(StageBg.forQuest(pick(battle.quests).id));
     if (!Juice.isLow()) Juice.announce("ちか " + floor + " かい", "floor", 1000);
   }
+  if (floor === ENDLESS_HEAL_UNTIL + 1 && !battle.warnedDeep) {
+    battle.warnedDeep = true;
+    toast("ここから さきは ♥の かいふくが ない… しんちょうに すすもう！");
+  }
 }
 
 function showTurn() {
@@ -780,6 +791,9 @@ function showQuestion() {
     btn.onclick = function () { answer(ci === q.a, btn); };
     box.appendChild(btn);
   });
+  /* 出たばかりの選択肢は、ほんの一瞬だけ押せなくする（「すすむ」の連打が、次の問題の答えになるのを防ぐ） */
+  box.classList.add("arming");
+  setTimeout(function () { box.classList.remove("arming"); }, 300);
   startQuickTimer(q);
 }
 
@@ -873,12 +887,14 @@ function answer(isCorrect, btn) {
 
     if (special) {
       battle.gauge = 0;
+      save.gauge = 0;
       battle.specials++;
       save.stats.specials++;
       missionHits.push(Missions.record(save, "special", 1));
     } else if (battle.useGauge) {
       battle.gauge = Math.min(100, battle.gauge + TUNE.gaugeCorrect +
         (quick ? TUNE.gaugeQuick : 0) + (crit ? TUNE.gaugeCrit : 0));
+      save.gauge = battle.gauge;
       if (battle.gauge >= 100) setTimeout(function () { if (battleLive(b, turn)) Sound.gaugeMax(); }, 600);
     }
     if (crit) { battle.crits++; save.stats.crits++; missionHits.push(Missions.record(save, "crit", 1)); }
@@ -891,10 +907,13 @@ function answer(isCorrect, btn) {
       died = battle.bossHp <= 0;
     }
 
-    /* かいふく：ひっさつわざ／めいきゅうのボスをたおしたとき */
+    /* かいふく：ひっさつわざ（めいきゅう以外）／めいきゅうのボスをたおしたとき（浅いかいだけ）。
+     * めいきゅうで回復が多いと、正解率の高い人は終わらなくなり、記録が「実力」ではなく
+     * 「使えた時間」で決まってしまう。そこで回復はボスだけ・ちか ENDLESS_HEAL_UNTIL かいまでにしている。 */
+    var endlessBossKill = battle.mode === "endless" && isBoss && died;
     var healed = false;
     if (!battle.noFail && battle.hearts < battle.maxHearts &&
-        (special || (battle.mode === "endless" && isBoss && died))) {
+        ((special && battle.mode !== "endless") || (endlessBossKill && battle.correct <= ENDLESS_HEAL_UNTIL))) {
       battle.hearts++;
       healed = true;
     }
@@ -913,12 +932,26 @@ function answer(isCorrect, btn) {
         shinyNew = true;
       }
     }
-    if (battle.mode === "endless") missionHits.push(Missions.record(save, "endlessFloor", 1));
+    if (battle.mode === "endless") {
+      missionHits.push(Missions.record(save, "endlessFloor", 1));
+      if (endlessBossKill) missionHits.push(Missions.record(save, "bossWin", 1));
+      /* 記録は進むたびに保存する（授業の終わりにタブを閉じても、そこまでの記録が残るように） */
+      var reached = battle.correct + 1;   // いま立っている かい
+      save.endless.totalFloors++;
+      if (reached > save.endless.best) save.endless.best = reached;
+      ENDLESS_TITLES.forEach(function (t) {
+        if (save.endless.best >= t[0] && save.titles.indexOf(t[1]) < 0) {
+          save.titles.push(t[1]);
+          banners.push(["👑", "あたらしい しょうごう！", "「" + t[1] + "」", ""]);
+        }
+      });
+    }
 
     /* こうげきの演出 */
     var move = null;
     var onHit = function () {
       if (!battleLive(b, turn)) return;
+      updateHud();   // ボスのHP・ハートは、こうげきが当たった瞬間に動かす
       if (!special) Sound.correct();
       if (died) {
         Fx.defeat(battle.mob.palette, isBoss);
@@ -948,7 +981,7 @@ function answer(isCorrect, btn) {
       }
     }
     if (quick) {
-      Fx.floatText("⚡ QUICK！ ＋" + TUNE.quickXp, null, "quick");
+      Fx.floatText("⚡ QUICK！" + (TUNE.quickXp ? " ＋" + TUNE.quickXp : ""), null, "quick");
       Sound.quick();
     }
     renderCombo(true);
@@ -1009,8 +1042,14 @@ function answer(isCorrect, btn) {
   }
   banners.forEach(function (x) { Juice.banner(x[0], x[1], x[2], x[3]); });
 
+  /* 実績は、達成したその場で知らせる（コンボ10などは、決めた瞬間がいちばん うれしい） */
+  var newAch = Achievements.check(save);
+  if (newAch.length) showAchievementToasts(newAch);
+
   persist();
-  updateHud();
+  if (!isCorrect) updateHud();
+  /* めいきゅうは長くつづくので、ボスをたおすたびに先生の記録も更新する（送る内容は同じ） */
+  if (isCorrect && battle.mode === "endless" && battle.bossPhase && battle.bossHp <= 0) syncNow();
   renderGauge();
   var readyAt = performance.now() + hitDelay + 250;
   typeMsg(msg, function () {
@@ -1073,6 +1112,7 @@ function nextTurn() {
  * ======================================================= */
 var ENDLESS_UNLOCK = 3;        // クエストをこの数クリアすると入れる
 var ENDLESS_BOSS_EVERY = 5;    // このかい数ごとにボス（たおすと♥が1つ回復）
+var ENDLESS_HEAL_UNTIL = 30;   // このかいより下では、ボスをたおしても回復しない（記録が実力で決まるように）
 var ENDLESS_TITLES = [
   [10, "めいきゅうの ちょうせんしゃ"],
   [20, "ちていの たんけんか"],
@@ -1119,35 +1159,26 @@ function startEndless() {
     pool: pool,
     quests: quests,
     zone: 0,
+    startBest: save.endless.best,   // この挑戦を始める前の最高記録（新記録かどうかの判定に使う）
     bossFrom: 99999, bossHp: 0, bossMax: 0,
     idx: 0, hearts: 3, maxHearts: 3,
     correct: 0, combo: 0, xp: 0,
     bossPhase: false, bossCorrect: 0
   };
+  save.endless.runs++;
   beginBattle();
 }
 
 function endEndless() {
-  var floors = battle.correct;   /* もぐれた かい数＝せいかいした数 */
-  var bonus = Math.min(floors * 2, 60);
+  /* とうたつした かい＝いま立っている かい（画面の「ちか N かい」と同じ数え方）。
+   * 最高記録・しょうごう・実績は answer() で進むたびに保存ずみ。ここでは終わりのボーナスだけ足す。 */
+  var reached = battle.correct + 1;
+  var bonus = Math.min(battle.correct * 2, 60);
   save.xp += bonus;
   battle.xp += bonus;
 
-  var rec = save.endless;
-  rec.runs++;
-  rec.totalFloors += floors;
-  var prevBest = rec.best;
-  var isRecord = floors > prevBest;
-  if (isRecord) rec.best = floors;
-
-  /* 節目のかい数で しょうごうを てにいれる */
-  var banners = [];
-  ENDLESS_TITLES.forEach(function (t) {
-    if (rec.best >= t[0] && save.titles.indexOf(t[1]) < 0) {
-      save.titles.push(t[1]);
-      banners.push(["👑", "あたらしい しょうごう！", "「" + t[1] + "」", ""]);
-    }
-  });
+  var prevBest = battle.startBest;
+  var isRecord = battle.correct > 0 && reached > prevBest;
 
   var newAchievements = Achievements.check(save);
   persist();
@@ -1155,19 +1186,18 @@ function endEndless() {
 
   presentResult({
     cleared: true,
-    title: isRecord && floors > 0 ? "しんきろく！！" : "たんけん しゅうりょう",
-    sub: isRecord && prevBest > 0
-      ? "これまでの きろく（ちか " + prevBest + " かい）を ぬりかえた！"
+    title: isRecord ? "しんきろく！！" : "たんけん しゅうりょう",
+    sub: isRecord
+      ? (prevBest > 0 ? "これまでの きろく（ちか " + prevBest + " かい）を ぬりかえた！" : "はじめての きろくだ！\nつぎは これを こえよう！")
       : (prevBest > 0 ? "さいこう きろくは ちか " + prevBest + " かい。\nつぎは きろくこうしんを ねらおう！"
-                      : "3かい まちがえるまでに どこまで もぐれるか。\nまた ちょうせんしよう！"),
+                      : "ミスは 3かいまで。\nまた ちょうせんしよう！"),
     stars: null,
-    big: { label: "とうたつ", value: floors, prefix: "ちか ", suffix: " かい" },
+    big: { label: "とうたつ", value: reached, prefix: "ちか ", suffix: " かい" },
     rows: battleRows(battle.answered),
     xp: battle.xp,
-    jingle: isRecord && floors > 0 ? "newRecord" : "clear",
-    confetti: isRecord && floors > 0 ? 120 : 30,
-    announce: isRecord && floors > 0 ? ["NEW RECORD!!", "record"] : null,
-    banners: banners,
+    jingle: isRecord ? "newRecord" : "clear",
+    confetti: isRecord ? 120 : 30,
+    announce: isRecord ? ["NEW RECORD!!", "record"] : null,
     achievements: newAchievements
   });
 }
@@ -1176,6 +1206,17 @@ function endEndless() {
  * 結果（リザルト）
  * ======================================================= */
 var resultToken = 0;   // リザルトの時間差の演出を、画面をはなれたら止めるための番号
+var pendingLevelUp = null;   // まだ見せていないレベルアップ（{prev, next}）。早く画面をはなれたら帯で知らせる
+
+/* リザルトを最後まで見ずに はなれたとき、見せそこねたレベルアップを帯で知らせる */
+function flushPendingLevelUp() {
+  if (!pendingLevelUp) return;
+  var p = pendingLevelUp;
+  pendingLevelUp = null;
+  Sound.levelup();
+  Juice.banner("⬆️", "レベルアップ！ Lv" + p.prev + " → Lv" + p.next,
+    levelUpText(p.prev, p.next).slice(1).join("　") || "つぎの ぼうけんへ！", "levelup", "levelup");
+}
 var lastTickAt = 0;
 function tickSound() {
   var now = performance.now();
@@ -1348,8 +1389,10 @@ function presentResult(o) {
     later(350, function () { Juice.countUp($("#result-big-num"), 0, o.big.value, 900, bigFmt, tickSound); });
   }
 
+  pendingLevelUp = newLevel > prevLevel ? { prev: prevLevel, next: newLevel } : null;
   function afterXp() {
     if (newLevel <= prevLevel) return;
+    pendingLevelUp = null;
     lvEl.textContent = levelUpText(prevLevel, newLevel).join("\n");
     lvEl.classList.remove("hidden");
     if (low) Sound.levelup();
@@ -1363,10 +1406,9 @@ function presentResult(o) {
     else animateResultXp(prevXp, save.xp, 1000, token, afterXp);
   });
 
-  later(500, function () {
-    (o.banners || []).forEach(function (x) { Juice.banner(x[0], x[1], x[2], x[3]); });
-    if (o.achievements && o.achievements.length) showAchievementToasts(o.achievements);
-  });
+  /* お知らせの帯は待たせずに出す（すぐ画面をはなれても、帯は次の画面に残る） */
+  (o.banners || []).forEach(function (x) { Juice.banner(x[0], x[1], x[2], x[3]); });
+  if (o.achievements && o.achievements.length) showAchievementToasts(o.achievements);
 }
 
 /* ---------- 結果（もぎけんてい） ---------- */
@@ -1543,6 +1585,7 @@ function openMenu() {
   stopQuickTimer();
   Sound.setTempo(1);
   Juice.clear();
+  flushPendingLevelUp();
   renderPlayerHeader("menu");
   var due = specialistDueList().length;
   var badge = $("#menu-review-badge");
@@ -1566,7 +1609,7 @@ function openMenu() {
   $("#menu-endless").classList.toggle("locked", !endlessOpen);
   $("#menu-endless").classList.toggle("is-new", endlessOpen && save.endless.runs === 0);
   $("#menu-endless-lock").textContent = endlessOpen
-    ? (save.endless.best > 0 ? "さいこう きろく：ちか " + save.endless.best + " かい" : "3ミスまでに どこまで もぐれるか！")
+    ? (save.endless.best > 0 ? "さいこう きろく：ちか " + save.endless.best + " かい" : "ミスは 3かいまで。どこまで もぐれるか！")
     : "クエストを " + ENDLESS_UNLOCK + "つ クリアすると かいほう";
 
   /* Streak.checkLogin/Achievements.check は同じ日のうちは isNewDay:false／解除済みで

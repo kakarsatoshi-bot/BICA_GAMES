@@ -261,10 +261,11 @@ var Sound = (function () {
     bgmGain.gain.setValueAtTime(0.55, c.currentTime);
     bgm.timer = setInterval(bgmTick, 30);
   }
-  /* 流したい曲を伝える（null で止める）。同じ曲なら流しっぱなし */
+  /* 流したい曲を伝える（null で止める）。同じ曲なら流しっぱなし。
+   * 速さ（setTempo）はここでは変えない：フィーバー中にボスの曲へ切りかわっても、速いままにするため。
+   * もとの速さにもどすのは呼ぶ側（バトルの始まり・リザルト・メニュー）。 */
   function playBgm(name) {
     bgm.want = name || null;
-    bgm.tempo = 1;
     bgmStart();
   }
   /* 曲の速さ（フィーバー中は少し速くする） */

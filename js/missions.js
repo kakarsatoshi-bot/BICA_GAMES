@@ -13,7 +13,7 @@ var MISSION_TEMPLATES = [
   { id: "bossWin1", label: "ボスを 1体 たおす", type: "bossWin", target: 1 },
   { id: "combo5", label: "コンボ5いじょう たっせいする", type: "comboReach", target: 5 },
   { id: "crit1", label: "かいしんの いちげきを 1回 だす", type: "crit", target: 1 },
-  { id: "quick3", label: "クイックせいかいを 3回 きめる", type: "quick", target: 3 },
+  /* クイック（早押し）のミッションは作らない：読むのが速い人だけがEXPを得る形にしないため */
   { id: "special1", label: "ひっさつわざを 1回 はなつ", type: "special", target: 1 },
   { id: "kills8", label: "モンスターを 8体 たおす", type: "kills", target: 8 },
   /* need: この条件を満たす人にだけ出す（まだ入れない場所のミッションを出さない） */
