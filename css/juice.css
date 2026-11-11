@@ -274,7 +274,7 @@ body:has(#screen-battle.active) .jz-banner-body { font-size: 13px; }
   background: #101040;
   overflow: hidden;
 }
-#quick-fill { height: 100%; width: 0; background: #2d8fb0; }
+#quick-fill { height: 100%; width: 100%; transform-origin: left center; transform: scaleX(0); background: #2d8fb0; }
 .quick-bar.off, .quick-bar.expired { opacity: .45; }
 .quick-bar.expired #quick-fill { background: #3a3a6a; }
 .meter-label {
@@ -535,3 +535,11 @@ html.fx-low .special-gauge.full { box-shadow: 0 0 0 2px var(--key); }
   .choices { counter-reset: choice; }
   .choice::before { counter-increment: choice; content: counter(choice) ". "; color: #7a7aa0; }
 }
+
+/* キーボードで選んだクエストのカードが分かるようにする */
+.quest-card:focus-visible { border-color: var(--key); outline: none; }
+/* バトル中は、右下の2つのボタンを うすくして、選択肢のじゃまをしない */
+body:has(#screen-battle.active) #btn-feedback,
+body:has(#screen-battle.active) #btn-mute { opacity: .5; }
+body:has(#screen-battle.active) #btn-feedback:hover,
+body:has(#screen-battle.active) #btn-mute:hover { opacity: 1; }

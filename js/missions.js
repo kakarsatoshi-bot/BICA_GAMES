@@ -17,7 +17,7 @@ var MISSION_TEMPLATES = [
   { id: "special1", label: "ひっさつわざを 1回 はなつ", type: "special", target: 1 },
   { id: "kills8", label: "モンスターを 8体 たおす", type: "kills", target: 8 },
   /* need: この条件を満たす人にだけ出す（まだ入れない場所のミッションを出さない） */
-  { id: "endless5", label: "むげんの めいきゅうで 5かい もぐる", type: "endlessFloor", target: 5,
+  { id: "endless5", label: "むげんの めいきゅうで 5もん せいかいする", type: "endlessFloor", target: 5,
     need: function () { return clearedCount() >= ENDLESS_UNLOCK; } }
 ];
 

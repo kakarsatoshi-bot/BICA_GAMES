@@ -34,10 +34,16 @@ var Juice = (function () {
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     return reduce ? "low" : "high";
   }
-  function setLevel(v) {
+  /* 見た目に反映するだけ（保存しない）。起動時はこちらを使う：
+   * 保存してしまうと、あとから端末の「動きを減らす」設定をオンにしても効かなくなる */
+  function applyLevel(v) {
     level = v === "low" ? "low" : "high";
-    try { localStorage.setItem(LEVEL_KEY, level); } catch (e) { /* 同上 */ }
     document.documentElement.classList.toggle("fx-low", level === "low");
+  }
+  /* 本人がボタンで選んだとき：反映して、選んだことを保存する */
+  function setLevel(v) {
+    applyLevel(v);
+    try { localStorage.setItem(LEVEL_KEY, level); } catch (e) { /* 同上 */ }
   }
   function isLow() { return level === "low"; }
   function amount(n) { return isLow() ? Math.max(1, Math.round(n * 0.35)) : n; }
@@ -52,7 +58,7 @@ var Juice = (function () {
     shakeEl = document.getElementById("app");
     resize();
     window.addEventListener("resize", resize);
-    setLevel(loadLevel());
+    applyLevel(loadLevel());
   }
   function resize() {
     /* スクロールバーをのぞいた、見えている範囲の大きさ（画面上の座標とずれないように） */
@@ -224,7 +230,8 @@ var Juice = (function () {
       if (p.delay > 0) continue;
       k = p.life / p.max;
       ctx.globalAlpha = p.fade ? Math.min(1, k * p.fade) : 1;
-      ctx.fillStyle = p.blink && ((p.life * 20) | 0) % 2 ? "#ffffff" : p.color;
+      /* またたきは1秒に3回まで（速い点滅を作らない）。ひかえめでは、またたかない */
+      ctx.fillStyle = p.blink && !isLow() && ((p.life * 6) | 0) % 2 ? "#ffffff" : p.color;
       var sz = p.shrink ? Math.max(1, p.size * k) : p.size;
       if (p.shape === "confetti") {
         /* 紙ふぶき：ひらひら（幅が伸び縮みして回って見える） */
@@ -246,7 +253,10 @@ var Juice = (function () {
   /* ---------- 画面ゆれ（強さが時間で減っていく） ---------- */
   function applyShake(dt) {
     if (!shakeEl) return;
-    if (trauma <= 0) { return; }
+    if (trauma <= 0) {
+      if (shakeEl.style.transform) shakeEl.style.transform = "";   // ゆれが止まったら、ずれを残さない
+      return;
+    }
     trauma = Math.max(0, trauma - dt * 1.9);
     if (trauma === 0) { shakeEl.style.transform = ""; return; }
     var m = trauma * trauma * 16;
@@ -342,7 +352,8 @@ var Juice = (function () {
     if (!canvas) return;
     o = o || {};
     shapes.push({ kind: "rays", x: x, y: y, t: 0, dur: o.dur || 1.4, count: o.count || 12,
-      len: o.len || 260, color: o.color || "#ffe98a", alpha: o.alpha || 0.4, rot0: Math.random() * 6, speed: o.speed });
+      len: o.len || 260, color: o.color || "#ffe98a", alpha: (o.alpha || 0.4) * (isLow() ? 0.5 : 1),
+      rot0: Math.random() * 6, speed: o.speed });
     kick();
   }
 
@@ -353,9 +364,15 @@ var Juice = (function () {
     kick();
   }
   /* フラッシュ（ひかえめ設定では出さない） */
+  var flashEnd = 0;
   function flash(color, alpha, ms) {
     if (isLow()) return;
-    overlay(color || "#ffffff", Math.min(alpha === undefined ? 0.3 : alpha, 0.6), ms || 260);
+    /* 画面全体の光は、同時に1つだけ。重ねると明るさが足し算になって強くなりすぎる
+     * （ひっさつでボスをたおすと、技の光と撃破の光が同じ瞬間に出ていた） */
+    var now = performance.now();
+    if (now < flashEnd) return;
+    flashEnd = now + (ms || 260);
+    overlay(color || "#ffffff", Math.min(alpha === undefined ? 0.3 : alpha, 0.4), ms || 260);
   }
 
   /* 紙ふぶき（上から降る） */
@@ -556,8 +573,14 @@ var Juice = (function () {
   }
 
   /* 画面の切りかえ：帯が閉じて→中身を入れかえて→開く。kind "battle" はエンカウント風 */
+  var wiping = false;
   function transition(kind, swap) {
     if (isLow()) { swap(); return; }
+    /* 帯が閉じている間にキーボードでもう一度押されても、2回始めない
+     * （マウスは帯が受け止めるが、キーボードのフォーカスは元のボタンに残っている） */
+    if (wiping) return;
+    wiping = true;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     var d = document.createElement("div");
     d.className = "jz-wipe jz-wipe-" + (kind || "plain");
     for (var i = 0; i < 6; i++) d.appendChild(document.createElement("span"));
@@ -566,7 +589,7 @@ var Juice = (function () {
     setTimeout(function () {
       swap();
       d.classList.add("open");
-      setTimeout(function () { d.remove(); }, 320);
+      setTimeout(function () { d.remove(); wiping = false; }, 320);
     }, closeMs);
   }
 
@@ -578,6 +601,8 @@ var Juice = (function () {
 
   function clear() {
     parts.length = 0; shapes.length = 0; overlays.length = 0; trauma = 0;
+    flashEnd = 0;
+    if (shakeEl) shakeEl.style.transform = "";
     var l = document.getElementById("juice-text");
     if (l) Array.prototype.slice.call(l.querySelectorAll(".jz-pop,.jz-announce")).forEach(function (n) { n.remove(); });
   }

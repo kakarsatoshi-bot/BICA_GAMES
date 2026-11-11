@@ -320,6 +320,7 @@ function openExamSelect() {
     div.onclick = function () { Sound.select(); startExam(ex.key); };
     box.appendChild(div);
   });
+  enableCardKeys();
   show("screen-quests");
 }
 
@@ -424,17 +425,17 @@ function attackTier(combo) {
   return ATTACK_TIERS[ATTACK_TIERS.length - 1];
 }
 
-/* ひっさつわざの名前（MOSで習う操作にちなむ） */
+/* ひっさつわざの名前（MOSで習う操作にちなむ。機能の名前は、問題文と同じ書き方＝試験で見る字にする） */
 var SPECIAL_MOVES = [
-  "Ctrl+Z ブレイカー", "オートSUM キャノン", "ぜったいさんしょう ロック", "フラッシュフィル ストーム",
-  "じょうけんしょしき バースト", "スタイル いっかつ ざん", "もくじ じどうせいせい", "ウィンドウわく こてい"
+  "Ctrl+Z ブレイカー", "オートSUM キャノン", "絶対参照 ロック", "フラッシュフィル ストーム",
+  "条件付き書式 バースト", "スタイル いっかつ ざん", "目次 じどうせいせい", "ウィンドウ枠の 固定"
 ];
 
 /* はじめての ヒント：新しいしくみに はじめて出会ったときだけ、メッセージの最後に ひとこと そえる。
  * （説明書を読まなくても、遊びながら分かるように。1回見せたら save.hints に記録して、もう出さない） */
 var HINTS = {
   combo:   "れんぞく せいかいで コンボ！ つづけるほど こうげきが しんかして、もらえる EXPも ふえるぞ。",
-  quick:   "「QUICK！」は はやく せいかいした しるし。EXPは かわらないので、あせらず よく よんで こたえよう。",
+  quick:   "「クイック！」は はやく せいかいした しるし。EXPは かわらないので、あせらず よく よんで こたえよう。",
   crit:    "かいしんの いちげきは、ときどき でる ラッキーな いちげき。EXPが すこし ふえるぞ。",
   gauge:   "ひっさつゲージが MAXに なった！ つぎの せいかいで ひっさつわざが でるぞ。",
   special: "ひっさつわざは EXPが ふえる。ゲージは つぎの たたかいにも もちこせるぞ。",
@@ -458,6 +459,7 @@ function setStageTheme(theme) {
 }
 
 function battleBgm() {
+  if (battle.mode === "exam") return null;   // もぎけんていは本番と同じ気持ちで解くので、音楽は流さない
   if (battle.mode === "final" || battle.mode === "expert") return "boss";
   if (battle.mode === "endless") return "maze";
   return "battle";
@@ -515,6 +517,7 @@ function beginBattle() {
     renderGauge();
     renderBattleXp();
     resetQuickBar();
+    $(".battle-meters").classList.toggle("hidden", battle.mode === "exam");
 
     show("screen-battle");
     showTurn();
@@ -653,18 +656,21 @@ function resetQuickBar() {
   bar.classList.remove("expired");
   bar.classList.add("off");
   fill.style.transition = "none";
-  fill.style.width = "0%";
+  fill.style.transform = "scaleX(0)";
 }
+/* バーは幅ではなく拡大率（transform）で動かす：幅を動かすと、問題が出ている間ずっと
+ * 画面の組み直しが毎フレーム走って、古いPCで重くなる */
 function startQuickTimer(q) {
   var chars = q.q.length + q.c.join("").length;
-  battle.quickMs = Math.min(16000, 5000 + 70 * chars + (q.type === "hotspot" ? 3000 : 0));
+  battle.quickChars = chars;
+  battle.quickMs = Math.min(25000, 5000 + 110 * chars + (q.type === "hotspot" ? 3000 : 0));
   var bar = $("#quick-bar"), fill = $("#quick-fill");
   bar.classList.remove("expired", "off");
   fill.style.transition = "none";
-  fill.style.width = "100%";
+  fill.style.transform = "scaleX(1)";
   void fill.offsetWidth;
-  fill.style.transition = "width " + battle.quickMs + "ms linear";
-  fill.style.width = "0%";
+  fill.style.transition = "transform " + battle.quickMs + "ms linear";
+  fill.style.transform = "scaleX(0)";
   quickState.t0 = performance.now();
   clearTimeout(quickState.timer);
   quickState.timer = setTimeout(function () { bar.classList.add("expired"); }, battle.quickMs);
@@ -676,10 +682,15 @@ function stopQuickTimer() {
   var elapsed = performance.now() - quickState.t0;
   quickState.t0 = 0;
   var fill = $("#quick-fill");
-  var w = getComputedStyle(fill).width;   // バーをその場で止める
-  fill.style.transition = "none";
-  fill.style.width = w;
+  fill.style.transition = "none";   // バーをその場で止める
+  fill.style.transform = "scaleX(" + Math.max(0, 1 - elapsed / (battle.quickMs || 1)) + ")";
   return elapsed;
+}
+/* クイックと数えるのは「読める時間はかけたが、持ち時間の内」の正解だけ。
+ * 出た瞬間の当てずっぽうは数えない（下限：1.2秒＋文字数ぶん、長くても4秒） */
+function isQuickAnswer(elapsed) {
+  if (elapsed === null) return false;
+  return elapsed <= battle.quickMs && elapsed >= Math.min(4000, 1200 + 25 * (battle.quickChars || 0));
 }
 
 /* ---------- むげんの めいきゅう：1かいごとの準備 ---------- */
@@ -822,7 +833,8 @@ function showQuestion() {
   /* 出たばかりの選択肢は、ほんの一瞬だけ押せなくする（「すすむ」の連打が、次の問題の答えになるのを防ぐ） */
   box.classList.add("arming");
   setTimeout(function () { box.classList.remove("arming"); }, 300);
-  startQuickTimer(q);
+  /* もぎけんていでは、クイックのバーも出さない（時間を気にさせない） */
+  if (battle.mode === "exam") resetQuickBar(); else startQuickTimer(q);
 }
 
 /* 画面ホットスポット問題（type:"hotspot"）のときはモンスターを隠してリボンUIモックアップ
@@ -907,7 +919,7 @@ function answer(isCorrect, btn) {
     if (battle.combo > save.stats.bestCombo) save.stats.bestCombo = battle.combo;
 
     var isBoss = battle.bossPhase || battle.mode === "final";
-    var quick = elapsed !== null && elapsed <= battle.quickMs;
+    var quick = isQuickAnswer(elapsed);
     var special = battle.useGauge && battle.gauge >= 100;
     var crit = !special && Math.random() <
       TUNE.critBase + TUNE.critPerCombo * Math.min(battle.combo, TUNE.critComboCap) + (quick ? TUNE.critQuick : 0);
@@ -966,7 +978,7 @@ function answer(isCorrect, btn) {
       save.stats.kills++;
       missionHits.push(Missions.record(save, "kills", 1));
       var medal = medalAt(kills);
-      if (medal) banners.push([medal.icon, medal.name + " かくとく！", mobName + "を " + kills + "たい たおした！", ""]);
+      if (medal) banners.push([medal.icon, medal.name + " かくとく！", mobName + "を " + kills + "体 たおした！", ""]);
       if (battle.isShiny && !save.shinyMonsters[mobName]) {
         save.shinyMonsters[mobName] = battle.mob.palette;
         shinyNew = true;
@@ -1033,7 +1045,7 @@ function answer(isCorrect, btn) {
       }
     }
     if (quick) {
-      Fx.floatText("⚡ QUICK！" + (TUNE.quickXp ? " ＋" + TUNE.quickXp : ""), null, "quick");
+      Fx.floatText("⚡ クイック！" + (TUNE.quickXp ? " ＋" + TUNE.quickXp : ""), null, "quick");
       Sound.quick();
     }
     renderCombo(true);
@@ -1110,7 +1122,7 @@ function answer(isCorrect, btn) {
   /* めいきゅうは長くつづくので、ボスをたおすたびに先生の記録も更新する（送る内容は同じ） */
   if (isCorrect && battle.mode === "endless" && battle.bossPhase && battle.bossHp <= 0) syncNow();
   renderGauge();
-  var readyAt = performance.now() + hitDelay + 250;
+  var readyAt = performance.now() + hitDelay + 250 + (isCorrect ? 0 : 1200);   // まちがいのときは、解説を読む間をとる
   typeMsg(msg, function () {
     setTimeout(function () {
       if (!battleLive(b, turn)) return;
@@ -1227,7 +1239,7 @@ function startEndless() {
   save.endless.runs++;
   if (!save.hints.endless) {
     save.hints.endless = 1;
-    Juice.banner("🌀", "むげんの めいきゅう", "ミスは 3かいまで。5かいごとの ボスを たおすと ♥が かいふく！", "");
+    Juice.banner("🌀", "むげんの めいきゅう", "3回 ミスすると おわり。ちか5かいごとの ボスを たおすと ♥が 1つ かいふく！", "");
   }
   beginBattle();
 }
@@ -1253,7 +1265,7 @@ function endEndless() {
     sub: isRecord
       ? (prevBest > 0 ? "これまでの きろく（ちか " + prevBest + " かい）を ぬりかえた！" : "はじめての きろくだ！\nつぎは これを こえよう！")
       : (prevBest > 0 ? "さいこう きろくは ちか " + prevBest + " かい。\nつぎは きろくこうしんを ねらおう！"
-                      : "ミスは 3かいまで。\nまた ちょうせんしよう！"),
+                      : "3回 ミスすると おわり。\nまた ちょうせんしよう！"),
     stars: null,
     big: { label: "とうたつ", value: reached, prefix: "ちか ", suffix: " かい" },
     rows: battleRows(battle.answered),
@@ -1436,7 +1448,7 @@ function presentResult(o) {
     later(450 + n * 300, function () {
       el.textContent = "★";
       el.classList.add("on");
-      Sound.star(n);
+      if (!low) Sound.star(n);   // ひかえめでは全部いちどに出るので、音は重ねない
       var c = Juice.centerOf(el);
       if (c) Juice.burst(c.x, c.y, { n: 12, speed: 260, size: 6, shape: "star" });
     });
@@ -1459,7 +1471,7 @@ function presentResult(o) {
     pendingLevelUp = null;
     lvEl.textContent = levelUpText(prevLevel, newLevel).join("\n");
     lvEl.classList.remove("hidden");
-    if (low) Sound.levelup();
+    if (low) setTimeout(function () { if (token === resultToken) Sound.levelup(); }, 1400);   // クリアの音が終わってから
     else later(250, function () { showLevelUp(prevLevel, newLevel); });
   }
   later(700, function () {
@@ -1673,7 +1685,7 @@ function openMenu() {
   $("#menu-endless").classList.toggle("locked", !endlessOpen);
   $("#menu-endless").classList.toggle("is-new", endlessOpen && save.endless.runs === 0);
   $("#menu-endless-lock").textContent = endlessOpen
-    ? (save.endless.best > 0 ? "さいこう きろく：ちか " + save.endless.best + " かい" : "ミスは 3かいまで。どこまで もぐれるか！")
+    ? (save.endless.best > 0 ? "さいこう きろく：ちか " + save.endless.best + " かい" : "♥は 3つ。どこまで もぐれるか！")
     : "クエストを " + ENDLESS_UNLOCK + "つ クリアすると かいほう";
 
   /* Streak.checkLogin/Achievements.check は同じ日のうちは isNewDay:false／解除済みで
@@ -1692,6 +1704,12 @@ function openMenu() {
   syncNow();
 
   if (streakResult.isNewDay) showStreakBanner(streakResult);
+  /* 音楽は、ボタンを押した人にだけ流れる。あることを1回だけ知らせる */
+  if (!save.hints.bgm && Sound.mode() === "se") {
+    save.hints.bgm = 1;
+    persist();
+    Juice.banner("🎵", "おんがくも ならせるよ", "みぎしたの「♪ おとだけ」を おすと ながれる", "");
+  }
   if (newAchievements.length) showAchievementToasts(newAchievements);
 }
 
@@ -1710,7 +1728,7 @@ function showStreakBanner(result) {
   if (!result.isNewDay) return;
   var due = specialistDueList().length;
   if (result.broken) {
-    Juice.banner("🌱", "あたらしい れんぞくきろく、はじめよう！", "さいちょう記録は " + result.longest + "日", "");
+    Juice.banner("🌱", "あたらしい れんぞくきろく、はじめよう！", "さいちょう きろくは " + result.longest + "日", "");
   } else {
     Juice.banner("🔥", "れんぞく ログイン", result.streak + "日目！ よくきたね！", "");
     Juice.sparkle($("#menu-streak-chip"), { n: 8 });
@@ -1746,7 +1764,7 @@ function renderNextGoal() {
   var el = $("#menu-goal");
   var best = null;
   ACHIEVEMENTS.forEach(function (a) {
-    if (save.achievements[a.id] || !a.prog) return;
+    if (save.achievements[a.id] || !a.prog || a.noGoal) return;
     var p = a.prog(save);
     var ratio = p[0] / p[1];
     if (ratio > 0 && ratio < 1 && (!best || ratio > best.ratio)) best = { a: a, ratio: ratio, left: p[1] - p[0] };
@@ -1874,6 +1892,15 @@ function renderMessenger() {
   box.classList.remove("hidden");
 }
 
+/* クエストの一覧のカードを、Tab キーで選べるようにする（Enter／スペースで開く） */
+function enableCardKeys() {
+  Array.prototype.slice.call(document.querySelectorAll("#quest-list .quest-card")).forEach(function (card) {
+    if (card.classList.contains("locked")) return;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+  });
+}
+
 /* クエストの習熟度（0〜100%）：全問の記憶の箱（0〜5）の合計 ÷ 満点。
  * ★はクリアのうまさ、こちらは「どれだけ おぼえたか」。周回すると少しずつ伸びる */
 function questMastery(quest) {
@@ -1938,6 +1965,7 @@ function openQuestList(subjectKey) {
     }
     box.appendChild(div);
   });
+  enableCardKeys();
   show("screen-quests");
 }
 
@@ -2007,6 +2035,7 @@ function openExpertQuests() {
   }
   box.appendChild(bossDiv);
 
+  enableCardKeys();
   show("screen-quests");
 }
 
@@ -2170,7 +2199,7 @@ function openBestiary() {
     var nm = document.createElement("div");
     nm.className = "bestiary-name";
     nm.textContent = seen
-      ? m.name + (m.rare ? "　✨げきレア" : "") + (shinyPal ? "　🌟シャイニー" : "")
+      ? m.name + (m.rare ? "　✨げきレア" : "") + (shinyPal ? "　🌟色ちがい" : "")
       : "？？？";
     var bio = document.createElement("div");
     bio.className = "bestiary-bio";
@@ -2183,7 +2212,7 @@ function openBestiary() {
       MEDALS.forEach(function (x) { if (!next && kills < x.at) next = x; });
       var meta = document.createElement("div");
       meta.className = "bestiary-meta";
-      meta.textContent = (medal ? medal.icon + " " : "") + "たおした数 " + kills + " たい" +
+      meta.textContent = (medal ? medal.icon + " " : "") + "たおした数 " + kills + " 体" +
         (next ? "（" + next.name + "まで あと " + (next.at - kills) + "）" : "");
       info.appendChild(meta);
     }
@@ -2305,13 +2334,13 @@ function submitFeedback() {
 
 function updateMuteButton() {
   var m = Sound.mode();
-  $("#btn-mute").textContent = m === "all" ? "♪ ON" : (m === "se" ? "♪ SEのみ" : "♪ OFF");
+  $("#btn-mute").textContent = m === "all" ? "♪ おんがく" : (m === "se" ? "♪ おとだけ" : "♪ OFF");
 }
 
 /* えんしゅつ（はで／ひかえめ）の切りかえ。タイトルと「ぼうけんの しょ」の両方から変えられる */
 function updateFxButtons() {
   var low = Juice.isLow();
-  $("#btn-fx-level").textContent = low ? "ひかえめ（タップで はで に）" : "はで（タップで ひかえめ に）";
+  $("#btn-fx-level").textContent = low ? "ひかえめ（タップで はでに）" : "はで（タップで ひかえめに）";
   $("#title-fx-toggle").textContent = "✨ えんしゅつ：" + (low ? "ひかえめ" : "はで") + "（タップで きりかえ）";
 }
 function toggleFxLevel() {
@@ -2363,8 +2392,20 @@ window.addEventListener("DOMContentLoaded", function () {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
     var tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    var isGo = e.key === "Enter" || e.key === " ";
+    /* レベルアップのえんしゅつは、Enter／スペース／Esc でも とじられる */
+    if (!$("#levelup-overlay").classList.contains("hidden")) {
+      if (isGo || e.key === "Escape") { e.preventDefault(); closeLevelUp(); }
+      return;
+    }
+    /* クエストの一覧は、Enter／スペースでも選べる */
+    if (isGo && e.target.classList && e.target.classList.contains("quest-card") && !e.repeat) {
+      e.preventDefault(); e.target.click(); return;
+    }
     if (!$("#screen-battle").classList.contains("active")) return;
     if (!$("#feedback-modal").classList.contains("hidden")) return;
+    /* Enter を押しっぱなしにしても、解説を読まないまま次へ進まない */
+    if (e.repeat && isGo) { e.preventDefault(); return; }
     var n = e.key.length === 1 ? "1234".indexOf(e.key) : -1;
     if (n >= 0) {
       var box = $("#battle-choices");

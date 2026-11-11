@@ -12,9 +12,10 @@ var Sound = (function () {
   var MUTE_KEY = "mosquest_mute";   // "1" = 効果音も止める（むかしからのキー）
   var BGM_KEY = "mosquest_bgm";     // "0" = BGMを止める
   var muted = store(MUTE_KEY) === "1";
-  /* BGMを最初から流すか。教室で音楽を止めておきたいときは false にする
-   * （そのあと右下のボタンで、ひとりずつ ON にできる） */
-  var BGM_DEFAULT_ON = true;
+  /* BGMを最初から流すか。既定は false（＝音楽は、右下のボタンを押した人だけに流れる）。
+   * 教室では1台ずつ別々のタイミングで曲がくり返すので、全員に最初から流すと さわがしくなる。
+   * 家で使う・全員がヘッドホン、という場合は true にしてよい。 */
+  var BGM_DEFAULT_ON = false;
   var savedBgm = store(BGM_KEY);
   var bgmOn = savedBgm === null ? BGM_DEFAULT_ON : savedBgm !== "0";
   /* ブラウザは、画面を1回さわるまで音を鳴らせない。それまではBGMを予約だけしておく */
@@ -34,7 +35,7 @@ var Sound = (function () {
     if (!ctx) {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
-      ctx = new AC();
+      try { ctx = new AC(); } catch (e) { ctx = null; return null; }   // 音が使えない端末でもゲームは止めない
       seGain = ctx.createGain(); seGain.gain.value = 1; seGain.connect(ctx.destination);
       bgmGain = ctx.createGain(); bgmGain.gain.value = 0.55; bgmGain.connect(ctx.destination);
       var len = ctx.sampleRate;
@@ -50,6 +51,7 @@ var Sound = (function () {
   function tone(dest, freq, t, dur, type, vol, slideTo) {
     var osc = ctx.createOscillator();
     var g = ctx.createGain();
+    g.gain.value = 0;   // 予約した時刻が来るまで無音にしておく（出はじめの雑音を防ぐ）
     osc.type = type || "square";
     osc.frequency.setValueAtTime(freq, t);
     if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
@@ -65,6 +67,7 @@ var Sound = (function () {
     var src = ctx.createBufferSource();
     src.buffer = noiseBuf;
     var g = ctx.createGain();
+    g.gain.value = 0;   // 同上。これが無いと、1サンプルだけ最大音量で鳴って「プチッ」と聞こえる
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     if (hp) {
@@ -78,8 +81,10 @@ var Sound = (function () {
   }
 
   /* notes: [[周波数Hz, 長さms], ...]  周波数0は休符 */
+  /* タブが隠れている間の効果音は鳴らさない（音の時計が止まっているので、
+   * ためこまれて、もどった瞬間にまとめて鳴ってしまう） */
   function playSeq(notes, type, vol, delayMs) {
-    if (muted) return;
+    if (muted || document.hidden) return;
     var c = ensureCtx();
     if (!c) return;
     var t = c.currentTime + (delayMs || 0) / 1000;
@@ -90,13 +95,13 @@ var Sound = (function () {
     });
   }
   function playNoise(dur, vol, hp, delayMs) {
-    if (muted) return;
+    if (muted || document.hidden) return;
     var c = ensureCtx();
     if (!c) return;
     noise(seGain, c.currentTime + (delayMs || 0) / 1000, dur / 1000, vol, hp);
   }
   function sweep(f0, f1, ms, type, vol, delayMs) {
-    if (muted) return;
+    if (muted || document.hidden) return;
     var c = ensureCtx();
     if (!c) return;
     tone(seGain, f0, c.currentTime + (delayMs || 0) / 1000, ms / 1000, type, vol, f1);
@@ -279,16 +284,18 @@ var Sound = (function () {
     bgmGain.gain.linearRampToValueAtTime(0.55, t + (ms || 1200) / 1000);
   }
 
+  /* 最初の操作で音を出せるようにする。操作の種類によっては（Esc キーなど）ブラウザが
+   * 「人の操作」と数えず、音が止まったままになるので、本当に鳴りはじめるまで聞きつづける */
+  var UNLOCK_EVENTS = ["pointerdown", "pointerup", "touchend", "keydown", "click"];
   function unlock() {
-    if (unlocked) return;
     unlocked = true;
-    document.removeEventListener("pointerdown", unlock, true);
-    document.removeEventListener("keydown", unlock, true);
     if (!muted) ensureCtx();
     bgmStart();
+    if (muted || !ctx || ctx.state === "running") {
+      UNLOCK_EVENTS.forEach(function (ev) { document.removeEventListener(ev, unlock, true); });
+    }
   }
-  document.addEventListener("pointerdown", unlock, true);
-  document.addEventListener("keydown", unlock, true);
+  UNLOCK_EVENTS.forEach(function (ev) { document.addEventListener(ev, unlock, true); });
 
   document.addEventListener("visibilitychange", function () {
     if (!ctx) return;
@@ -349,12 +356,13 @@ var Sound = (function () {
     playBgm: playBgm,
     setTempo: setTempo,
 
-    /* 右下のボタン：効果音＋BGM → 効果音だけ → 無音 → … と切りかえる */
+    /* 右下のボタン：効果音だけ → 音楽＋効果音 → 無音 → 効果音だけ → … と切りかえる。
+     * 既定は「効果音だけ」なので、1回押すと音楽が流れ、もう1回で無音になる */
     cycleMode: function () {
       var m = mode();
-      if (m === "all") { bgmOn = false; }
-      else if (m === "se") { muted = true; }
-      else { muted = false; bgmOn = true; }
+      if (m === "se") { bgmOn = true; }
+      else if (m === "all") { muted = true; }
+      else { muted = false; bgmOn = false; }
       store(MUTE_KEY, muted ? "1" : "0");
       store(BGM_KEY, bgmOn ? "1" : "0");
       if (ctx && !muted && !document.hidden) ctx.resume();
