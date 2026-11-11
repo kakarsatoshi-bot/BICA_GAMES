@@ -477,6 +477,7 @@ function beginBattle() {
   battle.quickMs = 0;
   battle.rightBtn = null;
   battle.answered = 0;   // こたえた数（めいきゅうを途中でぬけたときの集計に使う）
+  battle.mastered = 0;   // この戦闘でマスターした問題の数
   var b = battle;
 
   resultToken++;
@@ -868,7 +869,19 @@ function answer(isCorrect, btn) {
   /* まちがえたときは、正解のボタンもしめす（文字だけでなく、位置でも覚えられるように） */
   if (!isCorrect && battle.rightBtn) battle.rightBtn.classList.add("was-right");
 
-  SRS.record(save.records, q.id, isCorrect);
+  var rec0 = save.records[q.id];
+  var boxBefore = rec0 ? rec0.box : -1;
+  /* むげんの めいきゅうは何周でも続けられるので、復習の期限がまだ来ていない問題に正解しても
+   * 記憶の箱は上げない（正解の回数だけ数える）。続けて解くだけで「おぼえた」ことになり、
+   * 復習の予定が先へ行ってしまうのを防ぐため。まちがえたときは、ほかのモードと同じく箱0にもどす。 */
+  if (battle.mode === "endless" && isCorrect && rec0 && rec0.due > Date.now()) {
+    rec0.right++;
+    rec0.last = Date.now();
+  } else {
+    SRS.record(save.records, q.id, isCorrect);
+  }
+  /* この正解で、記憶の箱がいちばん上（マスター）に届いたか */
+  var mastered = isCorrect && save.records[q.id].box >= SRS.MAX_BOX && boxBefore < SRS.MAX_BOX;
   save.stats.answered++;
   battle.answered++;
 
@@ -966,6 +979,15 @@ function answer(isCorrect, btn) {
       var reached = battle.correct + 1;   // いま立っている かい
       save.endless.totalFloors++;
       if (reached > save.endless.best) save.endless.best = reached;
+      if (battle.startBest > 0 && reached > battle.startBest && !battle.brokeRecord) {
+        battle.brokeRecord = true;   /* これまでの最高記録をこえた瞬間を祝う（1回の挑戦で1度だけ） */
+        setTimeout(function () {
+          if (!battleLive(b, turn)) return;
+          Juice.announce("きろく こうしん！", "record", 1500);
+          Sound.newRecord();
+          Juice.confetti(40);
+        }, 600);
+      }
       ENDLESS_TITLES.forEach(function (t) {
         if (save.endless.best >= t[0] && save.titles.indexOf(t[1]) < 0) {
           save.titles.push(t[1]);
@@ -991,6 +1013,9 @@ function answer(isCorrect, btn) {
       Juice.orbs(Juice.enemyPoint(), $("#battle-xpfill").parentNode, { n: 6, onDone: renderBattleXp });
       setTimeout(renderBattleXp, 1000);   // 玉が届かなかったときの保険
       if (healed) { Sound.heal(); flashHearts("heal"); }
+      if (mastered) {
+        setTimeout(function () { if (battleLive(b, turn)) { Sound.star(2); Juice.sparkle($("#battle-msg"), { n: 12 }); } }, 350);
+      }
     };
     if (special) {
       move = pick(SPECIAL_MOVES);
@@ -1027,6 +1052,7 @@ function answer(isCorrect, btn) {
       msg = head + waza + battle.mob.name + "を たおした！ ＋" + gained + " EXP" + tip;
       if (comboBonus > 0 && !head) msg = "れんぞく せいかい！ " + msg;
     }
+    if (mastered) { battle.mastered++; msg += "\n★ この もんだいを マスターした！"; }
     if (shinyNew) msg += "\n✨ 色ちがいを 図鑑に とうろくした！";
     if (healed) msg += "\n♥ が 1つ かいふくした！";
     /* はじめての ヒント（1回の答えにつき1つまで。だいじな順） */
@@ -1268,6 +1294,7 @@ function battleRows(total) {
   if (battle.crits) rows.push(["かいしんの いちげき", battle.crits + " 回"]);
   if (battle.quicks) rows.push(["クイックせいかい", battle.quicks + " 回"]);
   if (battle.specials) rows.push(["ひっさつわざ", battle.specials + " 回"]);
+  if (battle.mastered) rows.push(["マスターした もんだい", battle.mastered + " もん"]);
   return rows;
 }
 
@@ -1658,6 +1685,7 @@ function openMenu() {
 
   renderStreakChip();
   renderMissions();
+  renderNextGoal();
 
   renderMessenger();
   show("screen-menu");
@@ -1711,6 +1739,21 @@ function renderMissions() {
     list.appendChild(row);
   });
   box.classList.toggle("hidden", save.missions.list.length === 0);
+}
+
+/* つぎの めあて：あと少しで とれる実績を1つ見せる（「もう1回やろう」のきっかけ） */
+function renderNextGoal() {
+  var el = $("#menu-goal");
+  var best = null;
+  ACHIEVEMENTS.forEach(function (a) {
+    if (save.achievements[a.id] || !a.prog) return;
+    var p = a.prog(save);
+    var ratio = p[0] / p[1];
+    if (ratio > 0 && ratio < 1 && (!best || ratio > best.ratio)) best = { a: a, ratio: ratio, left: p[1] - p[0] };
+  });
+  if (!best) { el.classList.add("hidden"); return; }
+  el.textContent = "🎯 つぎの めあて：" + best.a.desc + "（あと " + best.left + "）";
+  el.classList.remove("hidden");
 }
 
 /* ---------- 実績 ---------- */
@@ -1831,6 +1874,32 @@ function renderMessenger() {
   box.classList.remove("hidden");
 }
 
+/* クエストの習熟度（0〜100%）：全問の記憶の箱（0〜5）の合計 ÷ 満点。
+ * ★はクリアのうまさ、こちらは「どれだけ おぼえたか」。周回すると少しずつ伸びる */
+function questMastery(quest) {
+  var sum = 0;
+  quest.questions.forEach(function (q) {
+    var m = SRS.mastery(save.records, q.id);
+    if (m > 0) sum += m;
+  });
+  return Math.round(sum / (quest.questions.length * SRS.MAX_BOX) * 100);
+}
+function questMasteryEl(quest) {
+  var pct = questMastery(quest);
+  var wrap = document.createElement("div");
+  wrap.className = "quest-mastery";
+  var bar = document.createElement("div");
+  bar.className = "quest-mastery-bar";
+  var fill = document.createElement("div");
+  fill.style.width = pct + "%";
+  bar.appendChild(fill);
+  var label = document.createElement("span");
+  label.textContent = (pct >= 100 ? "👑 " : "") + "しゅうじゅく " + pct + "%";
+  wrap.appendChild(bar);
+  wrap.appendChild(label);
+  return wrap;
+}
+
 function openQuestList(subjectKey) {
   var sub = SUBJECTS.filter(function (s) { return s.subject === subjectKey; })[0];
   $("#quests-title").textContent = sub.label;
@@ -1860,6 +1929,7 @@ function openQuestList(subjectKey) {
     st.className = "quest-stars";
     st.textContent = "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars);
     info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
+    if (unlocked) info.appendChild(questMasteryEl(quest));
 
     div.appendChild(cv);
     div.appendChild(info);
@@ -1904,6 +1974,7 @@ function openExpertQuests() {
     st.className = "quest-stars";
     st.textContent = "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars);
     info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
+    if (unlocked) info.appendChild(questMasteryEl(quest));
 
     div.appendChild(cv);
     div.appendChild(info);
@@ -2287,6 +2358,27 @@ window.addEventListener("DOMContentLoaded", function () {
   $("#levelup-overlay").onclick = closeLevelUp;
   $("#btn-fx-level").onclick = toggleFxLevel;
   $("#title-fx-toggle").onclick = toggleFxLevel;
+  /* キーボードでも遊べる：1〜4 で選択肢、Enter／スペースで「すすむ」（教室のPCで手を止めずに進める） */
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (!$("#screen-battle").classList.contains("active")) return;
+    if (!$("#feedback-modal").classList.contains("hidden")) return;
+    var n = e.key.length === 1 ? "1234".indexOf(e.key) : -1;
+    if (n >= 0) {
+      var box = $("#battle-choices");
+      var btns = box.querySelectorAll(".choice");
+      if (btns[n] && !btns[n].disabled && !box.classList.contains("arming")) { e.preventDefault(); btns[n].click(); }
+      return;
+    }
+    /* ボタンにフォーカスがあるときの Enter は、ブラウザがそのボタンを押すので、ここでは何もしない */
+    if ((e.key === "Enter" || e.key === " ") && tag !== "BUTTON") {
+      var cont = $("#battle-continue");
+      if (!cont.classList.contains("hidden")) { e.preventDefault(); cont.click(); }
+    }
+  });
+
   /* ボタンを押したところから、小さく光がはじける */
   document.addEventListener("pointerdown", function (e) {
     var t = e.target && e.target.closest ? e.target.closest(".btn, .choice, .quest-card") : null;
