@@ -35,12 +35,16 @@ var BESTIARY = {
 
   /* --- とくべつ --- */
   "まおうデリート":     "うっかり Deleteキーを おしすぎた ものたちの 怨念が かたまった、さいきょうの てき。",
-  "コピペマスター":     "「Ctrl+C…Ctrl+V…」しか しゃべらない ふしぎな 存在。げんきに あらわれる ラッキーモンスター。"
+  "コピペマスター":     "「Ctrl+C…Ctrl+V…」しか しゃべらない ふしぎな 存在。げんきに あらわれる ラッキーモンスター。",
+  "オートフィルりゅう": "「1、2」と ならべて しっぽを ひっぱると 3、4、5… と どこまでも のびていく。「月・火・水」の つづきも とくい。",
+  "みえないスペース":   "文字の うしろに こっそり かくれる 全角スペースの おばけ。とりつかれた データは けんさくや VLOOKUPで みつからなくなり、みんなを なやませる。",
+  "ショートカットにんじゃ": "Ctrl+S で すばやく ほぞんし、Alt+Tab で べつの まどへ とびうつる。マウスには さわったことが ない。"
 };
 
-/* 激レアモンスター（コピペマスター）の定義。通常戦闘・復習中にごく低確率で出現する。 */
+/* 激レアモンスター。通常戦闘・復習・めいきゅうで、ごく低確率で出現する。
+ * RARE_MONSTER（コピペマスター）は実績「げきレア発見」が見ているので、名前を変えない。 */
 var RARE_MONSTER = { name: "コピペマスター", shape: "ghost", palette: "gold" };
-var RARE_MONSTER_CHANCE = 0.04; // 4%
+var RARE_MONSTER_CHANCE = 0.06; // 激レアのどれかが出る確率（6%）
 
 var RARE_MONSTER_INTRO = [
   "どこからか 「Ctrl+C…」という 声が…\nコピペマスターが すがたを あらわした！",
@@ -53,6 +57,48 @@ var RARE_MONSTER_DEFEAT = [
   "コピペマスターは ぺたっと つぶれ、光の粒に なって 消えた。",
   "「また コピペしに くるよ…」 コピペマスターは 満足そうに 消えた。"
 ];
+
+/* 激レアの一覧。weight が大きいほど出やすい（コピペマスターがいちばん出やすい） */
+var RARE_MONSTERS = [
+  { mob: RARE_MONSTER, weight: 3, intro: RARE_MONSTER_INTRO, defeat: RARE_MONSTER_DEFEAT },
+  { mob: { name: "オートフィルりゅう", shape: "dragon", palette: "pink" }, weight: 2,
+    intro: [
+      "1、2、3… どこからか 数える 声が…\nオートフィルりゅうが のびながら あらわれた！",
+      "ラッキー！ めずらしい けはいだ…\nオートフィルりゅうが するすると あらわれた！"
+    ],
+    defeat: [
+      "「…98、99、100！」 数えおわって オートフィルりゅうは 満足した。",
+      "オートフィルりゅうは しっぽを まるめて 光の粒に なった。"
+    ] },
+  { mob: { name: "みえないスペース", shape: "ghost", palette: "gray" }, weight: 2,
+    intro: [
+      "なにも いないはずの ところに けはいが…\nみえないスペースが すがたを あらわした！",
+      "ラッキー！ 文字の すきまが ゆれている…\nみえないスペースが あらわれた！"
+    ],
+    defeat: [
+      "みえないスペースは 「置換」されて きれいに 消えた。",
+      "「みつかっちゃった…」 みえないスペースは てれながら 消えた。"
+    ] },
+  { mob: { name: "ショートカットにんじゃ", shape: "bat", palette: "dark" }, weight: 2,
+    intro: [
+      "カタカタッ…！ キーの 音だけが ひびく…\nショートカットにんじゃが あらわれた！",
+      "ラッキー！ かげが すばやく うごいた…\nショートカットにんじゃが あらわれた！"
+    ],
+    defeat: [
+      "「Ctrl+S…」 にんじゃは しっかり ほぞんして さっていった。",
+      "ショートカットにんじゃは Alt+F4 で しずかに きえた。"
+    ] }
+];
+function pickRareMonster() {
+  var total = 0;
+  RARE_MONSTERS.forEach(function (r) { total += r.weight; });
+  var roll = Math.random() * total;
+  for (var i = 0; i < RARE_MONSTERS.length; i++) {
+    roll -= RARE_MONSTERS[i].weight;
+    if (roll < 0) return RARE_MONSTERS[i];
+  }
+  return RARE_MONSTERS[0];
+}
 
 /* 図鑑に載る全モンスターのリスト（シェイプ・パレット付き）を組み立てる。
  * ALL_QUESTS がまだ定義されていない読み込み順でも呼べるよう、game.js から呼び出して使う。 */
@@ -69,6 +115,6 @@ function buildBestiaryList(allQuests) {
     add(q.boss);
   });
   add({ name: "まおうデリート", shape: "demon", palette: "dark" });
-  add(RARE_MONSTER, true);
+  RARE_MONSTERS.forEach(function (r) { add(r.mob, true); });
   return list;
 }

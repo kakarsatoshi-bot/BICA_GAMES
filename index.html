@@ -6,7 +6,8 @@
 <title>MOS QUEST - ワード・エクセルぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=2.0.0">
+<link rel="stylesheet" href="css/juice.css?v=2.0.0">
 </head>
 <body>
 
@@ -26,6 +27,7 @@
       <p class="title-continue" id="title-continue-info"></p>
       <p class="title-copy">BICA MOS対策クエスト</p>
       <a class="title-vocab-link" href="vocab/index.html">📘 MOS単語帳（英語で用語を確認）</a>
+      <button class="title-fx-toggle" id="title-fx-toggle" type="button"></button>
     </div>
   </div>
 
@@ -62,6 +64,7 @@
     <div class="window missions-box hidden" id="menu-missions">
       <div class="window-title">📋 きょうの ミッション</div>
       <div id="missions-list"></div>
+      <p class="menu-goal hidden" id="menu-goal"></p>
     </div>
 
     <div class="window messenger hidden" id="menu-messenger">
@@ -93,6 +96,10 @@
       <button class="btn menu-btn" id="menu-expert">
         <span class="menu-icon">🗝️</span>エキスパートの おくち
         <span class="menu-lock" id="menu-expert-lock"></span>
+      </button>
+      <button class="btn menu-btn" id="menu-endless">
+        <span class="menu-icon">🌀</span>むげんの めいきゅう
+        <span class="menu-lock" id="menu-endless-lock"></span>
       </button>
       <button class="btn menu-btn" id="menu-exam">
         <span class="menu-icon">📝</span>もぎ けんてい
@@ -127,14 +134,24 @@
       <span id="battle-progress"></span>
       <span class="hearts" id="battle-hearts"></span>
     </div>
+    <div class="battle-xp">
+      <span id="battle-lv"></span>
+      <div class="xpbar"><div class="xpfill" id="battle-xpfill"></div></div>
+    </div>
 
     <div class="battle-stage" id="battle-stage">
       <canvas id="stage-bg"></canvas>
-      <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpfill"></div></div>
+      <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpghost"></div><div id="boss-hpfill"></div></div>
       <canvas id="enemy-canvas"></canvas>
       <div class="nametag" id="enemy-name"></div>
       <div id="hotspot-stage" class="hidden"></div>
       <div id="fx-layer"></div>
+      <div class="combo-hud hidden" id="combo-hud"><span id="combo-num"></span><span class="combo-label">COMBO</span></div>
+    </div>
+
+    <div class="battle-meters">
+      <div class="quick-bar off" id="quick-bar"><div id="quick-fill"></div><span class="meter-label">⚡ クイック</span></div>
+      <div class="special-gauge" id="special-gauge"><div id="special-fill"></div><span class="meter-label" id="special-label">ひっさつ</span></div>
     </div>
 
     <div class="window msg-window">
@@ -147,14 +164,21 @@
 
   <!-- ============ リザルト ============ -->
   <div class="screen" id="screen-result">
-    <div class="window narrow result-window">
+    <div class="window narrow result-window" id="result-window">
       <h2 id="result-title"></h2>
       <div class="result-stars" id="result-stars"></div>
+      <div class="result-big hidden" id="result-big"><span id="result-big-label"></span><span id="result-big-num"></span></div>
       <p id="result-sub"></p>
-      <p class="result-detail" id="result-detail"></p>
+      <div class="result-tally" id="result-tally"></div>
+      <div class="result-xp">
+        <span id="result-lv"></span>
+        <div class="xpbar"><div class="xpfill" id="result-xpfill"></div></div>
+        <span id="result-xptext"></span>
+      </div>
       <div class="levelup hidden" id="result-levelup"></div>
       <div class="window chest-box hidden" id="chest-box">
         <canvas id="chest-canvas"></canvas>
+        <p id="chest-rarity" class="hidden"></p>
         <p id="chest-reward-text" class="hidden"></p>
         <button class="btn btn-big" id="chest-open">たからばこを あける</button>
       </div>
@@ -203,8 +227,16 @@
       <h3 class="window-title">しょうごう</h3>
       <select id="title-select"></select>
     </div>
+    <div class="window">
+      <h3 class="window-title">せってい</h3>
+      <div class="setting-row">
+        <span>えんしゅつ</span>
+        <button class="btn btn-small" id="btn-fx-level" type="button"></button>
+      </div>
+      <p class="note">「ひかえめ」にすると、画面のゆれ・光・うごきを へらすよ。まぶしいと かんじる人は こちらに してね。</p>
+    </div>
     <button class="btn" id="btn-bestiary">📖 モンスター図鑑を みる</button>
-    <button class="btn" id="btn-achievements">🏅 実績を みる</button>
+    <button class="btn" id="btn-achievements">🏅 じっせきを みる</button>
     <button class="btn" id="btn-edit-profile">なまえ・クラスを かえる</button>
     <button class="btn btn-danger" id="btn-reset">ぼうけんのしょを けす（さいしょから）</button>
   </div>
@@ -252,29 +284,41 @@
   </div>
 </div>
 
+<!-- ============ レベルアップ ============ -->
+<div class="modal hidden" id="levelup-overlay">
+  <div class="levelup-card">
+    <div class="levelup-head">LEVEL UP!</div>
+    <div class="levelup-lv"><span id="lvup-from"></span><span class="levelup-arrow">▶</span><span id="lvup-to"></span></div>
+    <div class="levelup-line hidden" id="lvup-rank"></div>
+    <div class="levelup-line hidden" id="lvup-weapon"></div>
+    <div class="levelup-tap">タップで とじる</div>
+  </div>
+</div>
+
 <button class="btn btn-small" id="btn-feedback" title="ご意見箱">📮</button>
-<button class="btn btn-small" id="btn-mute" title="おとの ON/OFF">♪ ON</button>
+<button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/sound.js"></script>
-<script src="js/fx.js"></script>
-<script src="js/backgrounds.js"></script>
-<script src="js/bestiary.js"></script>
-<script src="js/countdown.js"></script>
-<script src="js/srs.js"></script>
-<script src="js/api.js"></script>
-<script src="js/questions_excel.js"></script>
-<script src="js/questions_word.js"></script>
-<script src="js/questions_excel_expert.js"></script>
-<script src="js/questions_excel_practical.js"></script>
-<script src="js/ribbonMockups.js"></script>
-<script src="js/streak.js"></script>
-<script src="js/achievements.js"></script>
-<script src="js/missions.js"></script>
-<script src="js/treasure.js"></script>
-<script src="js/practical.js"></script>
-<script src="js/game.js"></script>
+<script src="js/config.js?v=2.0.0"></script>
+<script src="js/sprites.js?v=2.0.0"></script>
+<script src="js/sound.js?v=2.0.0"></script>
+<script src="js/juice.js?v=2.0.0"></script>
+<script src="js/fx.js?v=2.0.0"></script>
+<script src="js/backgrounds.js?v=2.0.0"></script>
+<script src="js/bestiary.js?v=2.0.0"></script>
+<script src="js/countdown.js?v=2.0.0"></script>
+<script src="js/srs.js?v=2.0.0"></script>
+<script src="js/api.js?v=2.0.0"></script>
+<script src="js/questions_excel.js?v=2.0.0"></script>
+<script src="js/questions_word.js?v=2.0.0"></script>
+<script src="js/questions_excel_expert.js?v=2.0.0"></script>
+<script src="js/questions_excel_practical.js?v=2.0.0"></script>
+<script src="js/ribbonMockups.js?v=2.0.0"></script>
+<script src="js/streak.js?v=2.0.0"></script>
+<script src="js/achievements.js?v=2.0.0"></script>
+<script src="js/missions.js?v=2.0.0"></script>
+<script src="js/treasure.js?v=2.0.0"></script>
+<script src="js/practical.js?v=2.0.0"></script>
+<script src="js/game.js?v=2.0.0"></script>
 </body>
 </html>

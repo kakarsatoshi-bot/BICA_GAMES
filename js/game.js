@@ -13,6 +13,7 @@ function shuffle(arr) {
   }
   return a;
 }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function uid() {
   return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -68,6 +69,22 @@ function rankFor(level) {
   return name;
 }
 
+/* ぶき（見た目だけ。レベルで つるぎの色が かわる。強さは かわらない） */
+var WEAPONS = [
+  [1,  "きの つるぎ",       "#e0c08a"],
+  [5,  "てつの つるぎ",     "#d7dbe3"],
+  [10, "ほのおの つるぎ",   "#ff9d3b"],
+  [20, "いなずまの つるぎ", "#fff27a"],
+  [30, "こおりの つるぎ",   "#6ee7ff"],
+  [40, "ひかりの つるぎ",   "#ffffff"],
+  [50, "でんせつの つるぎ", "#c79bff"]
+];
+function weaponFor(level) {
+  var w = WEAPONS[0];
+  WEAPONS.forEach(function (x) { if (level >= x[0]) w = x; });
+  return { name: w[1], color: w[2] };
+}
+
 /* ---------- セーブデータ ---------- */
 var SAVE_KEY = "mosquest_save_v1";
 var save = null;
@@ -78,11 +95,45 @@ function loadSave() {
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
+var persistWarned = false;
 function persist() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  /* プライベートブラウズや容量いっぱいの端末では保存に失敗することがある。
+   * そのときもゲームは止めず、いちどだけ知らせる（その回の記録は、閉じると残らない）。 */
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  } catch (e) {
+    if (!persistWarned) {
+      persistWarned = true;
+      setTimeout(function () { toast("この たんまつでは きろくを ほぞんできないみたい…（とじると きえます）"); }, 0);
+    }
+  }
+}
+/* 新しく足した項目が無ければ初期値を入れる（旧セーブとの後方互換。新規セーブにも同じものを通す）。
+ * ⚠️ 既にある項目の名前・意味は変えない（生徒のセーブが読めなくなる）。 */
+function ensureSaveShape(s) {
+  s.seenMonsters = s.seenMonsters || [];
+  s.streak = s.streak || { current: 0, longest: 0, lastLoginDate: null };
+  s.missions = s.missions || { date: null, list: [] };
+  s.achievements = s.achievements || {};
+  s.titles = s.titles || [];
+  s.shinyMonsters = s.shinyMonsters || {};
+  s.stats.missionsCompleted = s.stats.missionsCompleted || 0;
+  s.player.equippedTitle = s.player.equippedTitle || null;
+  s.expertClear = s.expertClear || false;
+  s.practical = s.practical || {};
+  /* v2 で足したもの */
+  s.kills = s.kills || {};                 // モンスター名 -> たおした数
+  s.endless = s.endless || { best: 0, runs: 0, totalFloors: 0 };   // むげんの めいきゅうの記録
+  s.stats.crits = s.stats.crits || 0;      // かいしんの いちげき
+  s.stats.quicks = s.stats.quicks || 0;    // クイックせいかい
+  s.stats.specials = s.stats.specials || 0; // ひっさつわざ
+  s.stats.kills = s.stats.kills || 0;      // たおしたモンスターの合計
+  s.gauge = s.gauge || 0;                  // ひっさつゲージ（0〜100）。戦闘をまたいで持ちこす
+  s.hints = s.hints || {};                 // 見せおわった「はじめての ヒント」
+  return s;
 }
 function newSave(name, klass) {
-  return {
+  return ensureSaveShape({
     player: { id: uid(), name: name, klass: klass, createdAt: Date.now(), equippedTitle: null },
     xp: 0,
     records: {},   // qid -> SRS記録
@@ -97,7 +148,7 @@ function newSave(name, klass) {
     titles: [],         // たからばこで手に入れた しょうごう
     shinyMonsters: {},  // モンスター名 -> たからばこで手に入れた色ちがいのパレット名
     practical: {}       // practicalId -> {bestScore, maxScore, passed, tries}（じっせん道場の記録）
-  };
+  });
 }
 function totalStars() {
   var s = 0;
@@ -139,6 +190,9 @@ function show(id) {
     s.classList.remove("active");
   });
   $("#" + id).classList.add("active");
+  /* バトルの外では、ステージの粒を止めて、マップの曲にもどす（リザルトは無音でジングルを聞かせる） */
+  if (id !== "screen-battle") { Fx.stopAmbient(); Fx.cancel(); }
+  if (id !== "screen-battle" && id !== "screen-result") Sound.playBgm("menu");
 }
 function toast(msg) {
   var t = $("#toast");
@@ -266,6 +320,7 @@ function openExamSelect() {
     div.onclick = function () { Sound.select(); startExam(ex.key); };
     box.appendChild(div);
   });
+  enableCardKeys();
   show("screen-quests");
 }
 
@@ -333,27 +388,140 @@ function startExpert() {
   beginBattle();
 }
 
-function beginBattle() {
-  $("#battle-quest-name").textContent = battle.label;
-  $("#battle-choices").innerHTML = "";
-  $("#battle-continue").classList.add("hidden");
-  $("#boss-hpbar").classList.add("hidden");
-  $("#hotspot-stage").classList.add("hidden");
-  $("#hotspot-stage").innerHTML = "";
-  $("#battle-stage").classList.remove("hotspot-mode");
-  $("#enemy-canvas").classList.remove("hidden");
-  $("#enemy-name").classList.remove("hidden");
+/* =========================================================
+ * バトルの味つけ（数値はここで調整する）
+ * ======================================================= */
+var TUNE = {
+  critBase: 0.08,       // かいしんの いちげきの、もとの確率
+  critPerCombo: 0.02,   // コンボ1つごとに上がる確率
+  critComboCap: 6,      // ↑が伸びるのはコンボ6まで
+  critMul: 1.2,         // かいしんのEXP倍率
+  specialMul: 1.3,      // ひっさつわざのEXP倍率
+  gaugeCorrect: 15,     // ひっさつゲージ：せいかい1回ぶん（100でMAX。6〜7問に1回くらい）
+  gaugeCrit: 10,        // 　〃　：かいしんの上のせ
+  /* クイック（早押し）は「見た目・音・実績」だけのごほうびにしてある。
+   * 下の3つを 0 より大きくすると、読むのが速い人ほどEXPが多くなる（ランキングに影響する）。
+   * 日本語を勉強中の人が不利にならないよう、0 のままを すすめる。 */
+  quickXp: 0,           // クイックせいかいのボーナスEXP
+  critQuick: 0,         // クイックせいかいのときの、かいしんの確率の上のせ
+  gaugeQuick: 0,        // クイックせいかいのときの、ひっさつゲージの上のせ
+  shinyChance: 0.03,    // 色ちがいのモンスターが出る確率
+  shinyXp: 15,          // 色ちがいをたおしたときのボーナスEXP
+  feverCombo: 5         // このコンボからフィーバー
+};
 
-  /* クエストごとの背景を描画 */
-  var theme = battle.mode === "review" ? "shrine"
-            : battle.mode === "final" ? "final"
-            : battle.mode === "expert" ? "final"   // 専用の背景テーマは未作成。まおうの城の溶岩背景を流用する
-            : battle.mode === "exam" ? "temple"
-            : StageBg.forQuest(battle.quest.id);
+/* こうげきは連続正解で進化する（上から順に、あてはまる最初のものを使う） */
+var ATTACK_TIERS = [
+  { min: 10, kind: "meteor", se: "meteor",   text: "りゅうせいの まほうが ふりそそぐ！" },
+  { min: 7,  kind: "ice",    se: "ice",      text: "ふぶきの まほうが うずをまく！" },
+  { min: 5,  kind: "fire",   se: "fireball", text: "ごうかの まほうが さくれつ！" },
+  { min: 3,  kind: "bolt",   se: "zap",      text: "いなずまの まほうが ほとばしる！" },
+  { min: 0,  kind: "slash",  se: "attack",   text: "つるぎの いちげき！" }
+];
+function attackTier(combo) {
+  for (var i = 0; i < ATTACK_TIERS.length; i++) {
+    if (combo >= ATTACK_TIERS[i].min) return ATTACK_TIERS[i];
+  }
+  return ATTACK_TIERS[ATTACK_TIERS.length - 1];
+}
+
+/* ひっさつわざの名前（MOSで習う操作にちなむ。機能の名前は、問題文と同じ書き方＝試験で見る字にする） */
+var SPECIAL_MOVES = [
+  "Ctrl+Z ブレイカー", "オートSUM キャノン", "絶対参照 ロック", "フラッシュフィル ストーム",
+  "条件付き書式 バースト", "スタイル いっかつ ざん", "目次 じどうせいせい", "ウィンドウ枠の 固定"
+];
+
+/* はじめての ヒント：新しいしくみに はじめて出会ったときだけ、メッセージの最後に ひとこと そえる。
+ * （説明書を読まなくても、遊びながら分かるように。1回見せたら save.hints に記録して、もう出さない） */
+var HINTS = {
+  combo:   "れんぞく せいかいで コンボ！ つづけるほど こうげきが しんかして、もらえる EXPも ふえるぞ。",
+  quick:   "「クイック！」は はやく せいかいした しるし。EXPは かわらないので、あせらず よく よんで こたえよう。",
+  crit:    "かいしんの いちげきは、ときどき でる ラッキーな いちげき。EXPが すこし ふえるぞ。",
+  gauge:   "ひっさつゲージが MAXに なった！ つぎの せいかいで ひっさつわざが でるぞ。",
+  special: "ひっさつわざは EXPが ふえる。ゲージは つぎの たたかいにも もちこせるぞ。",
+  shiny:   "色ちがいの モンスターを たおすと、図鑑に 色ちがいが とうろくされるぞ。"
+};
+function firstHint(key) {
+  if (!key || !HINTS[key] || save.hints[key]) return "";
+  save.hints[key] = 1;
+  return "\n【ヒント】" + HINTS[key];
+}
+
+/* いま戦闘画面で、この問題の番のままか（時間差の演出が、次の問題や別の画面に出ないように） */
+function battleLive(b, turn) {
+  return battle === b && battle.idx === turn && $("#screen-battle").classList.contains("active");
+}
+
+function setStageTheme(theme) {
+  battle.theme = theme;
   StageBg.draw($("#stage-bg"), theme);
+  Fx.ambient(theme);
+}
 
-  show("screen-battle");
-  showTurn();
+function battleBgm() {
+  if (battle.mode === "exam") return null;   // もぎけんていは本番と同じ気持ちで解くので、音楽は流さない
+  if (battle.mode === "final" || battle.mode === "expert") return "boss";
+  if (battle.mode === "endless") return "maze";
+  return "battle";
+}
+
+function beginBattle() {
+  /* どのモードでも共通の、この戦闘のあいだだけ持つ値 */
+  battle.useGauge = battle.mode !== "exam";   // もぎけんていは本番と同じ気持ちで解くので、ひっさつは無し
+  /* ひっさつゲージ（0〜100）は前の戦闘から持ちこす（「あと少しでMAX」が、もう1回やる理由になる。
+   * 1回の戦闘でためきれない人も、いつかは必殺技が出せる） */
+  battle.gauge = battle.useGauge ? Math.min(100, save.gauge || 0) : 0;
+  battle.fever = false;
+  battle.maxCombo = 0;
+  battle.crits = 0;
+  battle.quicks = 0;
+  battle.specials = 0;
+  battle.quickMs = 0;
+  battle.rightBtn = null;
+  battle.answered = 0;   // こたえた数（めいきゅうを途中でぬけたときの集計に使う）
+  battle.mastered = 0;   // この戦闘でマスターした問題の数
+  var b = battle;
+
+  resultToken++;
+  closeLevelUp();
+  flushPendingLevelUp();
+  Sound.encounter();
+  Juice.transition("battle", function () {
+    if (battle !== b) return;
+    Juice.clear();
+    $("#battle-quest-name").textContent = battle.label;
+    $("#battle-choices").innerHTML = "";
+    $("#battle-continue").classList.add("hidden");
+    $("#boss-hpbar").classList.add("hidden");
+    $("#hotspot-stage").classList.add("hidden");
+    $("#hotspot-stage").innerHTML = "";
+    $("#battle-stage").classList.remove("hotspot-mode", "fever");
+    $("#enemy-canvas").classList.remove("hidden");
+    $("#enemy-name").classList.remove("hidden", "shiny");
+    $("#enemy-name").textContent = "";
+    $("#battle-msg").textContent = "";
+    setEnemyAnim("gone");
+
+    /* クエストごとの背景を描画 */
+    var theme = battle.mode === "review" ? "shrine"
+              : battle.mode === "final" ? "final"
+              : battle.mode === "expert" ? "final"   // 専用の背景テーマは未作成。まおうの城の溶岩背景を流用する
+              : battle.mode === "exam" ? "temple"
+              : battle.mode === "endless" ? StageBg.forQuest(pick(battle.quests).id)
+              : StageBg.forQuest(battle.quest.id);
+    setStageTheme(theme);
+
+    Sound.setTempo(1);
+    Sound.playBgm(battleBgm());
+    renderCombo();
+    renderGauge();
+    renderBattleXp();
+    resetQuickBar();
+    $(".battle-meters").classList.toggle("hidden", battle.mode === "exam");
+
+    show("screen-battle");
+    showTurn();
+  });
 }
 
 /* モンスター図鑑：遭遇したモンスターを記録する */
@@ -363,27 +531,50 @@ function recordSeenMonster(name) {
 
 function currentMonster() {
   battle.isRare = false;
+  battle.isShiny = false;
+  battle.rare = null;
   if (battle.mode === "final") {
     return { shape: "demon", palette: "dark", name: "まおうデリート" };
   }
   if (battle.mode === "expert") {
     return { shape: "demon", palette: "purple", name: "しんおうデリート" };
   }
-  if (battle.bossPhase) return battle.quest.boss;
-  if (battle.mode === "exam") {
-    var examMobs = ALL_QUESTS.map(function (q) { return q.mob; });
-    return examMobs[Math.floor(Math.random() * examMobs.length)];
+  if (battle.bossPhase) {
+    return battle.mode === "endless" ? pick(battle.quests).boss : battle.quest.boss;
   }
-  /* クエスト・復習中のみ、ごく低確率で激レアモンスターが出現する */
+  if (battle.mode === "exam") {
+    return pick(ALL_QUESTS).mob;
+  }
+  /* クエスト・復習・めいきゅうでは、ごく低確率で激レアモンスターが出現する */
   if (Math.random() < RARE_MONSTER_CHANCE) {
     battle.isRare = true;
-    return RARE_MONSTER;
+    battle.rare = pickRareMonster();
+    return battle.rare.mob;
   }
-  if (battle.mode === "review") {
-    var mobs = ALL_QUESTS.map(function (q) { return q.mob; });
-    return mobs[Math.floor(Math.random() * mobs.length)];
+  var m = battle.mode === "review" ? pick(ALL_QUESTS).mob
+        : battle.mode === "endless" ? pick(battle.quests).mob
+        : battle.quest.mob;
+  /* さらに低確率で、色ちがい。たおすと図鑑に色ちがいが登録される */
+  if (Math.random() < TUNE.shinyChance) {
+    battle.isShiny = true;
+    return { shape: m.shape, palette: Treasure.shinyPalette(m.palette), name: m.name };
   }
-  return battle.quest.mob;
+  return m;
+}
+
+/* 敵のうごき（CSSのクラス）を切りかえる。色ちがい・激レアの光り方と、
+ * ホットスポット問題で敵を隠している状態（hidden）は保つ。 */
+function setEnemyAnim(name) {
+  var c = $("#enemy-canvas");
+  var hid = c.classList.contains("hidden");
+  c.className = name + (battle && battle.isShiny ? " shiny" : "") + (battle && battle.isRare ? " rare" : "");
+  if (hid) c.classList.add("hidden");
+}
+/* 出現・ひるみ・とびかかりのうごきが終わったら、ふわふわ待機にもどす */
+var ENEMY_ANIM_CLASS = { spawn: "spawn", spawnBoss: "spawn-boss", hit: "hit", enemyLunge: "lunge" };
+function onEnemyAnimEnd(e) {
+  var cls = ENEMY_ANIM_CLASS[e.animationName];
+  if (cls && e.target.classList.contains(cls)) setEnemyAnim("idle");
 }
 
 function updateHud() {
@@ -392,15 +583,143 @@ function updateHud() {
     for (var i = 0; i < battle.maxHearts; i++) h += i < battle.hearts ? "♥" : "♡";
   }
   $("#battle-hearts").textContent = h;
-  $("#battle-progress").textContent = (battle.idx + 1) + "/" + battle.qs.length;
-  if (battle.bossPhase || battle.mode === "final") {
-    $("#boss-hpbar").classList.remove("hidden");
+  $("#battle-progress").textContent = battle.mode === "endless"
+    ? "ちか " + (battle.correct + 1) + " かい"
+    : (battle.idx + 1) + "/" + battle.qs.length;
+  /* めいきゅうのボスは1問でたおすので、HPバーは出さない */
+  var showBar = (battle.bossPhase || battle.mode === "final") && battle.mode !== "endless";
+  $("#boss-hpbar").classList.toggle("hidden", !showBar);
+  if (showBar) {
     var pct = Math.max(0, battle.bossHp / battle.bossMax * 100);
     $("#boss-hpfill").style.width = pct + "%";
+    $("#boss-hpghost").style.width = pct + "%";   // 白いバーが少し遅れて追いかける（けずった量が見える）
+  }
+}
+
+function flashHearts(cls) {
+  var el = $("#battle-hearts");
+  el.classList.remove("hurt", "heal");
+  void el.offsetWidth;   // 同じうごきを続けて再生できるように、いちど読みなおす
+  el.classList.add(cls);
+}
+
+/* ---------- コンボ・ひっさつゲージ・EXPバー・クイック ---------- */
+function renderCombo(bump) {
+  var el = $("#combo-hud");
+  if (!battle || battle.combo < 2) { el.className = "combo-hud hidden"; return; }
+  $("#combo-num").textContent = battle.combo;
+  el.className = "combo-hud tier-" + attackTier(battle.combo).kind;
+  if (bump) { void el.offsetWidth; el.classList.add("bump"); }
+}
+
+function renderGauge() {
+  var g = $("#special-gauge");
+  g.classList.toggle("hidden", !battle.useGauge);
+  var full = battle.gauge >= 100;
+  $("#special-fill").style.width = Math.min(100, battle.gauge) + "%";
+  g.classList.toggle("full", full);
+  $("#special-label").textContent = full ? "ひっさつ MAX！" : "ひっさつ";
+}
+
+/* EXPバー（prefix = "battle" / "result"）。いまのレベルを返す */
+function setXpBar(prefix, xp) {
+  var li = levelInfo(xp);
+  $("#" + prefix + "-lv").textContent = "Lv " + li.level;
+  $("#" + prefix + "-xpfill").style.width = Math.floor(li.cur / li.need * 100) + "%";
+  var t = $("#" + prefix + "-xptext");
+  if (t) t.textContent = "EXP " + li.cur + " / " + li.need;
+  return li.level;
+}
+function renderBattleXp() { setXpBar("battle", save.xp); }
+
+function setFever(on, delayed) {
+  if (battle.fever === on) return;
+  battle.fever = on;
+  $("#battle-stage").classList.toggle("fever", on);
+  Sound.setTempo(on ? 1.08 : 1);
+  if (on) {
+    var b = battle, turn = battle.idx;
+    setTimeout(function () {
+      if (battleLive(b, turn)) Juice.announce("フィーバー！！", "fever", 1100);
+    }, delayed ? 700 : 0);
+  }
+}
+
+/* クイック：問題が出てから一定の時間内に正解するとボーナス。
+ * おそくても罰は無い（あせって当てずっぽうにならないように、ごほうびだけにしている）。
+ * 持ち時間は問題文と選択肢の長さで決める（長い問題ほど長い）。 */
+var quickState = { t0: 0, timer: null };
+function resetQuickBar() {
+  clearTimeout(quickState.timer);
+  quickState.t0 = 0;
+  var bar = $("#quick-bar"), fill = $("#quick-fill");
+  bar.classList.remove("expired");
+  bar.classList.add("off");
+  fill.style.transition = "none";
+  fill.style.transform = "scaleX(0)";
+}
+/* バーは幅ではなく拡大率（transform）で動かす：幅を動かすと、問題が出ている間ずっと
+ * 画面の組み直しが毎フレーム走って、古いPCで重くなる */
+function startQuickTimer(q) {
+  var chars = q.q.length + q.c.join("").length;
+  battle.quickChars = chars;
+  battle.quickMs = Math.min(25000, 5000 + 110 * chars + (q.type === "hotspot" ? 3000 : 0));
+  var bar = $("#quick-bar"), fill = $("#quick-fill");
+  bar.classList.remove("expired", "off");
+  fill.style.transition = "none";
+  fill.style.transform = "scaleX(1)";
+  void fill.offsetWidth;
+  fill.style.transition = "transform " + battle.quickMs + "ms linear";
+  fill.style.transform = "scaleX(0)";
+  quickState.t0 = performance.now();
+  clearTimeout(quickState.timer);
+  quickState.timer = setTimeout(function () { bar.classList.add("expired"); }, battle.quickMs);
+}
+/* タイマーを止めて、かかった時間（ミリ秒）を返す。うごいていなければ null */
+function stopQuickTimer() {
+  clearTimeout(quickState.timer);
+  if (!quickState.t0) return null;
+  var elapsed = performance.now() - quickState.t0;
+  quickState.t0 = 0;
+  var fill = $("#quick-fill");
+  fill.style.transition = "none";   // バーをその場で止める
+  fill.style.transform = "scaleX(" + Math.max(0, 1 - elapsed / (battle.quickMs || 1)) + ")";
+  return elapsed;
+}
+/* クイックと数えるのは「読める時間はかけたが、持ち時間の内」の正解だけ。
+ * 出た瞬間の当てずっぽうは数えない（下限：1.2秒＋文字数ぶん、長くても4秒） */
+function isQuickAnswer(elapsed) {
+  if (elapsed === null) return false;
+  return elapsed <= battle.quickMs && elapsed >= Math.min(4000, 1200 + 25 * (battle.quickChars || 0));
+}
+
+/* ---------- むげんの めいきゅう：1かいごとの準備 ---------- */
+function prepareEndlessFloor() {
+  var floor = battle.correct + 1;
+  if (floor % ENDLESS_BOSS_EVERY === 0) {
+    /* ボスのかい。まちがえても同じボスが立ちふさがる（正解するまで下へ行けない） */
+    if (!battle.bossPhase) { battle.bossFrom = battle.idx; battle.bossHp = 1; battle.bossMax = 1; }
+  } else {
+    if (battle.bossPhase) Sound.playBgm("maze");
+    battle.bossPhase = false;
+    battle.bossFrom = 99999;
+  }
+  /* 5かいごとに けしきが かわる */
+  var zone = Math.floor((floor - 1) / ENDLESS_BOSS_EVERY);
+  if (zone !== battle.zone) {
+    battle.zone = zone;
+    setStageTheme(StageBg.forQuest(pick(battle.quests).id));
+    if (!Juice.isLow()) Juice.announce("ちか " + floor + " かい", "floor", 1000);
+  }
+  if (floor === ENDLESS_HEAL_UNTIL + 1 && !battle.warnedDeep) {
+    battle.warnedDeep = true;
+    toast("ここから さきは ♥の かいふくが ない… しんちょうに すすもう！");
   }
 }
 
 function showTurn() {
+  if (battle.mode === "endless") prepareEndlessFloor();
+
   var enteringBoss = !battle.bossPhase && battle.idx >= battle.bossFrom;
   if (enteringBoss) battle.bossPhase = true;
   /* ボスが既に登場ずみの2問目以降は、出現メッセージなしで次の問題へ直行する */
@@ -409,23 +728,12 @@ function showTurn() {
   var canvas = $("#enemy-canvas");
   $("#battle-choices").innerHTML = "";
   $("#battle-continue").classList.add("hidden");
-
-  /* もぎけんていは出現メッセージなしでテンポよく出題する */
-  if (battle.mode === "exam") {
-    var em = currentMonster();
-    battle.mob = em;
-    recordSeenMonster(em.name);
-    persist();
-    drawSprite(canvas, em.shape, em.palette, 9);
-    canvas.className = "spawn";
-    $("#enemy-name").textContent = em.name;
-    updateHud();
-    showQuestion();
-    return;
-  }
+  resetQuickBar();
+  /* まえの問題がリボンの絵（ホットスポット）だったら片づけて、モンスターの表示にもどす */
+  renderQuestionVisual({});
 
   if (bossContinuing) {
-    canvas.className = "";   /* ボスは立ったまま。再出現アニメもさせない */
+    setEnemyAnim("idle");   /* ボスは立ったまま。再出現アニメもさせない */
     updateHud();
     showQuestion();
     return;
@@ -435,32 +743,75 @@ function showTurn() {
   battle.mob = m;
   recordSeenMonster(m.name);
   persist();
-  var scale = (battle.bossPhase || battle.mode === "final") ? 12 : 9;
-  drawSprite(canvas, m.shape, m.palette, scale);
-  canvas.className = "spawn";
-  $("#enemy-name").textContent = m.name;
-  updateHud();
+  var tag = $("#enemy-name");
 
-  var intro;
-  if (battle.isRare) {
-    Sound.heal();
-    intro = RARE_MONSTER_INTRO[Math.floor(Math.random() * RARE_MONSTER_INTRO.length)];
-  } else if (battle.mode === "final") {
-    Sound.boss();
-    intro = "じゃあくな けはいが みなぎる…！\n" + m.name + "が すがたを あらわした！！";
-  } else if (battle.mode === "expert") {
-    Sound.boss();
-    intro = "けたはずれの プレッシャーが おそいかかる…！\n真の おうしゃ「" + m.name + "」が すがたを あらわした！！";
-  } else if (enteringBoss) {
-    Sound.boss();
-    intro = "つよそうな けはいが する…！\nボス「" + m.name + "」が あらわれた！！";
-  } else {
-    intro = m.name + "が あらわれた！";
+  /* もぎけんていは出現メッセージなしでテンポよく出題する */
+  if (battle.mode === "exam") {
+    drawSprite(canvas, m.shape, m.palette, 9);
+    setEnemyAnim("spawn");
+    tag.textContent = m.name;
+    tag.classList.remove("shiny");
+    updateHud();
+    showQuestion();
+    return;
   }
 
-  typeMsg(intro, function () {
-    setTimeout(showQuestion, 450);
-  });
+  var b = battle, turn = battle.idx;
+  var bossLike = battle.bossPhase || battle.mode === "final";
+
+  function appear() {
+    if (!battleLive(b, turn)) return;
+    drawSprite(canvas, m.shape, m.palette, bossLike ? 12 : 9);
+    setEnemyAnim(enteringBoss ? "spawn-boss" : "spawn");
+    tag.textContent = (battle.isShiny ? "✨ " : "") + m.name;
+    tag.classList.toggle("shiny", battle.isShiny);
+    updateHud();
+
+    var intro;
+    if (battle.isRare) {
+      Sound.heal();
+      Juice.sparkle(canvas, { n: 14 });
+      intro = pick(battle.rare.intro);
+    } else if (battle.isShiny) {
+      Sound.shiny();
+      Juice.sparkle(canvas, { n: 18, colors: ["#ffffff", "#fff7a0", "#ffd23b"] });
+      Juice.announce("色ちがい！", "shiny", 1200);
+      intro = "キラリ…！ めずらしい 色ちがいだ！\n" + m.name + "が あらわれた！";
+    } else if (battle.mode === "final") {
+      Sound.boss();
+      intro = "じゃあくな けはいが みなぎる…！\n" + m.name + "が すがたを あらわした！！";
+    } else if (battle.mode === "expert") {
+      Sound.boss();
+      intro = "けたはずれの プレッシャーが おそいかかる…！\n真の おうしゃ「" + m.name + "」が すがたを あらわした！！";
+    } else if (enteringBoss) {
+      Sound.boss();
+      intro = "つよそうな けはいが する…！\nボス「" + m.name + "」が あらわれた！！";
+    } else {
+      intro = m.name + "が あらわれた！";
+    }
+    if (enteringBoss) Juice.shake(0.45);
+
+    typeMsg(intro, function () {
+      setTimeout(function () { if (battleLive(b, turn)) showQuestion(); }, 450);
+    });
+  }
+
+  if (enteringBoss) {
+    Sound.playBgm("boss");
+    if (!Juice.isLow()) {
+      /* ボス登場：警告の帯 → 上からドスンと落ちてくる */
+      setEnemyAnim("gone");
+      tag.textContent = "？？？";
+      tag.classList.remove("shiny");
+      updateHud();
+      Sound.warning();
+      Fx.warning(battle.mode === "final" || battle.mode === "expert" ? "DANGER" : "WARNING");
+      typeMsg("…！？ なにかが ちかづいてくる…！");
+      setTimeout(appear, 1200);
+      return;
+    }
+  }
+  appear();
 }
 
 function showQuestion() {
@@ -469,14 +820,21 @@ function showQuestion() {
   renderQuestionVisual(q);
   var box = $("#battle-choices");
   box.innerHTML = "";
+  battle.rightBtn = null;
   var order = shuffle([0, 1, 2, 3]);
   order.forEach(function (ci) {
     var btn = document.createElement("button");
     btn.className = "choice";
     btn.textContent = q.c[ci];
+    if (ci === q.a) battle.rightBtn = btn;
     btn.onclick = function () { answer(ci === q.a, btn); };
     box.appendChild(btn);
   });
+  /* 出たばかりの選択肢は、ほんの一瞬だけ押せなくする（「すすむ」の連打が、次の問題の答えになるのを防ぐ） */
+  box.classList.add("arming");
+  setTimeout(function () { box.classList.remove("arming"); }, 300);
+  /* もぎけんていでは、クイックのバーも出さない（時間を気にさせない） */
+  if (battle.mode === "exam") resetQuickBar(); else startQuickTimer(q);
 }
 
 /* 画面ホットスポット問題（type:"hotspot"）のときはモンスターを隠してリボンUIモックアップ
@@ -515,12 +873,29 @@ function renderQuestionVisual(q) {
 
 function answer(isCorrect, btn) {
   finishType();
+  var elapsed = stopQuickTimer();
   var q = battle.qs[battle.idx];
-  document.querySelectorAll(".choice").forEach(function (b) { b.disabled = true; });
+  var b = battle, turn = battle.idx;
+  document.querySelectorAll(".choice").forEach(function (x) { x.disabled = true; });
   btn.classList.add(isCorrect ? "picked-right" : "picked-wrong");
+  /* まちがえたときは、正解のボタンもしめす（文字だけでなく、位置でも覚えられるように） */
+  if (!isCorrect && battle.rightBtn) battle.rightBtn.classList.add("was-right");
 
-  SRS.record(save.records, q.id, isCorrect);
+  var rec0 = save.records[q.id];
+  var boxBefore = rec0 ? rec0.box : -1;
+  /* むげんの めいきゅうは何周でも続けられるので、復習の期限がまだ来ていない問題に正解しても
+   * 記憶の箱は上げない（正解の回数だけ数える）。続けて解くだけで「おぼえた」ことになり、
+   * 復習の予定が先へ行ってしまうのを防ぐため。まちがえたときは、ほかのモードと同じく箱0にもどす。 */
+  if (battle.mode === "endless" && isCorrect && rec0 && rec0.due > Date.now()) {
+    rec0.right++;
+    rec0.last = Date.now();
+  } else {
+    SRS.record(save.records, q.id, isCorrect);
+  }
+  /* この正解で、記憶の箱がいちばん上（マスター）に届いたか */
+  var mastered = isCorrect && save.records[q.id].box >= SRS.MAX_BOX && boxBefore < SRS.MAX_BOX;
   save.stats.answered++;
+  battle.answered++;
 
   /* もぎけんてい: 分野（クエスト）ごとの正答を記録して苦手診断に使う */
   if (battle.mode === "exam") {
@@ -530,73 +905,190 @@ function answer(isCorrect, btn) {
     if (isCorrect) pq.right++;
   }
 
-  var canvas = $("#enemy-canvas");
+  var levelBefore = levelInfo(save.xp).level;
+  var missionHits = [Missions.record(save, "answered", 1)];
+  var banners = [];
   var msg;
+  var hitDelay = 300;   // 演出が当たるまでの時間。これより前には「すすむ」を出さない
 
   if (isCorrect) {
     save.stats.correct++;
     battle.correct++;
     battle.combo++;
+    if (battle.combo > battle.maxCombo) battle.maxCombo = battle.combo;
     if (battle.combo > save.stats.bestCombo) save.stats.bestCombo = battle.combo;
 
-    var gained = battle.mode === "review" ? 6 : battle.mode === "exam" ? 8 : 10;
-    if (battle.bossPhase || battle.mode === "final") gained = 15;
+    var isBoss = battle.bossPhase || battle.mode === "final";
+    var quick = isQuickAnswer(elapsed);
+    var special = battle.useGauge && battle.gauge >= 100;
+    var crit = !special && Math.random() <
+      TUNE.critBase + TUNE.critPerCombo * Math.min(battle.combo, TUNE.critComboCap) + (quick ? TUNE.critQuick : 0);
+    var tier = attackTier(battle.combo);
+
+    var gained = battle.mode === "review" ? 6 : (battle.mode === "exam" || battle.mode === "endless") ? 8 : 10;
+    if (isBoss) gained = 15;
     var comboBonus = Math.min((battle.combo - 1) * 2, 10);
     gained += comboBonus;
     if (battle.isRare) gained += 20;   /* 激レアモンスターのラッキーボーナス */
+    if (battle.isShiny) gained += TUNE.shinyXp;
+    if (crit) gained = Math.round(gained * TUNE.critMul);
+    if (quick) gained += TUNE.quickXp;
+    if (special) gained = Math.round(gained * TUNE.specialMul);
     battle.xp += gained;
     save.xp += gained;
 
-    /* 連続正解でこうげきが進化する: 剣 → いなずま → ごうかの まほう */
-    var tier = battle.combo >= 5 ? "fire" : (battle.combo >= 3 ? "bolt" : "slash");
-    var waza = tier === "fire" ? "ごうかの まほうが さくれつ！"
-             : tier === "bolt" ? "いなずまの まほうが ほとばしる！"
-             : "つるぎの いちげき！";
-    if (tier === "bolt") Sound.zap();
-    else if (tier === "fire") Sound.fireball();
-    else Sound.attack();
-    setTimeout(function () { Sound.correct(); }, 240);
-    Fx.attack(tier);
-    Fx.floatText("＋" + gained + " EXP");
+    if (special) {
+      battle.gauge = 0;
+      save.gauge = 0;
+      battle.specials++;
+      save.stats.specials++;
+      missionHits.push(Missions.record(save, "special", 1));
+    } else if (battle.useGauge) {
+      battle.gauge = Math.min(100, battle.gauge + TUNE.gaugeCorrect +
+        (quick ? TUNE.gaugeQuick : 0) + (crit ? TUNE.gaugeCrit : 0));
+      save.gauge = battle.gauge;
+      if (battle.gauge >= 100) setTimeout(function () { if (battleLive(b, turn)) Sound.gaugeMax(); }, 600);
+    }
+    if (crit) { battle.crits++; save.stats.crits++; missionHits.push(Missions.record(save, "crit", 1)); }
+    if (quick) { battle.quicks++; save.stats.quicks++; missionHits.push(Missions.record(save, "quick", 1)); }
 
-    var isBoss = battle.bossPhase || battle.mode === "final";
     var died = true;
     if (isBoss) {
       battle.bossHp--;
       battle.bossCorrect++;
       died = battle.bossHp <= 0;
-      msg = waza + " ボスに ダメージ！\n＋" + gained + " EXP";
-      if (died) msg = "とどめの いちげき！！ ボスを たおした！\n＋" + gained + " EXP";
-    } else if (battle.isRare) {
-      msg = RARE_MONSTER_DEFEAT[Math.floor(Math.random() * RARE_MONSTER_DEFEAT.length)]
-          + " ラッキーEXP＋" + gained + "！"
-          + (q.exp ? "\n【まめちしき】" + q.exp : "");
-    } else {
-      msg = waza + " " + battle.mob.name + "を たおした！ ＋" + gained + " EXP"
-          + (q.exp ? "\n【まめちしき】" + q.exp : "");
-      if (comboBonus > 0) msg = "れんぞく せいかい！ " + msg;
     }
-    /* エフェクトが当たってから敵がやられる（ひと呼吸おいて命中感を出す） */
-    setTimeout(function () {
-      canvas.className = died ? "die" : "hit";
-      if (died) {
-        Fx.particles(battle.mob.palette, isBoss ? 18 : 12);
-        if (isBoss) Fx.flash("rgba(255,210,59,.3)", 350);
+
+    /* かいふく：ひっさつわざ（めいきゅう以外）／めいきゅうのボスをたおしたとき（浅いかいだけ）。
+     * めいきゅうで回復が多いと、正解率の高い人は終わらなくなり、記録が「実力」ではなく
+     * 「使えた時間」で決まってしまう。そこで回復はボスだけ・ちか ENDLESS_HEAL_UNTIL かいまでにしている。 */
+    var endlessBossKill = battle.mode === "endless" && isBoss && died;
+    var healed = false;
+    if (!battle.noFail && battle.hearts < battle.maxHearts &&
+        ((special && battle.mode !== "endless") || (endlessBossKill && battle.correct <= ENDLESS_HEAL_UNTIL))) {
+      battle.hearts++;
+      healed = true;
+    }
+
+    /* たおした数（図鑑のメダル）と、色ちがいの登録 */
+    var shinyNew = false;
+    if (died) {
+      var mobName = battle.mob.name;
+      var kills = save.kills[mobName] = (save.kills[mobName] || 0) + 1;
+      save.stats.kills++;
+      missionHits.push(Missions.record(save, "kills", 1));
+      var medal = medalAt(kills);
+      if (medal) banners.push([medal.icon, medal.name + " かくとく！", mobName + "を " + kills + "体 たおした！", ""]);
+      if (battle.isShiny && !save.shinyMonsters[mobName]) {
+        save.shinyMonsters[mobName] = battle.mob.palette;
+        shinyNew = true;
       }
-    }, 160);
+    }
+    if (battle.mode === "endless") {
+      missionHits.push(Missions.record(save, "endlessFloor", 1));
+      if (endlessBossKill) missionHits.push(Missions.record(save, "bossWin", 1));
+      /* 記録は進むたびに保存する（授業の終わりにタブを閉じても、そこまでの記録が残るように） */
+      var reached = battle.correct + 1;   // いま立っている かい
+      save.endless.totalFloors++;
+      if (reached > save.endless.best) save.endless.best = reached;
+      if (battle.startBest > 0 && reached > battle.startBest && !battle.brokeRecord) {
+        battle.brokeRecord = true;   /* これまでの最高記録をこえた瞬間を祝う（1回の挑戦で1度だけ） */
+        setTimeout(function () {
+          if (!battleLive(b, turn)) return;
+          Juice.announce("きろく こうしん！", "record", 1500);
+          Sound.newRecord();
+          Juice.confetti(40);
+        }, 600);
+      }
+      ENDLESS_TITLES.forEach(function (t) {
+        if (save.endless.best >= t[0] && save.titles.indexOf(t[1]) < 0) {
+          save.titles.push(t[1]);
+          banners.push(["👑", "あたらしい しょうごう！", "「" + t[1] + "」", ""]);
+        }
+      });
+    }
+
+    /* こうげきの演出 */
+    var move = null;
+    var onHit = function () {
+      if (!battleLive(b, turn)) return;
+      updateHud();   // ボスのHP・ハートは、こうげきが当たった瞬間に動かす
+      if (!special) Sound.correct();
+      if (died) {
+        Fx.defeat(battle.mob.palette, isBoss);
+        setEnemyAnim("gone");
+        if (isBoss) Sound.boom();
+      } else {
+        setEnemyAnim("hit");
+      }
+      Fx.floatText("＋" + gained + " EXP", null, (crit || special) ? "crit" : "");
+      Juice.orbs(Juice.enemyPoint(), $("#battle-xpfill").parentNode, { n: 6, onDone: renderBattleXp });
+      setTimeout(renderBattleXp, 1000);   // 玉が届かなかったときの保険
+      if (healed) { Sound.heal(); flashHearts("heal"); }
+      if (mastered) {
+        setTimeout(function () { if (battleLive(b, turn)) { Sound.star(2); Juice.sparkle($("#battle-msg"), { n: 12 }); } }, 350);
+      }
+    };
+    if (special) {
+      move = pick(SPECIAL_MOVES);
+      hitDelay = 860;
+      Sound.special();
+      Fx.special(move, onHit);
+    } else {
+      hitDelay = 160;
+      Sound[tier.se]();
+      Fx.attack(tier.kind, { crit: crit, color: weaponFor(levelBefore).color });
+      setTimeout(onHit, hitDelay);
+      if (crit) {
+        Juice.announce("かいしんの いちげき！", "crit", 900);
+        setTimeout(function () { Sound.crit(); }, 120);
+      }
+    }
+    if (quick) {
+      Fx.floatText("⚡ クイック！" + (TUNE.quickXp ? " ＋" + TUNE.quickXp : ""), null, "quick");
+      Sound.quick();
+    }
+    renderCombo(true);
+    if (battle.combo >= 2) Sound.combo(battle.combo);
+    if (battle.combo >= TUNE.feverCombo) setFever(true, crit || special);
+
+    var head = special ? "ひっさつ「" + move + "」！！ " : (crit ? "かいしんの いちげき！ " : "");
+    var waza = special ? "" : tier.text + " ";
+    var tip = q.exp ? "\n【まめちしき】" + q.exp : "";
+    if (isBoss) {
+      msg = head + waza + "ボスに ダメージ！\n＋" + gained + " EXP";
+      if (died) msg = head + "とどめの いちげき！！ ボスを たおした！\n＋" + gained + " EXP";
+    } else if (battle.isRare) {
+      msg = head + pick(battle.rare.defeat) + " ラッキーEXP＋" + gained + "！" + tip;
+    } else {
+      msg = head + waza + battle.mob.name + "を たおした！ ＋" + gained + " EXP" + tip;
+      if (comboBonus > 0 && !head) msg = "れんぞく せいかい！ " + msg;
+    }
+    if (mastered) { battle.mastered++; msg += "\n★ この もんだいを マスターした！"; }
+    if (shinyNew) msg += "\n✨ 色ちがいを 図鑑に とうろくした！";
+    if (healed) msg += "\n♥ が 1つ かいふくした！";
+    /* はじめての ヒント（1回の答えにつき1つまで。だいじな順） */
+    msg += firstHint(!special && battle.useGauge && battle.gauge >= 100 ? "gauge"
+          : special ? "special"
+          : battle.combo === 2 ? "combo"
+          : crit ? "crit"
+          : quick ? "quick" : null);
   } else {
+    var hadCombo = battle.combo;
     battle.combo = 0;
     if (!battle.noFail) battle.hearts--;
     Sound.wrong();
+    if (hadCombo >= 3) setTimeout(function () { Sound.comboBreak(); }, 200);
+    setEnemyAnim("lunge");
     Fx.claw();
-    Fx.floatText(battle.noFail ? "ミス…" : "－♥ ダメージ！", "#ff5d7a");
-    $("#screen-battle").classList.add("shake");
-    setTimeout(function () { $("#screen-battle").classList.remove("shake"); }, 420);
+    Fx.floatText(battle.noFail ? "ミス…" : "－♥ ダメージ！", "#ff5d7a", "bad");
+    if (!battle.noFail) flashHearts("hurt");
+    setFever(false);
+    renderCombo();
     msg = "ミス！ こうげきを うけた…\nせいかいは 「" + q.c[q.a] + "」\n【かいせつ】" + q.exp;
   }
 
   /* デイリーミッションの進捗を更新し、達成したぶんだけボーナスEXPを加える */
-  var missionHits = [Missions.record(save, "answered", 1)];
   if (isCorrect) {
     missionHits.push(Missions.record(save, "correct", 1));
     missionHits.push(Missions.record(save, "comboReach", battle.combo));
@@ -605,16 +1097,60 @@ function answer(isCorrect, btn) {
   missionHits.filter(Boolean).forEach(function (m) {
     save.xp += MISSION_BONUS_XP;
     battle.xp += MISSION_BONUS_XP;
-    toast("📋 ミッション達成！「" + m.label + "」＋" + MISSION_BONUS_XP + "EXP");
+    banners.push(missionBanner(m));
   });
 
+  /* 戦闘のとちゅうでレベルが上がったら、その場でも知らせる（くわしい演出はリザルトで） */
+  var levelAfter = levelInfo(save.xp).level;
+  if (levelAfter > levelBefore) {
+    setTimeout(function () {
+      if (!battleLive(b, turn)) return;
+      Sound.levelup();
+      Juice.banner("⬆️", "レベルアップ！", "Lv " + levelAfter + " に なった！", "levelup", "levelup");
+      var c = Juice.centerOf($("#battle-xpfill").parentNode);
+      if (c) Juice.fountain(c.x, c.y, { n: 30, speed: 380 });
+    }, hitDelay + 500);
+  }
+  banners.forEach(function (x) { Juice.banner(x[0], x[1], x[2], x[3]); });
+
+  /* 実績は、達成したその場で知らせる（コンボ10などは、決めた瞬間がいちばん うれしい） */
+  var newAch = Achievements.check(save);
+  if (newAch.length) showAchievementToasts(newAch);
+
   persist();
-  updateHud();
+  if (!isCorrect) updateHud();
+  /* めいきゅうは長くつづくので、ボスをたおすたびに先生の記録も更新する（送る内容は同じ） */
+  if (isCorrect && battle.mode === "endless" && battle.bossPhase && battle.bossHp <= 0) syncNow();
+  renderGauge();
+  var readyAt = performance.now() + hitDelay + 250 + (isCorrect ? 0 : 1200);   // まちがいのときは、解説を読む間をとる
   typeMsg(msg, function () {
-    var btnNext = $("#battle-continue");
-    btnNext.classList.remove("hidden");
-    btnNext.focus();
+    setTimeout(function () {
+      if (!battleLive(b, turn)) return;
+      var btnNext = $("#battle-continue");
+      btnNext.classList.remove("hidden");
+      btnNext.focus();
+    }, Math.max(0, readyAt - performance.now()));
   });
+}
+
+function missionBanner(m) {
+  return ["📋", "ミッション たっせい！ ＋" + MISSION_BONUS_XP + "EXP", m.label, "mission"];
+}
+
+/* たおした数のメダル（ちょうどその数になったときだけ返す） */
+var MEDALS = [
+  { at: 10,  icon: "🥉", name: "どうメダル" },
+  { at: 30,  icon: "🥈", name: "ぎんメダル" },
+  { at: 100, icon: "🥇", name: "きんメダル" }
+];
+function medalAt(kills) {
+  for (var i = 0; i < MEDALS.length; i++) if (MEDALS[i].at === kills) return MEDALS[i];
+  return null;
+}
+function medalFor(kills) {
+  var m = null;
+  MEDALS.forEach(function (x) { if (kills >= x.at) m = x; });
+  return m;
 }
 
 function nextTurn() {
@@ -622,6 +1158,12 @@ function nextTurn() {
   $("#battle-continue").classList.add("hidden");
   battle.idx++;
   if (battle.hearts <= 0) { endBattle(false); return; }
+  /* むげんの めいきゅうは終わりが無い。問題を出しきったら、もう一周ぶん足す */
+  if (battle.mode === "endless") {
+    if (battle.idx >= battle.qs.length) refillEndless();
+    showTurn();
+    return;
+  }
   // 最終決戦（まおう/エキスパート）はボスのHPを削りきった時点で勝利（残りの問題は出題しない）
   if ((battle.mode === "final" || battle.mode === "expert") && battle.bossHp <= 0) { endBattle(true); return; }
   if (battle.idx >= battle.qs.length) {
@@ -633,9 +1175,320 @@ function nextTurn() {
   showTurn();
 }
 
+/* =========================================================
+ * むげんの めいきゅう
+ * クリアずみのクエストの問題が、終わりなく出つづける。3回まちがえるまでに
+ * 何問せいかいできるか（＝ちか何かいまで もぐれるか）をきそう。
+ * 出題の順番は「復習の期限が来ている → にがて → それ以外」（復習を兼ねる）。
+ * ======================================================= */
+var ENDLESS_UNLOCK = 3;        // クエストをこの数クリアすると入れる
+var ENDLESS_BOSS_EVERY = 5;    // このかい数ごとにボス（たおすと♥が1つ回復）
+var ENDLESS_HEAL_UNTIL = 30;   // このかいより下では、ボスをたおしても回復しない（記録が実力で決まるように）
+var ENDLESS_TITLES = [
+  [10, "めいきゅうの ちょうせんしゃ"],
+  [20, "ちていの たんけんか"],
+  [30, "しんえんの けんじゃ"],
+  [50, "むげんを こえし者"]
+];
+
+function endlessQuests() {
+  var all = ALL_QUESTS.concat(typeof EXPERT_QUEST_DATA_EXCEL !== "undefined" ? EXPERT_QUEST_DATA_EXCEL.quests : []);
+  return all.filter(function (q) { return save.quests[q.id] && save.quests[q.id].stars > 0; });
+}
+
+function endlessOrder(pool) {
+  var now = Date.now();
+  var due = [], weak = [], rest = [];
+  pool.forEach(function (q) {
+    var r = save.records[q.id];
+    if (!r) rest.push(q);
+    else if (r.due <= now && r.box < SRS.MAX_BOX) due.push(q);
+    else if (r.box <= 1) weak.push(q);
+    else rest.push(q);
+  });
+  return shuffle(due).concat(shuffle(weak)).concat(shuffle(rest));
+}
+
+function refillEndless() {
+  var more = endlessOrder(battle.pool);
+  /* 直前の問題がつづけて出ないようにする */
+  var last = battle.qs[battle.qs.length - 1];
+  if (more.length > 1 && last && more[0].id === last.id) more.push(more.shift());
+  battle.qs = battle.qs.concat(more);
+}
+
+function startEndless() {
+  var quests = endlessQuests();
+  var pool = [];
+  quests.forEach(function (q) { pool = pool.concat(q.questions); });
+  if (!pool.length) { toast("まだ はいれない… クエストを クリアしよう！"); return; }
+  battle = {
+    mode: "endless",
+    quest: null,
+    label: "むげんの めいきゅう",
+    qs: endlessOrder(pool),
+    pool: pool,
+    quests: quests,
+    zone: 0,
+    startBest: save.endless.best,   // この挑戦を始める前の最高記録（新記録かどうかの判定に使う）
+    bossFrom: 99999, bossHp: 0, bossMax: 0,
+    idx: 0, hearts: 3, maxHearts: 3,
+    correct: 0, combo: 0, xp: 0,
+    bossPhase: false, bossCorrect: 0
+  };
+  save.endless.runs++;
+  if (!save.hints.endless) {
+    save.hints.endless = 1;
+    Juice.banner("🌀", "むげんの めいきゅう", "3回 ミスすると おわり。ちか5かいごとの ボスを たおすと ♥が 1つ かいふく！", "");
+  }
+  beginBattle();
+}
+
+function endEndless() {
+  /* とうたつした かい＝いま立っている かい（画面の「ちか N かい」と同じ数え方）。
+   * 最高記録・しょうごう・実績は answer() で進むたびに保存ずみ。ここでは終わりのボーナスだけ足す。 */
+  var reached = battle.correct + 1;
+  var bonus = Math.min(battle.correct * 2, 60);
+  save.xp += bonus;
+  battle.xp += bonus;
+
+  var prevBest = battle.startBest;
+  var isRecord = battle.correct > 0 && reached > prevBest;
+
+  var newAchievements = Achievements.check(save);
+  persist();
+  syncNow();
+
+  presentResult({
+    cleared: true,
+    title: isRecord ? "しんきろく！！" : "たんけん しゅうりょう",
+    sub: isRecord
+      ? (prevBest > 0 ? "これまでの きろく（ちか " + prevBest + " かい）を ぬりかえた！" : "はじめての きろくだ！\nつぎは これを こえよう！")
+      : (prevBest > 0 ? "さいこう きろくは ちか " + prevBest + " かい。\nつぎは きろくこうしんを ねらおう！"
+                      : "3回 ミスすると おわり。\nまた ちょうせんしよう！"),
+    stars: null,
+    big: { label: "とうたつ", value: reached, prefix: "ちか ", suffix: " かい" },
+    rows: battleRows(battle.answered),
+    xp: battle.xp,
+    jingle: isRecord ? "newRecord" : "clear",
+    confetti: isRecord ? 120 : 30,
+    announce: isRecord ? ["NEW RECORD!!", "record"] : null,
+    achievements: newAchievements
+  });
+}
+
+/* =========================================================
+ * 結果（リザルト）
+ * ======================================================= */
+var resultToken = 0;   // リザルトの時間差の演出を、画面をはなれたら止めるための番号
+var pendingLevelUp = null;   // まだ見せていないレベルアップ（{prev, next}）。早く画面をはなれたら帯で知らせる
+
+/* リザルトを最後まで見ずに はなれたとき、見せそこねたレベルアップを帯で知らせる */
+function flushPendingLevelUp() {
+  if (!pendingLevelUp) return;
+  var p = pendingLevelUp;
+  pendingLevelUp = null;
+  Sound.levelup();
+  Juice.banner("⬆️", "レベルアップ！ Lv" + p.prev + " → Lv" + p.next,
+    levelUpText(p.prev, p.next).slice(1).join("　") || "つぎの ぼうけんへ！", "levelup", "levelup");
+}
+var lastTickAt = 0;
+function tickSound() {
+  var now = performance.now();
+  if (now - lastTickAt > 55) { lastTickAt = now; Sound.tick(); }
+}
+
+function battleRows(total) {
+  var rows = [
+    ["せいかい", battle.correct + " / " + total],
+    ["さいだいコンボ", battle.maxCombo + " れんぞく"]
+  ];
+  if (battle.crits) rows.push(["かいしんの いちげき", battle.crits + " 回"]);
+  if (battle.quicks) rows.push(["クイックせいかい", battle.quicks + " 回"]);
+  if (battle.specials) rows.push(["ひっさつわざ", battle.specials + " 回"]);
+  if (battle.mastered) rows.push(["マスターした もんだい", battle.mastered + " もん"]);
+  return rows;
+}
+
+function closeLevelUp() {
+  $("#levelup-overlay").classList.add("hidden");
+}
+
+function levelUpText(prevLevel, newLevel) {
+  var lines = ["レベルアップ！ Lv" + prevLevel + " → Lv" + newLevel];
+  if (rankFor(newLevel) !== rankFor(prevLevel)) lines.push("ランクアップ！ →「" + rankFor(newLevel) + "」");
+  if (weaponFor(newLevel).name !== weaponFor(prevLevel).name) lines.push("あたらしい ぶき「" + weaponFor(newLevel).name + "」");
+  return lines;
+}
+
+/* レベルアップのえんしゅつ（画面いっぱい）。タップか、数秒で閉じる */
+function showLevelUp(prevLevel, newLevel) {
+  var lines = levelUpText(prevLevel, newLevel);
+  $("#lvup-from").textContent = "Lv " + prevLevel;
+  $("#lvup-to").textContent = "Lv " + newLevel;
+  var rankUp = rankFor(newLevel) !== rankFor(prevLevel);
+  var newWeapon = weaponFor(newLevel).name !== weaponFor(prevLevel).name;
+  $("#lvup-rank").textContent = rankUp ? "ランクアップ！ →「" + rankFor(newLevel) + "」" : "";
+  $("#lvup-rank").classList.toggle("hidden", !rankUp);
+  $("#lvup-weapon").textContent = newWeapon ? "⚔ " + lines[lines.length - 1] + "を てにいれた！" : "";
+  $("#lvup-weapon").classList.toggle("hidden", !newWeapon);
+  $("#levelup-overlay").classList.remove("hidden");
+  Sound.levelup();
+  var s = Juice.size();
+  Juice.rays(s.w / 2, s.h * 0.42, { dur: 3, len: Math.max(s.w, s.h) * 0.6, alpha: 0.13, count: 14 });
+  Juice.fountain(s.w / 2, s.h * 0.78, { n: 60 });
+  Juice.confetti(50);
+  var token = resultToken;
+  setTimeout(function () { if (token === resultToken) closeLevelUp(); }, 3600);
+}
+
+/* リザルトのEXPバーを、もとの値から今の値までのばす（レベルが上がるたびに光る） */
+function animateResultXp(fromXp, toXp, ms, token, done) {
+  var t0 = performance.now();
+  var lastLevel = levelInfo(fromXp).level;
+  var box = $(".result-xp");
+  function step(now) {
+    if (token !== resultToken) return;
+    var k = Math.min(1, (now - t0) / ms);
+    var e = 1 - (1 - k) * (1 - k);
+    var lv = setXpBar("result", Math.round(fromXp + (toXp - fromXp) * e));
+    if (lv > lastLevel) {
+      lastLevel = lv;
+      Sound.star(2);
+      box.classList.add("levelup-flash");
+      Juice.sparkle(box, { n: 10 });
+    }
+    if (k < 1) requestAnimationFrame(step);
+    else if (done) done();
+  }
+  requestAnimationFrame(step);
+}
+
+/* リザルト画面を、順番に見せる。
+ * o: { cleared, title, sub, icon, stars(数 or null), big:{label,value,prefix,suffix,fail},
+ *      rows:[[見出し,値]], xp(この戦闘で得たEXPの合計), hideRetry, chest, jingle, confetti,
+ *      announce:[文字,クラス], banners:[[icon,head,body,cls]], achievements:[] } */
+function presentResult(o) {
+  var token = ++resultToken;
+  var low = Juice.isLow();
+  function later(ms, fn) {
+    if (low) { fn(); return; }
+    setTimeout(function () { if (token === resultToken) fn(); }, ms);
+  }
+
+  Fx.stopAmbient();
+  Sound.setTempo(1);
+  Sound.playBgm(null);
+  Juice.clear();
+  Juice.dropBanners("levelup");   // 戦闘中のレベルアップのお知らせは、リザルトの演出にまかせる
+  closeLevelUp();
+  stopQuickTimer();
+
+  $("#result-title").textContent = o.title;
+  $("#result-title").className = o.cleared ? "result-clear" : "result-fail";
+  $("#result-sub").textContent = o.sub;
+
+  /* ★は1つずつスタンプする */
+  var starsEl = $("#result-stars");
+  starsEl.textContent = o.icon || "";
+  var starEls = [];
+  if (typeof o.stars === "number") {
+    for (var i = 0; i < 3; i++) {
+      var st = document.createElement("span");
+      st.className = "result-star";
+      st.textContent = "☆";
+      starsEl.appendChild(st);
+      starEls.push(st);
+    }
+  }
+
+  /* 大きな数字（もぎけんていのスコア・めいきゅうの かい数） */
+  var bigBox = $("#result-big");
+  bigBox.classList.toggle("hidden", !o.big);
+  var bigFmt = function (v) { return (o.big.prefix || "") + v + (o.big.suffix || ""); };
+  if (o.big) {
+    bigBox.classList.toggle("fail", !!o.big.fail);
+    $("#result-big-label").textContent = o.big.label;
+    $("#result-big-num").textContent = bigFmt(low ? o.big.value : 0);
+  }
+
+  /* 明細 */
+  var tally = $("#result-tally");
+  tally.innerHTML = "";
+  var xpVal = null;
+  o.rows.concat([["かくとく EXP", "＋" + (low ? o.xp : 0)]]).forEach(function (r, idx, all) {
+    var row = document.createElement("div");
+    var isXp = idx === all.length - 1;
+    row.className = "result-row" + (isXp ? " xp" : "");
+    row.style.animationDelay = (0.3 + idx * 0.1) + "s";
+    var a = document.createElement("span"); a.textContent = r[0];
+    var v = document.createElement("span"); v.textContent = r[1];
+    row.appendChild(a); row.appendChild(v);
+    tally.appendChild(row);
+    if (isXp) xpVal = v;
+  });
+
+  var prevXp = save.xp - o.xp;
+  var prevLevel = levelInfo(prevXp).level, newLevel = levelInfo(save.xp).level;
+  setXpBar("result", low ? save.xp : prevXp);
+  $(".result-xp").classList.remove("levelup-flash");
+  var lvEl = $("#result-levelup");
+  lvEl.classList.add("hidden");
+
+  $("#result-retry").classList.toggle("hidden", !!o.hideRetry);
+  renderChestBox(o.chest || null);
+
+  show("screen-result");
+
+  Sound[o.jingle || (o.cleared ? "clear" : "fail")]();
+  if (o.confetti) Juice.confetti(o.confetti);
+
+  starEls.forEach(function (el, n) {
+    if (n >= o.stars) return;
+    later(450 + n * 300, function () {
+      el.textContent = "★";
+      el.classList.add("on");
+      if (!low) Sound.star(n);   // ひかえめでは全部いちどに出るので、音は重ねない
+      var c = Juice.centerOf(el);
+      if (c) Juice.burst(c.x, c.y, { n: 12, speed: 260, size: 6, shape: "star" });
+    });
+  });
+  if (o.stars === 3) {
+    later(1450, function () {
+      Juice.announce("PERFECT!!", "perfect", 1400);
+      Juice.confetti(60);
+    });
+  }
+  if (o.announce) later(600, function () { Juice.announce(o.announce[0], o.announce[1], 1600); });
+
+  if (o.big && !low) {
+    later(350, function () { Juice.countUp($("#result-big-num"), 0, o.big.value, 900, bigFmt, tickSound); });
+  }
+
+  pendingLevelUp = newLevel > prevLevel ? { prev: prevLevel, next: newLevel } : null;
+  function afterXp() {
+    if (newLevel <= prevLevel) return;
+    pendingLevelUp = null;
+    lvEl.textContent = levelUpText(prevLevel, newLevel).join("\n");
+    lvEl.classList.remove("hidden");
+    if (low) setTimeout(function () { if (token === resultToken) Sound.levelup(); }, 1400);   // クリアの音が終わってから
+    else later(250, function () { showLevelUp(prevLevel, newLevel); });
+  }
+  later(700, function () {
+    if (!low) Juice.countUp(xpVal, 0, o.xp, 700, function (v) { return "＋" + v; }, tickSound);
+  });
+  later(1000, function () {
+    if (low) afterXp();
+    else animateResultXp(prevXp, save.xp, 1000, token, afterXp);
+  });
+
+  /* お知らせの帯は待たせずに出す（すぐ画面をはなれても、帯は次の画面に残る） */
+  (o.banners || []).forEach(function (x) { Juice.banner(x[0], x[1], x[2], x[3]); });
+  if (o.achievements && o.achievements.length) showAchievementToasts(o.achievements);
+}
+
 /* ---------- 結果（もぎけんてい） ---------- */
 function endExam() {
-  var prevLevel = levelInfo(save.xp - battle.xp).level;
   var score = Math.round(battle.correct / battle.qs.length * 1000);
   var pass = score >= 700;
   var bonus = pass ? 50 : 10;
@@ -648,18 +1501,11 @@ function endExam() {
   if (score > ex.best) ex.best = score;
   save.exams[battle.subjectKey] = ex;
 
+  var newAchievements = Achievements.check(save);
   persist();
   syncNow();
 
-  var newAchievements = Achievements.check(save);
-  if (newAchievements.length) { persist(); showAchievementToasts(newAchievements); }
-
-  Sound[pass ? "clear" : "fail"]();
-  $("#result-title").textContent = pass ? "ごうかく！！" : "あと すこし…！";
-  $("#result-title").className = pass ? "result-clear" : "result-fail";
-  $("#result-stars").textContent = pass ? "🎖" : "";
-
-  var lines = ["スコア " + score + " ／ 1000（ごうかくライン 700）"];
+  var lines = ["ごうかくライン 700てん"];
   var weak = [];
   for (var name in battle.perQuest) {
     var r = battle.perQuest[name];
@@ -669,30 +1515,26 @@ function endExam() {
   lines.push(pass
     ? "この ちょうしなら ほんばんも だいじょうぶだ！"
     : "にがてを「ふっかつのほこら」で とっくんして さいちょうせんだ！");
-  $("#result-sub").textContent = lines.join("\n");
-  $("#result-detail").textContent =
-    "せいかい " + battle.correct + "/" + battle.qs.length +
-    "　かくとく " + battle.xp + " EXP";
 
-  var newLi = levelInfo(save.xp);
-  var lvEl = $("#result-levelup");
-  if (newLi.level > prevLevel) {
-    setTimeout(function () { Sound.levelup(); }, 600);
-    var rankUp = rankFor(newLi.level) !== rankFor(prevLevel);
-    lvEl.textContent = "レベルアップ！ Lv" + prevLevel + " → Lv" + newLi.level +
-      (rankUp ? "\nランクアップ！ →「" + rankFor(newLi.level) + "」" : "");
-    lvEl.classList.remove("hidden");
-  } else {
-    lvEl.classList.add("hidden");
-  }
-  $("#result-retry").classList.remove("hidden");
-  show("screen-result");
+  presentResult({
+    cleared: pass,
+    title: pass ? "ごうかく！！" : "あと すこし…！",
+    sub: lines.join("\n"),
+    icon: pass ? "🎖" : "",
+    stars: null,
+    big: { label: "スコア（1000てん まんてん）", value: score, suffix: " てん", fail: !pass },
+    rows: battleRows(battle.qs.length),
+    xp: battle.xp,
+    jingle: pass ? "fanfare" : "fail",
+    confetti: pass ? 100 : 0,
+    achievements: newAchievements
+  });
 }
 
 /* ---------- 結果 ---------- */
 function endBattle(cleared) {
   if (battle.mode === "exam") { endExam(); return; }
-  var prevLevel = levelInfo(save.xp - battle.xp).level;
+  if (battle.mode === "endless") { endEndless(); return; }
   var stars = 0;
   var bonus = 0;
 
@@ -714,7 +1556,7 @@ function endBattle(cleared) {
       missionHits.push(Missions.record(save, "questClear", 1));
       if (battle.bossCorrect >= 3) missionHits.push(Missions.record(save, "bossWin", 1));
 
-      chestReward = Treasure.grant(save, battle.quest);
+      chestReward = Treasure.grant(save, battle.quest, { stars: stars });
       if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; }
     }
     if (battle.mode === "final") {
@@ -741,10 +1583,9 @@ function endBattle(cleared) {
   persist();
   syncNow();
 
-  var newLi = levelInfo(save.xp);
   var title, sub;
+  var grand = battle.mode === "final" || battle.mode === "expert";
   if (cleared) {
-    Sound.clear();
     if (battle.mode === "final") {
       title = "まおうデリートを たおした！！";
       sub = "MOSの ちしきが せかいを すくった！\nきみこそ しんの MOSマスターだ！";
@@ -759,41 +1600,24 @@ function endBattle(cleared) {
       sub = battle.bossCorrect >= 3 ? "ボスも みごとに とうばつした！" : "ボスには にげられたが クエストは たっせいだ！";
     }
   } else {
-    Sound.fail();
     title = "ぜんめつ…";
     sub = "しかし けいけんちは のこった。\nまちがえた もんだいは「ふっかつのほこら」で とっくんできるぞ！";
   }
 
-  $("#result-title").textContent = title;
-  $("#result-title").className = cleared ? "result-clear" : "result-fail";
-  $("#result-sub").textContent = sub;
-  $("#result-stars").textContent = cleared && battle.mode !== "review"
-    ? "★".repeat(stars) + "☆".repeat(3 - stars) : "";
-  $("#result-detail").textContent =
-    "せいかい " + battle.correct + "/" + battle.idx +
-    "　かくとく " + battle.xp + " EXP";
-
-  var lvEl = $("#result-levelup");
-  if (newLi.level > prevLevel) {
-    setTimeout(function () { Sound.levelup(); }, 600);
-    var rankUp = rankFor(newLi.level) !== rankFor(prevLevel);
-    lvEl.textContent = "レベルアップ！ Lv" + prevLevel + " → Lv" + newLi.level +
-      (rankUp ? "\nランクアップ！ →「" + rankFor(newLi.level) + "」" : "");
-    lvEl.classList.remove("hidden");
-  } else {
-    lvEl.classList.add("hidden");
-  }
-
-  var retryBtn = $("#result-retry");
-  retryBtn.classList.toggle("hidden", battle.mode === "review" && cleared);
-
-  renderChestBox(chestReward);
-  missionHits.filter(Boolean).forEach(function (m) {
-    toast("📋 ミッション達成！「" + m.label + "」＋" + MISSION_BONUS_XP + "EXP");
+  presentResult({
+    cleared: cleared,
+    title: title,
+    sub: sub,
+    stars: cleared && battle.mode !== "review" ? stars : null,
+    rows: battleRows(battle.idx),
+    xp: battle.xp,
+    hideRetry: battle.mode === "review" && cleared,
+    chest: chestReward,
+    jingle: cleared ? (grand ? "fanfare" : "clear") : "fail",
+    confetti: cleared ? (grand ? 140 : 40) : 0,
+    banners: missionHits.filter(Boolean).map(missionBanner),
+    achievements: newAchievements
   });
-  if (newAchievements.length) showAchievementToasts(newAchievements);
-
-  show("screen-result");
 }
 
 function retryBattle() {
@@ -802,7 +1626,17 @@ function retryBattle() {
   else if (battle.mode === "review") startReview();
   else if (battle.mode === "exam") startExam(battle.subjectKey);
   else if (battle.mode === "expert") startExpert();
+  else if (battle.mode === "endless") startEndless();
   else startFinal();
+}
+
+/* 「にげる」。めいきゅうは、にげても そこまでの きろくが のこる */
+function quitBattle() {
+  if (battle.mode === "endless") {
+    if (confirm("めいきゅうから だっしゅつしますか？\n（ここまでの きろくは のこります）")) endEndless();
+    return;
+  }
+  if (confirm("クエストを ちゅうだんして マップに もどりますか？\n（かくとくした EXPは のこります）")) openMenu();
 }
 
 /* =========================================================
@@ -822,6 +1656,12 @@ function renderPlayerHeader(prefix) {
 }
 
 function openMenu() {
+  resultToken++;        // リザルトの時間差の演出を止める
+  closeLevelUp();
+  stopQuickTimer();
+  Sound.setTempo(1);
+  Juice.clear();
+  flushPendingLevelUp();
   renderPlayerHeader("menu");
   var due = specialistDueList().length;
   var badge = $("#menu-review-badge");
@@ -841,6 +1681,13 @@ function openMenu() {
     ? (save.expertClear ? "とうばつずみ！ なんども ちょうせんできる" : "かくされた みちが あらわれた…！")
     : "まおうの城を クリアすると かいほう";
 
+  var endlessOpen = clearedCount() >= ENDLESS_UNLOCK;
+  $("#menu-endless").classList.toggle("locked", !endlessOpen);
+  $("#menu-endless").classList.toggle("is-new", endlessOpen && save.endless.runs === 0);
+  $("#menu-endless-lock").textContent = endlessOpen
+    ? (save.endless.best > 0 ? "さいこう きろく：ちか " + save.endless.best + " かい" : "♥は 3つ。どこまで もぐれるか！")
+    : "クエストを " + ENDLESS_UNLOCK + "つ クリアすると かいほう";
+
   /* Streak.checkLogin/Achievements.check は同じ日のうちは isNewDay:false／解除済みで
    * 実質なにもしないので、メニューを開くたびに呼んでも安全（新規登録直後もここで初期化される）。 */
   var streakResult = Streak.checkLogin(save);
@@ -850,12 +1697,19 @@ function openMenu() {
 
   renderStreakChip();
   renderMissions();
+  renderNextGoal();
 
   renderMessenger();
   show("screen-menu");
   syncNow();
 
   if (streakResult.isNewDay) showStreakBanner(streakResult);
+  /* 音楽は、ボタンを押した人にだけ流れる。あることを1回だけ知らせる */
+  if (!save.hints.bgm && Sound.mode() === "se") {
+    save.hints.bgm = 1;
+    persist();
+    Juice.banner("🎵", "おんがくも ならせるよ", "みぎしたの「♪ おとだけ」を おすと ながれる", "");
+  }
   if (newAchievements.length) showAchievementToasts(newAchievements);
 }
 
@@ -873,11 +1727,13 @@ function renderStreakChip() {
 function showStreakBanner(result) {
   if (!result.isNewDay) return;
   var due = specialistDueList().length;
-  var msg = result.broken
-    ? "あたらしい れんぞくきろく、はじめよう！（さいちょう記録は " + result.longest + "日）"
-    : "🔥 れんぞく " + result.streak + "日目！ よくきたね！";
-  if (due > 0) msg += "\nふっかつのほこらに " + due + "もん 復習まちだよ！";
-  toast(msg);
+  if (result.broken) {
+    Juice.banner("🌱", "あたらしい れんぞくきろく、はじめよう！", "さいちょう きろくは " + result.longest + "日", "");
+  } else {
+    Juice.banner("🔥", "れんぞく ログイン", result.streak + "日目！ よくきたね！", "");
+    Juice.sparkle($("#menu-streak-chip"), { n: 8 });
+  }
+  if (due > 0) toast("ふっかつのほこらに " + due + "もん 復習まちだよ！");
   if (result.streak > 0 && (result.streak === 7 || result.streak === 14 || result.streak === 30 || result.streak % 30 === 0)) {
     Sound.heal();
   }
@@ -903,11 +1759,29 @@ function renderMissions() {
   box.classList.toggle("hidden", save.missions.list.length === 0);
 }
 
-/* ---------- 実績 ---------- */
-function showAchievementToasts(list) {
-  list.forEach(function (a, i) {
-    setTimeout(function () { toast("🏅 実績解除：" + a.name); }, i * 2400);
+/* つぎの めあて：あと少しで とれる実績を1つ見せる（「もう1回やろう」のきっかけ） */
+function renderNextGoal() {
+  var el = $("#menu-goal");
+  var best = null;
+  ACHIEVEMENTS.forEach(function (a) {
+    if (save.achievements[a.id] || !a.prog || a.noGoal) return;
+    var p = a.prog(save);
+    var ratio = p[0] / p[1];
+    if (ratio > 0 && ratio < 1 && (!best || ratio > best.ratio)) best = { a: a, ratio: ratio, left: p[1] - p[0] };
   });
+  if (!best) { el.classList.add("hidden"); return; }
+  el.textContent = "🎯 つぎの めあて：" + best.a.desc + "（あと " + best.left + "）";
+  el.classList.remove("hidden");
+}
+
+/* ---------- 実績 ---------- */
+/* 実績のお知らせ（上から降りてくる帯）。いちどに たくさん解除されたときは、まとめる */
+function showAchievementToasts(list) {
+  var shown = list.length > 3 ? list.slice(0, 2) : list;
+  shown.forEach(function (a) { Juice.banner("🏅", "じっせき かいほう！", a.name, ""); });
+  if (list.length > shown.length) {
+    Juice.banner("🏅", "じっせき かいほう！", "ほかにも " + (list.length - shown.length) + "こ！「ぼうけんの しょ」で みてみよう", "");
+  }
 }
 
 function openAchievements() {
@@ -928,8 +1802,19 @@ function openAchievements() {
     nm.textContent = unlocked ? a.name : "？？？";
     var ds = document.createElement("div");
     ds.className = "achievement-desc";
-    ds.textContent = unlocked ? a.desc : "まだ みたされていない…";
+    ds.textContent = a.desc;   /* 条件は はじめから見せる（めあてに なるように）。名前は解除してからの おたのしみ */
+    info.style.flex = "1";
     info.appendChild(nm); info.appendChild(ds);
+    if (!unlocked && a.prog) {
+      var pr = a.prog(save);
+      var bar = document.createElement("div");
+      bar.className = "achievement-bar";
+      var fill = document.createElement("div");
+      fill.style.width = Math.min(100, Math.floor(pr[0] / pr[1] * 100)) + "%";
+      bar.appendChild(fill);
+      info.appendChild(bar);
+      ds.textContent = a.desc + "（" + Math.min(pr[0], pr[1]) + " / " + pr[1] + "）";
+    }
     div.appendChild(icon); div.appendChild(info);
     box.appendChild(div);
   });
@@ -938,28 +1823,54 @@ function openAchievements() {
 }
 
 /* ---------- たからばこ ---------- */
+var CHEST_RARITY = {
+  normal: { label: "ノーマル", rays: null },
+  rare:   { label: "★ レア ★", rays: "#6ee7ff" },
+  super:  { label: "★★ スーパーレア ★★", rays: "#ffe98a" }
+};
 function renderChestBox(reward) {
   var box = $("#chest-box");
   if (!reward) { box.classList.add("hidden"); return; }
-  box.classList.remove("hidden");
+  box.classList.remove("hidden", "rarity-normal", "rarity-rare", "rarity-super");
   var cv = $("#chest-canvas");
   cv.className = "";
   drawSprite(cv, "chestClosed", "gold", 6);
   var rewardText = $("#chest-reward-text");
+  var rarityText = $("#chest-rarity");
   rewardText.classList.add("hidden");
+  rarityText.classList.add("hidden");
   var openBtn = $("#chest-open");
   openBtn.classList.remove("hidden");
   var opened = false;
+  var token = resultToken;
   openBtn.onclick = function () {
     if (opened) return;
     opened = true;
-    Sound.chest();
-    cv.classList.add("opening");
-    if (reward.type === "palette") drawSprite(cv, reward.shape, reward.palette, 6);
-    else drawSprite(cv, "chestOpen", "gold", 6);
-    rewardText.textContent = reward.label;
-    rewardText.classList.remove("hidden");
     openBtn.classList.add("hidden");
+    var rarity = CHEST_RARITY[reward.rarity] || CHEST_RARITY.normal;
+    /* ガタガタ…と ためてから ひらく（ひかえめ設定では すぐ ひらく） */
+    var wait = Juice.isLow() ? 0 : 560;
+    if (wait) { Sound.rattle(); cv.classList.add("rattle"); }
+    setTimeout(function () {
+      if (token !== resultToken) return;
+      Sound.chest();
+      cv.className = "opening";
+      if (reward.type === "palette") drawSprite(cv, reward.shape, reward.palette, 6);
+      else drawSprite(cv, "chestOpen", "gold", 6);
+      box.classList.add("rarity-" + (reward.rarity || "normal"));
+      rarityText.textContent = rarity.label;
+      rarityText.classList.remove("hidden");
+      rewardText.textContent = reward.label;
+      rewardText.classList.remove("hidden");
+      var c = Juice.centerOf(cv);
+      if (c) {
+        Juice.burst(c.x, c.y, { n: reward.rarity === "super" ? 46 : 22, speed: 380, size: 7, shape: "star",
+          colors: reward.rarity === "normal" || !reward.rarity ? ["#ffd23b", "#ffffff"] : ["#ffd23b", "#ffffff", "#6ee7ff", "#ff5d7a", "#6ef08c"] });
+        Juice.ring(c.x, c.y, { color: rarity.rays || "#ffd23b", r1: 120 });
+        if (rarity.rays) Juice.rays(c.x, c.y, { dur: 1.2, len: 200, color: rarity.rays, alpha: 0.2 });
+        if (reward.rarity === "super") { Juice.confetti(40); Sound.shiny(); }
+      }
+    }, wait);
   };
 }
 
@@ -979,6 +1890,41 @@ function renderMessenger() {
     headEl.classList.add("hidden");
   }
   box.classList.remove("hidden");
+}
+
+/* クエストの一覧のカードを、Tab キーで選べるようにする（Enter／スペースで開く） */
+function enableCardKeys() {
+  Array.prototype.slice.call(document.querySelectorAll("#quest-list .quest-card")).forEach(function (card) {
+    if (card.classList.contains("locked")) return;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+  });
+}
+
+/* クエストの習熟度（0〜100%）：全問の記憶の箱（0〜5）の合計 ÷ 満点。
+ * ★はクリアのうまさ、こちらは「どれだけ おぼえたか」。周回すると少しずつ伸びる */
+function questMastery(quest) {
+  var sum = 0;
+  quest.questions.forEach(function (q) {
+    var m = SRS.mastery(save.records, q.id);
+    if (m > 0) sum += m;
+  });
+  return Math.round(sum / (quest.questions.length * SRS.MAX_BOX) * 100);
+}
+function questMasteryEl(quest) {
+  var pct = questMastery(quest);
+  var wrap = document.createElement("div");
+  wrap.className = "quest-mastery";
+  var bar = document.createElement("div");
+  bar.className = "quest-mastery-bar";
+  var fill = document.createElement("div");
+  fill.style.width = pct + "%";
+  bar.appendChild(fill);
+  var label = document.createElement("span");
+  label.textContent = (pct >= 100 ? "👑 " : "") + "しゅうじゅく " + pct + "%";
+  wrap.appendChild(bar);
+  wrap.appendChild(label);
+  return wrap;
 }
 
 function openQuestList(subjectKey) {
@@ -1010,6 +1956,7 @@ function openQuestList(subjectKey) {
     st.className = "quest-stars";
     st.textContent = "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars);
     info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
+    if (unlocked) info.appendChild(questMasteryEl(quest));
 
     div.appendChild(cv);
     div.appendChild(info);
@@ -1018,6 +1965,7 @@ function openQuestList(subjectKey) {
     }
     box.appendChild(div);
   });
+  enableCardKeys();
   show("screen-quests");
 }
 
@@ -1054,6 +2002,7 @@ function openExpertQuests() {
     st.className = "quest-stars";
     st.textContent = "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars);
     info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
+    if (unlocked) info.appendChild(questMasteryEl(quest));
 
     div.appendChild(cv);
     div.appendChild(info);
@@ -1086,6 +2035,7 @@ function openExpertQuests() {
   }
   box.appendChild(bossDiv);
 
+  enableCardKeys();
   show("screen-quests");
 }
 
@@ -1158,6 +2108,12 @@ function openStatus() {
       return "Excel " + e + " / Word " + w;
     })()],
     ["ふくしゅう まち", specialistDueList().length + " もん"],
+    ["かいしんの いちげき", save.stats.crits + " 回"],
+    ["クイックせいかい", save.stats.quicks + " 回"],
+    ["ひっさつわざ", save.stats.specials + " 回"],
+    ["たおした モンスター", save.stats.kills + " 体"],
+    ["むげんの めいきゅう", save.endless.best > 0 ? "ちか " + save.endless.best + " かい" : "—"],
+    ["ぶき", weaponFor(li.level).name],
     ["しょうごう", save.finalClear ? "まおうを たおせし者" : rankFor(li.level)]
   ].forEach(function (pair) {
     var dt = document.createElement("dt"); dt.textContent = pair[0];
@@ -1214,6 +2170,7 @@ function openStatus() {
     tbox.classList.add("hidden");
   }
 
+  updateFxButtons();
   show("screen-status");
 }
 
@@ -1242,12 +2199,23 @@ function openBestiary() {
     var nm = document.createElement("div");
     nm.className = "bestiary-name";
     nm.textContent = seen
-      ? m.name + (m.rare ? "　✨げきレア" : "") + (shinyPal ? "　🌟シャイニー" : "")
+      ? m.name + (m.rare ? "　✨げきレア" : "") + (shinyPal ? "　🌟色ちがい" : "")
       : "？？？";
     var bio = document.createElement("div");
     bio.className = "bestiary-bio";
     bio.textContent = seen ? (BESTIARY[m.name] || "") : "まだ であっていない…";
     info.appendChild(nm); info.appendChild(bio);
+    var kills = save.kills[m.name] || 0;
+    if (seen && kills > 0) {
+      var medal = medalFor(kills);
+      var next = null;
+      MEDALS.forEach(function (x) { if (!next && kills < x.at) next = x; });
+      var meta = document.createElement("div");
+      meta.className = "bestiary-meta";
+      meta.textContent = (medal ? medal.icon + " " : "") + "たおした数 " + kills + " 体" +
+        (next ? "（" + next.name + "まで あと " + (next.at - kills) + "）" : "");
+      info.appendChild(meta);
+    }
 
     div.appendChild(cv); div.appendChild(info);
     box.appendChild(div);
@@ -1365,23 +2333,42 @@ function submitFeedback() {
 }
 
 function updateMuteButton() {
-  $("#btn-mute").textContent = Sound.isMuted() ? "♪ OFF" : "♪ ON";
+  var m = Sound.mode();
+  $("#btn-mute").textContent = m === "all" ? "♪ おんがく" : (m === "se" ? "♪ おとだけ" : "♪ OFF");
+}
+
+/* えんしゅつ（はで／ひかえめ）の切りかえ。タイトルと「ぼうけんの しょ」の両方から変えられる */
+function updateFxButtons() {
+  var low = Juice.isLow();
+  $("#btn-fx-level").textContent = low ? "ひかえめ（タップで はでに）" : "はで（タップで ひかえめに）";
+  $("#title-fx-toggle").textContent = "✨ えんしゅつ：" + (low ? "ひかえめ" : "はで") + "（タップで きりかえ）";
+}
+function toggleFxLevel() {
+  Juice.setLevel(Juice.isLow() ? "high" : "low");
+  Juice.clear();
+  Sound.select();
+  updateFxButtons();
+  toast(Juice.isLow() ? "えんしゅつを ひかえめに したよ" : "えんしゅつを はでに したよ！");
+}
+
+/* タイトル画面：星がまたたく */
+function startTitleSparkle() {
+  setInterval(function () {
+    if (Juice.isLow() || document.hidden || !$("#screen-title").classList.contains("active")) return;
+    var s = Juice.size();
+    Juice.burst(Math.random() * s.w, Math.random() * s.h * 0.8, {
+      n: 1, shape: "star", g: 0, speed: 10, size: 9, life: 1.5,
+      colors: ["#ffffff", "#fff27a", "#6ee7ff", "#ffd23b"]
+    });
+  }, 260);
 }
 
 window.addEventListener("DOMContentLoaded", function () {
+  Juice.init();
   save = loadSave();
   if (save) {
     /* 旧セーブとの後方互換：新しく追加したフィールドがなければ初期値を補う */
-    save.seenMonsters = save.seenMonsters || [];
-    save.streak = save.streak || { current: 0, longest: 0, lastLoginDate: null };
-    save.missions = save.missions || { date: null, list: [] };
-    save.achievements = save.achievements || {};
-    save.titles = save.titles || [];
-    save.shinyMonsters = save.shinyMonsters || {};
-    save.stats.missionsCompleted = save.stats.missionsCompleted || 0;
-    save.player.equippedTitle = save.player.equippedTitle || null;
-    save.expertClear = save.expertClear || false;
-    save.practical = save.practical || {};
+    ensureSaveShape(save);
     persist();
   }
   $("#title-start").textContent = save ? "ぼうけんを つづける" : "ぼうけんを はじめる";
@@ -1391,6 +2378,54 @@ window.addEventListener("DOMContentLoaded", function () {
       save.player.name + "（Lv" + li.level + " " + rankFor(li.level) + "）の ぼうけんのしょ";
   }
   updateMuteButton();
+  updateFxButtons();
+  startTitleSparkle();
+
+  /* 敵のうごきが終わったら待機にもどす */
+  $("#enemy-canvas").addEventListener("animationend", onEnemyAnimEnd);
+  /* レベルアップのえんしゅつは タップで とじる */
+  $("#levelup-overlay").onclick = closeLevelUp;
+  $("#btn-fx-level").onclick = toggleFxLevel;
+  $("#title-fx-toggle").onclick = toggleFxLevel;
+  /* キーボードでも遊べる：1〜4 で選択肢、Enter／スペースで「すすむ」（教室のPCで手を止めずに進める） */
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    var isGo = e.key === "Enter" || e.key === " ";
+    /* レベルアップのえんしゅつは、Enter／スペース／Esc でも とじられる */
+    if (!$("#levelup-overlay").classList.contains("hidden")) {
+      if (isGo || e.key === "Escape") { e.preventDefault(); closeLevelUp(); }
+      return;
+    }
+    /* クエストの一覧は、Enter／スペースでも選べる */
+    if (isGo && e.target.classList && e.target.classList.contains("quest-card") && !e.repeat) {
+      e.preventDefault(); e.target.click(); return;
+    }
+    if (!$("#screen-battle").classList.contains("active")) return;
+    if (!$("#feedback-modal").classList.contains("hidden")) return;
+    /* Enter を押しっぱなしにしても、解説を読まないまま次へ進まない */
+    if (e.repeat && isGo) { e.preventDefault(); return; }
+    var n = e.key.length === 1 ? "1234".indexOf(e.key) : -1;
+    if (n >= 0) {
+      var box = $("#battle-choices");
+      var btns = box.querySelectorAll(".choice");
+      if (btns[n] && !btns[n].disabled && !box.classList.contains("arming")) { e.preventDefault(); btns[n].click(); }
+      return;
+    }
+    /* ボタンにフォーカスがあるときの Enter は、ブラウザがそのボタンを押すので、ここでは何もしない */
+    if ((e.key === "Enter" || e.key === " ") && tag !== "BUTTON") {
+      var cont = $("#battle-continue");
+      if (!cont.classList.contains("hidden")) { e.preventDefault(); cont.click(); }
+    }
+  });
+
+  /* ボタンを押したところから、小さく光がはじける */
+  document.addEventListener("pointerdown", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest(".btn, .choice, .quest-card") : null;
+    if (!t || t.disabled || t.classList.contains("locked")) return;
+    Juice.burst(e.clientX, e.clientY, { n: 6, speed: 150, size: 4, life: 0.35, g: 200, colors: ["#ffd23b", "#ffffff", "#6ee7ff"] });
+  });
 
   /* タイトルのデコ用モンスター */
   drawSprite($("#title-sprite-1"), "slime", "green", 6);
@@ -1431,6 +2466,13 @@ window.addEventListener("DOMContentLoaded", function () {
     }
     Sound.select(); openExpertQuests();
   };
+  $("#menu-endless").onclick = function () {
+    if (clearedCount() < ENDLESS_UNLOCK) {
+      toast("まだ とびらが ひらかない… クエストを " + ENDLESS_UNLOCK + "つ クリアせよ！");
+      return;
+    }
+    Sound.select(); startEndless();
+  };
   $("#menu-exam").onclick = function () { Sound.select(); openExamSelect(); };
   $("#menu-practical").onclick = function () { Sound.select(); openPractical(); };
   $("#menu-ranking").onclick = function () { Sound.select(); openRanking(); };
@@ -1439,14 +2481,12 @@ window.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".btn-back").forEach(function (b) {
     b.onclick = function () { Sound.select(); openMenu(); };
   });
-  $("#battle-quit").onclick = function () {
-    if (confirm("クエストを ちゅうだんして マップに もどりますか？\n（かくとくした EXPは のこります）")) openMenu();
-  };
+  $("#battle-quit").onclick = quitBattle;
   $("#battle-continue").onclick = nextTurn;
   $("#battle-msg").onclick = finishType;
   $("#result-next").onclick = function () { Sound.select(); openMenu(); };
   $("#result-retry").onclick = retryBattle;
-  $("#btn-mute").onclick = function () { Sound.toggleMute(); updateMuteButton(); };
+  $("#btn-mute").onclick = function () { Sound.cycleMode(); updateMuteButton(); Sound.select(); };
   $("#btn-reset").onclick = resetData;
 
   show("screen-title");
