@@ -162,7 +162,7 @@ var Fx = (function () {
       });
     });
     later(860, function () {
-      Juice.flash("#ffffff", 0.5, 420);
+      Juice.flash("#ffffff", 0.35, 420);
       Juice.rays(g.x, g.y, { dur: 1.1, len: 320, alpha: 0.5 });
       Juice.ring(g.x, g.y, { color: "#ffffff", r1: 220, width: 16, dur: 0.6 });
       Juice.ring(g.x, g.y, { color: "#ffd23b", r1: 150, width: 10, dur: 0.5 });
@@ -194,7 +194,7 @@ var Fx = (function () {
     Juice.ring(g.x, g.y, { color: pal[3], r1: isBoss ? 200 : 110, width: isBoss ? 14 : 8 });
     Juice.burst(g.x, g.y, { n: isBoss ? 40 : 14, colors: [pal[1], pal[3], "#ffffff"], speed: isBoss ? 520 : 300, size: 7, shape: "star" });
     if (isBoss) {
-      Juice.flash("#ffffff", 0.45, 500);
+      Juice.flash("#ffffff", 0.35, 500);
       Juice.shake(0.8);
       Juice.hitStop(110);
       [0, 160, 320].forEach(function (d, i) {

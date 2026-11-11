@@ -534,8 +534,10 @@ var Juice = (function () {
     if (typeof Sound !== "undefined" && Sound.banner) Sound.banner();
     var c = centerOf(d);
     if (c) sparkle(d, { n: 8 });
-    setTimeout(function () { d.classList.add("out"); }, 2100);
-    setTimeout(function () { d.remove(); nextBanner(); }, 2450);
+    /* うしろに お知らせが たまっているときは、1本を短くして待たせない */
+    var hold = bannerQueue.length ? 1300 : 2100;
+    setTimeout(function () { d.classList.add("out"); }, hold);
+    setTimeout(function () { d.remove(); nextBanner(); }, hold + 350);
   }
 
   /* 数字が 0 から目標までカタカタと上がっていく */
