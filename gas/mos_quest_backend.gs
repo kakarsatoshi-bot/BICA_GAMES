@@ -76,9 +76,15 @@ function handleSync(player) {
 
   var header = [
     "id", "name", "klass", "level", "xp", "rank", "stars", "questsCleared",
-    "answered", "correct", "accuracy", "bossWins", "finalClear", "examExcel", "examWord", "updatedAt"
+    "answered", "correct", "accuracy", "bossWins", "finalClear", "examExcel", "examWord", "updatedAt",
+    /* v2.1 で末尾に追加（既存の列の順番は変えない） */
+    "examFe", "course"
   ];
   var sheet = getOrCreateSheet(SHEET_PLAYERS, header);
+  /* 前の版で作ったシートには末尾の列（examFe・course）の見出しが無いので、足りない分だけ書き足す */
+  if (sheet.getLastColumn() < header.length) {
+    sheet.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight("bold");
+  }
 
   var data = sheet.getDataRange().getValues();
   var rowIndex = -1;
@@ -89,7 +95,8 @@ function handleSync(player) {
   var row = [
     player.id, player.name, player.klass, player.level, player.xp, player.rank,
     player.stars, player.questsCleared, player.answered, player.correct, player.accuracy,
-    player.bossWins, player.finalClear, player.examExcel, player.examWord, new Date()
+    player.bossWins, player.finalClear, player.examExcel, player.examWord, new Date(),
+    player.examFe || 0, player.course || ""
   ];
 
   if (rowIndex > 0) {

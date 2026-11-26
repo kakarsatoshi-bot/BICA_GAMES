@@ -6,8 +6,8 @@
 <title>MOS QUEST - ワード・エクセルぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2.0.0">
-<link rel="stylesheet" href="css/juice.css?v=2.0.0">
+<link rel="stylesheet" href="css/style.css?v=2.1.0">
+<link rel="stylesheet" href="css/juice.css?v=2.1.0">
 </head>
 <body>
 
@@ -21,12 +21,12 @@
         <canvas id="title-sprite-2"></canvas>
         <canvas id="title-sprite-3"></canvas>
       </div>
-      <h1 class="game-logo">MOS<br>QUEST</h1>
-      <p class="game-subtitle">〜 ワード・エクセル ぼうけんの書 〜</p>
+      <h1 class="game-logo"><span id="logo-prefix">MOS</span><br>QUEST</h1>
+      <p class="game-subtitle" id="title-subtitle">〜 ワード・エクセル ぼうけんの書 〜</p>
       <button class="btn btn-big blink" id="title-start">ぼうけんを はじめる</button>
       <p class="title-continue" id="title-continue-info"></p>
-      <p class="title-copy">BICA MOS対策クエスト</p>
-      <a class="title-vocab-link" href="vocab/index.html">📘 MOS単語帳（英語で用語を確認）</a>
+      <p class="title-copy" id="title-copy">BICA MOS対策クエスト</p>
+      <a class="title-vocab-link" id="title-vocab-link" href="vocab/index.html">📘 MOS単語帳（英語で用語を確認）</a>
       <button class="title-fx-toggle" id="title-fx-toggle" type="button"></button>
     </div>
   </div>
@@ -45,8 +45,21 @@
     </div>
   </div>
 
+  <!-- ============ 対策項目を えらぶ ============ -->
+  <div class="screen" id="screen-course">
+    <div class="screen-header">
+      <h2>たいさく こうもくを えらぶ</h2>
+    </div>
+    <p class="note">どの しけんの たいさくを する？ レベル・しょうごう・じっせきは どれを えらんでも きょうつう だよ。あとから メニューで かえられる！</p>
+    <div id="course-list"></div>
+  </div>
+
   <!-- ============ メインメニュー（マップ） ============ -->
   <div class="screen" id="screen-menu">
+    <div class="course-bar">
+      <span class="course-bar-name"><span id="menu-course-icon"></span> <span id="menu-course-name"></span></span>
+      <button class="btn btn-small" id="menu-course-change" type="button">たいさく こうもくを かえる</button>
+    </div>
     <div class="window player-header">
       <div class="ph-left">
         <span class="ph-name" id="menu-name"></span>
@@ -78,13 +91,8 @@
       </div>
     </div>
 
-    <div class="menu-grid">
-      <button class="btn menu-btn" id="menu-excel">
-        <span class="menu-icon">🗼</span>エクセルの とう
-      </button>
-      <button class="btn menu-btn" id="menu-word">
-        <span class="menu-icon">🏰</span>ワードの しろ
-      </button>
+    <div class="menu-grid" id="menu-grid">
+      <!-- 科目のボタン（エクセルの とう・ワードの しろ 等）は js/courses.js の定義から game.js が作る -->
       <button class="btn menu-btn" id="menu-review">
         <span class="menu-icon">⛩️</span>ふっかつの ほこら
         <span class="badge hidden" id="menu-review-badge"></span>
@@ -299,26 +307,29 @@
 <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js?v=2.0.0"></script>
-<script src="js/sprites.js?v=2.0.0"></script>
-<script src="js/sound.js?v=2.0.0"></script>
-<script src="js/juice.js?v=2.0.0"></script>
-<script src="js/fx.js?v=2.0.0"></script>
-<script src="js/backgrounds.js?v=2.0.0"></script>
-<script src="js/bestiary.js?v=2.0.0"></script>
-<script src="js/countdown.js?v=2.0.0"></script>
-<script src="js/srs.js?v=2.0.0"></script>
-<script src="js/api.js?v=2.0.0"></script>
-<script src="js/questions_excel.js?v=2.0.0"></script>
-<script src="js/questions_word.js?v=2.0.0"></script>
-<script src="js/questions_excel_expert.js?v=2.0.0"></script>
-<script src="js/questions_excel_practical.js?v=2.0.0"></script>
-<script src="js/ribbonMockups.js?v=2.0.0"></script>
-<script src="js/streak.js?v=2.0.0"></script>
-<script src="js/achievements.js?v=2.0.0"></script>
-<script src="js/missions.js?v=2.0.0"></script>
-<script src="js/treasure.js?v=2.0.0"></script>
-<script src="js/practical.js?v=2.0.0"></script>
-<script src="js/game.js?v=2.0.0"></script>
+<script src="js/config.js?v=2.1.0"></script>
+<script src="js/sprites.js?v=2.1.0"></script>
+<script src="js/sound.js?v=2.1.0"></script>
+<script src="js/juice.js?v=2.1.0"></script>
+<script src="js/fx.js?v=2.1.0"></script>
+<script src="js/backgrounds.js?v=2.1.0"></script>
+<script src="js/bestiary.js?v=2.1.0"></script>
+<script src="js/countdown.js?v=2.1.0"></script>
+<script src="js/srs.js?v=2.1.0"></script>
+<script src="js/api.js?v=2.1.0"></script>
+<script src="js/questions_excel.js?v=2.1.0"></script>
+<script src="js/questions_word.js?v=2.1.0"></script>
+<script src="js/questions_excel_expert.js?v=2.1.0"></script>
+<script src="js/questions_excel_practical.js?v=2.1.0"></script>
+<!-- ⚠️ ダミー問題（FEA0-*）。公開前にこの行とファイルを外し、フェーズ3の questions_ipa_fe_a.js に置きかえる -->
+<script src="js/questions_ipa_fe_dummy.js?v=2.1.0"></script>
+<script src="js/courses.js?v=2.1.0"></script>
+<script src="js/ribbonMockups.js?v=2.1.0"></script>
+<script src="js/streak.js?v=2.1.0"></script>
+<script src="js/achievements.js?v=2.1.0"></script>
+<script src="js/missions.js?v=2.1.0"></script>
+<script src="js/treasure.js?v=2.1.0"></script>
+<script src="js/practical.js?v=2.1.0"></script>
+<script src="js/game.js?v=2.1.0"></script>
 </body>
 </html>

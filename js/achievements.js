@@ -4,6 +4,34 @@
  * bestiary.js と同じく「定義＋セーブ状態のマージ」で毎回まるごと再評価する。
  * ========================================================= */
 
+/* 実績は対策項目（MOS・IPA 基本情報）をまたいで共通。
+ * 「すべての クエスト」系は、どれか1つの対策項目の クエストを ぜんぶ たっせいすれば よい
+ * （MOS だけ遊ぶ生徒の条件は今までと同じ）。 */
+function anyCourseQuestsAll(s, test) {
+  return COURSES.some(function (c) {
+    var qs = ALL_QUESTS.filter(function (q) { return q.course === c.key; });
+    return qs.length > 0 && qs.every(function (q) { return s.quests[q.id] && test(s.quests[q.id]); });
+  });
+}
+/* 「★3の クエスト数／その項目の クエスト数」が いちばん進んでいる対策項目 */
+function bestCourseStarsProg(s) {
+  var best = [0, 1], bestRate = -1;
+  COURSES.forEach(function (c) {
+    var qs = ALL_QUESTS.filter(function (q) { return q.course === c.key; });
+    if (!qs.length) return;
+    var n = qs.filter(function (q) { return s.quests[q.id] && s.quests[q.id].stars === 3; }).length;
+    if (n / qs.length > bestRate) { bestRate = n / qs.length; best = [n, qs.length]; }
+  });
+  return best;
+}
+/* もぎけんていの最高点が、合格ライン（定義の pass）または minScore 以上のものがあるか */
+function anyExamAtLeast(s, minScore) {
+  var e = s.exams || {};
+  return COURSES.some(function (c) {
+    return c.exams.some(function (d) { return e[d.key] && e[d.key].best >= (minScore || d.pass); });
+  });
+}
+
 var ACHIEVEMENTS = [
   { id: "first_quest", name: "はじめの一歩", desc: "はじめて クエストを クリアする",
     check: function (s) { return clearedCount() >= 1; } },
@@ -20,15 +48,15 @@ var ACHIEVEMENTS = [
   { id: "perfect_quest", name: "全問正解でクリア", desc: "1つの クエストを ノーミスで クリアする",
     check: function (s) { for (var k in s.quests) { if (s.quests[k].stars === 3) return true; } return false; } },
   { id: "all_quests", name: "コンプリートマスター", desc: "すべての クエストを クリアする",
-    check: function (s) { return clearedCount() >= ALL_QUESTS.length; } },
+    check: function (s) { return anyCourseQuestsAll(s, function (r) { return r.stars > 0; }); } },
   { id: "boss10", name: "ボス10体討伐", desc: "ボスを 10体 とうばつする",
     check: function (s) { return s.stats.bossWins >= 10; } },
   { id: "final_clear", name: "まおう討伐者", desc: "まおうの城を クリアする",
-    check: function (s) { return !!s.finalClear; } },
-  { id: "exam_pass", name: "もぎけんてい合格", desc: "もぎけんていで 700点いじょう とる",
-    check: function (s) { var e = s.exams || {}; return (e.excel && e.excel.best >= 700) || (e.word && e.word.best >= 700); } },
+    check: function (s) { return !!s.finalClear || Object.keys(s.finalClears || {}).length > 0; } },
+  { id: "exam_pass", name: "もぎけんてい合格", desc: "もぎけんていで ごうかくライン（MOS は 700点）いじょう とる",
+    check: function (s) { return anyExamAtLeast(s); } },
   { id: "exam_900", name: "模試900点以上", desc: "もぎけんていで 900点いじょう とる",
-    check: function (s) { var e = s.exams || {}; return (e.excel && e.excel.best >= 900) || (e.word && e.word.best >= 900); } },
+    check: function (s) { return anyExamAtLeast(s, 900); } },
   { id: "mastery20", name: "もんだいマスター", desc: "20もん いじょう しゅうじゅく(box5)にする",
     check: function (s) { var n = 0; for (var q in s.records) { if (s.records[q].box >= 5) n++; } return n >= 20; } },
   { id: "bestiary_full", name: "モンスター博士", desc: "図鑑の モンスターを ぜんぶ みつける（げきレアは 1体で OK）",
@@ -112,10 +140,8 @@ var ACHIEVEMENTS = [
       return [RARE_MONSTERS.filter(function (r) { return s.seenMonsters.indexOf(r.mob.name) >= 0; }).length, RARE_MONSTERS.length];
     } },
   { id: "stars_all", name: "オール★3", desc: "すべての クエストで ★3を とる",
-    check: function (s) { return ALL_QUESTS.every(function (q) { return s.quests[q.id] && s.quests[q.id].stars === 3; }); },
-    prog: function (s) {
-      return [ALL_QUESTS.filter(function (q) { return s.quests[q.id] && s.quests[q.id].stars === 3; }).length, ALL_QUESTS.length];
-    } },
+    check: function (s) { return anyCourseQuestsAll(s, function (r) { return r.stars === 3; }); },
+    prog: function (s) { return bestCourseStarsProg(s); } },
   { id: "titles5", name: "しょうごう コレクター", desc: "しょうごうを 5つ あつめる",
     check: function (s) { return s.titles.length >= 5; },
     prog: function (s) { return [s.titles.length, 5]; } },

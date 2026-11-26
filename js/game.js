@@ -19,29 +19,80 @@ function uid() {
 }
 
 /* ---------- 問題インデックス ---------- */
-var SUBJECTS = [QUEST_DATA_EXCEL, QUEST_DATA_WORD];
-var QUESTION_INDEX = {};   // qid -> {q:問題, quest:クエスト, subject}
-var ALL_QUESTS = [];       // 全クエスト（順序つき）
-SUBJECTS.forEach(function (sub) {
-  sub.quests.forEach(function (quest) {
-    quest.subject = sub.subject;
-    ALL_QUESTS.push(quest);
-    quest.questions.forEach(function (q) {
-      QUESTION_INDEX[q.id] = { q: q, quest: quest, subject: sub.subject };
+/* 全対策項目（js/courses.js の COURSES）の科目をつなげたもの。
+ * quest.course / QUESTION_INDEX[id].course に、どの対策項目の問題かを記録する。 */
+var SUBJECTS = [];
+var QUESTION_INDEX = {};   // qid -> {q:問題, quest:クエスト, subject, course}
+var ALL_QUESTS = [];       // 全クエスト（順序つき・全対策項目）
+COURSES.forEach(function (course) {
+  course.subjects.forEach(function (sub) {
+    sub.course = course.key;
+    SUBJECTS.push(sub);
+    sub.quests.forEach(function (quest) {
+      quest.subject = sub.subject;
+      quest.course = course.key;
+      ALL_QUESTS.push(quest);
+      quest.questions.forEach(function (q) {
+        QUESTION_INDEX[q.id] = { q: q, quest: quest, subject: sub.subject, course: course.key };
+      });
     });
   });
 });
+
+/* ---------- 対策項目（コース） ---------- */
+/* 表示する対策項目。GAME_CONFIG.COURSES（例 ["mos", "ipa_fe"]）があれば、それでしぼる */
+function availableCourses() {
+  var keys = GAME_CONFIG.COURSES;
+  if (!keys || !keys.length) return COURSES.slice();
+  var list = COURSES.filter(function (c) { return keys.indexOf(c.key) >= 0; });
+  return list.length ? list : COURSES.slice();
+}
+function courseDef(key) {
+  return COURSES.filter(function (c) { return c.key === key; })[0] || null;
+}
+/* 選択中の対策項目。save.course が無い・表示しない項目のときは、表示する項目の先頭 */
+function currentCourseDef() {
+  var list = availableCourses();
+  var key = save && save.course;
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+  return list[0];
+}
+function currentCourse() { return currentCourseDef().key; }
+/* 選択中の対策項目の科目・クエスト */
+function courseSubjects() {
+  var key = currentCourse();
+  return SUBJECTS.filter(function (s) { return s.course === key; });
+}
+function courseQuests() {
+  var key = currentCourse();
+  return ALL_QUESTS.filter(function (q) { return q.course === key; });
+}
+function inCourse(qid) {
+  return !!QUESTION_INDEX[qid] && QUESTION_INDEX[qid].course === currentCourse();
+}
+function courseClearedCount() {
+  var n = 0;
+  courseQuests().forEach(function (q) { if (save.quests[q.id] && save.quests[q.id].stars > 0) n++; });
+  return n;
+}
+/* まおうの城の討伐。MOS は今までどおり save.finalClear（エキスパートの解放条件にもなる）、
+ * ほかの対策項目は save.finalClears[項目キー] に分けて持つ */
+function isFinalCleared(key) {
+  key = key || currentCourse();
+  return key === "mos" ? !!save.finalClear : !!(save.finalClears && save.finalClears[key]);
+}
 
 /* SRS.dueList/weakList は save.records 全体（エキスパートの問題を答えた記録も含む）を
  * 見境なく返すため、まおうの城・ふっかつのほこら等の「Specialist側」の消費先では
  * 必ずこのフィルターを通す（そうしないとエキスパート限定のidがQUESTION_INDEXに無く
  * qs.map(...).q が undefined になってクラッシュする）。エキスパート側は
  * EXPERT_QUESTION_INDEX で同様にフィルターする（startExpert() 参照）。 */
+/* さらに、選択中の対策項目の問題だけにしぼる（MOS の復習に IPA の問題が混ざらないように。逆も同じ） */
 function specialistDueList() {
-  return SRS.dueList(save.records).filter(function (id) { return !!QUESTION_INDEX[id]; });
+  return SRS.dueList(save.records).filter(inCourse);
 }
 function specialistWeakList() {
-  return SRS.weakList(save.records).filter(function (id) { return !!QUESTION_INDEX[id]; });
+  return SRS.weakList(save.records).filter(inCourse);
 }
 
 /* ---------- レベル・ランク ---------- */
@@ -130,6 +181,9 @@ function ensureSaveShape(s) {
   s.stats.kills = s.stats.kills || 0;      // たおしたモンスターの合計
   s.gauge = s.gauge || 0;                  // ひっさつゲージ（0〜100）。戦闘をまたいで持ちこす
   s.hints = s.hints || {};                 // 見せおわった「はじめての ヒント」
+  /* v2.1 で足したもの（対策項目） */
+  s.course = s.course || null;             // 前回えらんだ対策項目（"mos" / "ipa_fe"）。無ければ選択画面を出す
+  s.finalClears = s.finalClears || {};     // MOS 以外の対策項目の まおうの城 討伐（MOS は finalClear のまま）
   return s;
 }
 function newSave(name, klass) {
@@ -153,6 +207,11 @@ function newSave(name, klass) {
 function totalStars() {
   var s = 0;
   for (var k in save.quests) s += (save.quests[k].stars || 0);
+  return s;
+}
+function courseStars() {
+  var s = 0;
+  courseQuests().forEach(function (q) { if (save.quests[q.id]) s += (save.quests[q.id].stars || 0); });
   return s;
 }
 function clearedCount() {
@@ -180,7 +239,9 @@ function syncNow() {
     bossWins: save.stats.bossWins,
     finalClear: save.finalClear ? 1 : 0,
     examExcel: save.exams && save.exams.excel ? save.exams.excel.best : 0,
-    examWord: save.exams && save.exams.word ? save.exams.word.best : 0
+    examWord: save.exams && save.exams.word ? save.exams.word.best : 0,
+    examFe: save.exams && save.exams.fe_a ? save.exams.fe_a.best : 0,
+    course: save.course || ""
   });
 }
 
@@ -295,10 +356,7 @@ function openExamSelect() {
   $("#quests-title").textContent = "もぎ けんてい";
   var box = $("#quest-list");
   box.innerHTML = "";
-  [
-    { key: "excel", label: "Excel もぎけんてい", shape: "wizard", palette: "green" },
-    { key: "word",  label: "Word もぎけんてい",  shape: "wizard", palette: "blue" }
-  ].forEach(function (ex) {
+  currentCourseDef().exams.forEach(function (ex) {
     var div = document.createElement("div");
     div.className = "quest-card window";
     var cv = document.createElement("canvas");
@@ -310,7 +368,7 @@ function openExamSelect() {
     nm.textContent = ex.label;
     var ds = document.createElement("div");
     ds.className = "quest-desc";
-    ds.textContent = "20もん / 1000てんまんてん / ごうかくライン 700てん";
+    ds.textContent = ex.count + "もん / 1000てんまんてん / ごうかくライン " + ex.pass + "てん";
     var st = document.createElement("div");
     st.className = "quest-stars";
     var best = save.exams && save.exams[ex.key] ? save.exams[ex.key].best : 0;
@@ -324,18 +382,29 @@ function openExamSelect() {
   show("screen-quests");
 }
 
-/* もぎけんてい開始（本試験と同じ1000点満点・合格ライン700点） */
-function startExam(subjectKey) {
-  var sub = SUBJECTS.filter(function (s) { return s.subject === subjectKey; })[0];
-  var per = Math.ceil(20 / sub.quests.length);
+/* 対策項目の定義（js/courses.js の exams）から、もぎけんていの構成をさがす */
+function examDef(examKey) {
+  var found = null;
+  COURSES.forEach(function (c) {
+    c.exams.forEach(function (ex) { if (ex.key === examKey) found = ex; });
+  });
+  return found;
+}
+
+/* もぎけんてい開始（1000点満点。問題数・合格ラインは対策項目の定義から。MOS は20問・700点） */
+function startExam(examKey) {
+  var ex = examDef(examKey);
+  var sub = SUBJECTS.filter(function (s) { return s.subject === ex.subject; })[0];
+  var per = Math.ceil(ex.count / sub.quests.length);
   var pool = [];
   sub.quests.forEach(function (q) { pool = pool.concat(sampleQuestQuestions(q, per)); });
-  var qs = shuffle(pool).slice(0, 20);
+  var qs = shuffle(pool).slice(0, ex.count);
   battle = {
     mode: "exam",
-    subjectKey: subjectKey,
+    subjectKey: examKey,
+    exam: ex,
     quest: null,
-    label: (subjectKey === "excel" ? "Excel" : "Word") + " もぎけんてい",
+    label: ex.label,
     qs: qs,
     bossFrom: 9999, bossHp: 0, bossMax: 0,
     idx: 0, hearts: 1, maxHearts: 1, noFail: true,
@@ -348,7 +417,7 @@ function startExam(subjectKey) {
 
 /* まおうの城（最終決戦）開始 */
 function startFinal() {
-  var pool = Object.keys(QUESTION_INDEX);
+  var pool = Object.keys(QUESTION_INDEX).filter(inCourse);
   var weak = specialistWeakList().slice(0, 6);
   var rest = shuffle(pool.filter(function (id) { return weak.indexOf(id) < 0; }));
   var ids = weak.concat(rest).slice(0, 12);
@@ -357,6 +426,7 @@ function startFinal() {
     mode: "final",
     quest: null,
     label: "まおうの城",
+    course: currentCourse(),
     qs: qs,
     bossFrom: 0,               // 全問ボス戦
     bossHp: 9, bossMax: 9,     // 12問中9問せいかいで討伐
@@ -543,7 +613,7 @@ function currentMonster() {
     return battle.mode === "endless" ? pick(battle.quests).boss : battle.quest.boss;
   }
   if (battle.mode === "exam") {
-    return pick(ALL_QUESTS).mob;
+    return pick(courseQuests()).mob;
   }
   /* クエスト・復習・めいきゅうでは、ごく低確率で激レアモンスターが出現する */
   if (Math.random() < RARE_MONSTER_CHANCE) {
@@ -551,7 +621,7 @@ function currentMonster() {
     battle.rare = pickRareMonster();
     return battle.rare.mob;
   }
-  var m = battle.mode === "review" ? pick(ALL_QUESTS).mob
+  var m = battle.mode === "review" ? pick(courseQuests()).mob
         : battle.mode === "endless" ? pick(battle.quests).mob
         : battle.quest.mob;
   /* さらに低確率で、色ちがい。たおすと図鑑に色ちがいが登録される */
@@ -1192,7 +1262,9 @@ var ENDLESS_TITLES = [
 ];
 
 function endlessQuests() {
-  var all = ALL_QUESTS.concat(typeof EXPERT_QUEST_DATA_EXCEL !== "undefined" ? EXPERT_QUEST_DATA_EXCEL.quests : []);
+  /* 選択中の対策項目のクエストだけ。エキスパートのクエストは MOS のときだけ入れる */
+  var expert = currentCourse() === "mos" && typeof EXPERT_QUEST_DATA_EXCEL !== "undefined" ? EXPERT_QUEST_DATA_EXCEL.quests : [];
+  var all = courseQuests().concat(expert);
   return all.filter(function (q) { return save.quests[q.id] && save.quests[q.id].stars > 0; });
 }
 
@@ -1490,7 +1562,8 @@ function presentResult(o) {
 /* ---------- 結果（もぎけんてい） ---------- */
 function endExam() {
   var score = Math.round(battle.correct / battle.qs.length * 1000);
-  var pass = score >= 700;
+  var passLine = battle.exam ? battle.exam.pass : 700;
+  var pass = score >= passLine;
   var bonus = pass ? 50 : 10;
   save.xp += bonus;
   battle.xp += bonus;
@@ -1505,7 +1578,8 @@ function endExam() {
   persist();
   syncNow();
 
-  var lines = ["ごうかくライン 700てん"];
+  var lines = ["ごうかくライン " + passLine + "てん"];
+  if (battle.exam && battle.exam.note) lines.push("（" + battle.exam.note + "）");
   var weak = [];
   for (var name in battle.perQuest) {
     var r = battle.perQuest[name];
@@ -1560,7 +1634,9 @@ function endBattle(cleared) {
       if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; }
     }
     if (battle.mode === "final") {
-      save.finalClear = true;
+      /* MOS は今までどおり finalClear（エキスパートの解放条件）。ほかの項目は finalClears に分ける */
+      if (battle.course === "mos") save.finalClear = true;
+      else save.finalClears[battle.course] = Date.now();
       save.stats.bossWins++;
       bonus = 100;
     }
@@ -1588,7 +1664,7 @@ function endBattle(cleared) {
   if (cleared) {
     if (battle.mode === "final") {
       title = "まおうデリートを たおした！！";
-      sub = "MOSの ちしきが せかいを すくった！\nきみこそ しんの MOSマスターだ！";
+      sub = courseDef(battle.course).finalText;
     } else if (battle.mode === "expert") {
       title = "しんおうデリートを たおした！！";
       sub = "エキスパートの おくぎを てにいれた！\nきみは まことの MOSエキスパートだ！";
@@ -1668,11 +1744,14 @@ function openMenu() {
   if (due > 0) { badge.textContent = due; badge.classList.remove("hidden"); }
   else badge.classList.add("hidden");
 
-  var allCleared = clearedCount() >= ALL_QUESTS.length;
+  renderCourseMenu();
+
+  /* まおうの城は、選択中の対策項目のクエストを ぜんぶ クリアすると解放 */
+  var allCleared = finalUnlocked();
   var finalBtn = $("#menu-final");
   finalBtn.classList.toggle("locked", !allCleared);
   $("#menu-final-lock").textContent = allCleared
-    ? (save.finalClear ? "とうばつずみ！ なんども ちょうせんできる" : "ふういんが とかれた…！")
+    ? (isFinalCleared() ? "とうばつずみ！ なんども ちょうせんできる" : "ふういんが とかれた…！")
     : "ぜんぶの クエストを クリアすると かいほう";
 
   var expertBtn = $("#menu-expert");
@@ -1681,7 +1760,7 @@ function openMenu() {
     ? (save.expertClear ? "とうばつずみ！ なんども ちょうせんできる" : "かくされた みちが あらわれた…！")
     : "まおうの城を クリアすると かいほう";
 
-  var endlessOpen = clearedCount() >= ENDLESS_UNLOCK;
+  var endlessOpen = courseClearedCount() >= ENDLESS_UNLOCK;
   $("#menu-endless").classList.toggle("locked", !endlessOpen);
   $("#menu-endless").classList.toggle("is-new", endlessOpen && save.endless.runs === 0);
   $("#menu-endless-lock").textContent = endlessOpen
@@ -1711,6 +1790,113 @@ function openMenu() {
     Juice.banner("🎵", "おんがくも ならせるよ", "みぎしたの「♪ おとだけ」を おすと ながれる", "");
   }
   if (newAchievements.length) showAchievementToasts(newAchievements);
+}
+
+/* 選択中の対策項目の まおうの城が解放されているか（その項目のクエストを ぜんぶ クリア） */
+function finalUnlocked() {
+  var qs = courseQuests();
+  return qs.length > 0 && courseClearedCount() >= qs.length;
+}
+
+/* メニューのボタンを、選択中の対策項目の定義（js/courses.js の menu）の順に並べ、ほかは隠す。
+ * 科目ボタン（"subject:<科目キー>"）だけは JS で作る（id は menu-<科目キー>）。 */
+var MENU_BUTTON_IDS = ["review", "final", "expert", "endless", "exam", "practical", "ranking", "status"];
+function subjectMenuButton(subjectKey) {
+  var btn = $("#menu-" + subjectKey);
+  if (btn) return btn;
+  var look = SUBJECT_BUTTONS[subjectKey] || { icon: "📘", label: subjectKey };
+  btn = document.createElement("button");
+  btn.className = "btn menu-btn menu-subject";
+  btn.id = "menu-" + subjectKey;
+  var icon = document.createElement("span");
+  icon.className = "menu-icon";
+  icon.textContent = look.icon;
+  btn.appendChild(icon);
+  btn.appendChild(document.createTextNode(look.label));
+  btn.onclick = function () { Sound.select(); openQuestList(subjectKey); };
+  return btn;
+}
+function renderCourseMenu() {
+  var def = currentCourseDef();
+  var grid = $("#menu-grid");
+  var shown = {};
+  def.menu.forEach(function (item) {
+    var btn = item.indexOf("subject:") === 0 ? subjectMenuButton(item.slice(8)) : $("#menu-" + item);
+    if (!btn) return;
+    btn.classList.remove("hidden");
+    grid.appendChild(btn);   /* 定義の順に並べなおす */
+    shown[btn.id] = true;
+  });
+  Array.prototype.slice.call(grid.querySelectorAll(".menu-btn")).forEach(function (btn) {
+    if (!shown[btn.id]) btn.classList.add("hidden");
+  });
+  $("#menu-course-icon").textContent = def.icon;
+  $("#menu-course-name").textContent = def.label + "（" + def.sub + "）";
+  $("#menu-course-change").classList.toggle("hidden", availableCourses().length < 2);
+}
+
+/* ---------- 対策項目を えらぶ ---------- */
+function openCourseSelect() {
+  var list = availableCourses();
+  /* 1つしか無いなら えらぶ画面は飛ばす */
+  if (list.length < 2) {
+    if (save.course !== list[0].key) { save.course = list[0].key; persist(); }
+    renderTitleCourse();
+    openMenu();
+    return;
+  }
+  var box = $("#course-list");
+  box.innerHTML = "";
+  list.forEach(function (c) {
+    var last = save.course === c.key;
+    var div = document.createElement("div");
+    div.className = "quest-card window course-card" + (last ? " is-last" : "");
+    div.tabIndex = 0;
+    div.setAttribute("role", "button");
+    div.id = "course-" + c.key;
+    var icon = document.createElement("div");
+    icon.className = "course-icon";
+    icon.textContent = c.icon;
+    var info = document.createElement("div");
+    info.className = "quest-info";
+    var nm = document.createElement("div");
+    nm.className = "quest-name";
+    nm.textContent = c.label + "（" + c.sub + "）";
+    var ds = document.createElement("div");
+    ds.className = "quest-desc";
+    ds.textContent = c.desc;
+    info.appendChild(nm); info.appendChild(ds);
+    if (last) {
+      var mark = document.createElement("div");
+      mark.className = "quest-stars course-last";
+      mark.textContent = "▶ まえ回 えらんだ こうもく";
+      info.appendChild(mark);
+    }
+    div.appendChild(icon); div.appendChild(info);
+    div.onclick = function () { Sound.select(); chooseCourse(c.key); };
+    box.appendChild(div);
+  });
+  show("screen-course");
+  var focus = $("#course-list .is-last") || $("#course-list .course-card");
+  if (focus) focus.focus();
+}
+function chooseCourse(key) {
+  save.course = key;
+  persist();
+  syncNow();
+  renderTitleCourse();
+  openMenu();
+}
+
+/* タイトルの表示（ロゴの上の行・副題・単語帳リンク）を、選択中の対策項目に合わせる。
+ * まだ えらんでいないときは共通の表示（単語帳リンクは出したまま） */
+function renderTitleCourse() {
+  var def = save && save.course ? courseDef(save.course) : null;
+  $("#logo-prefix").textContent = def ? def.logo : "BICA";
+  $("#title-subtitle").textContent = def ? def.subtitle : "〜 しかく たいさく ぼうけんの書 〜";
+  $("#title-copy").textContent = def ? def.copy : "BICA 資格対策クエスト";
+  $("#title-vocab-link").classList.toggle("hidden", !!def && !def.vocabLink);
+  document.title = (def ? def.logo : "BICA") + " QUEST" + (def ? " - " + def.subtitle.replace(/[〜\s]/g, "") : "");
 }
 
 /* ---------- ストリーク ---------- */
@@ -1877,7 +2063,8 @@ function renderChestBox(reward) {
 /* 試験日カウントダウンの一言（王さま／お姫さま／まおう）を表示する */
 function renderMessenger() {
   var box = $("#menu-messenger");
-  var line = Countdown.pickLine();
+  /* 試験日カウントダウン（GAME_CONFIG.EXAM_DATES）は MOS の試験日なので、MOS のときだけ */
+  var line = currentCourseDef().countdown ? Countdown.pickLine() : null;
   if (!line) { box.classList.add("hidden"); return; }
   drawSprite($("#messenger-sprite"), line.speaker.shape, line.speaker.palette, 5);
   $("#messenger-name").textContent = line.speaker.label;
@@ -2099,13 +2286,14 @@ function openStatus() {
     ["せいかいりつ", acc + " %"],
     ["さいだいコンボ", save.stats.bestCombo + " れんぞく"],
     ["ボスとうばつ", save.stats.bossWins + " 体"],
-    ["クエストたっせい", clearedCount() + " / " + ALL_QUESTS.length],
-    ["あつめた ★", totalStars() + " / " + (ALL_QUESTS.length * 3)],
+    ["たいさく こうもく", currentCourseDef().label],
+    ["クエストたっせい", courseClearedCount() + " / " + courseQuests().length],
+    ["あつめた ★", courseStars() + " / " + (courseQuests().length * 3)],
     ["もぎけんてい さいこう", (function () {
       var ex = save.exams || {};
-      var e = ex.excel ? ex.excel.best + "てん" : "—";
-      var w = ex.word ? ex.word.best + "てん" : "—";
-      return "Excel " + e + " / Word " + w;
+      return currentCourseDef().exams.map(function (d) {
+        return d.label.replace(/\s*もぎ.*$/, "") + " " + (ex[d.key] ? ex[d.key].best + "てん" : "—");
+      }).join(" / ");
     })()],
     ["ふくしゅう まち", specialistDueList().length + " もん"],
     ["かいしんの いちげき", save.stats.crits + " 回"],
@@ -2114,7 +2302,7 @@ function openStatus() {
     ["たおした モンスター", save.stats.kills + " 体"],
     ["むげんの めいきゅう", save.endless.best > 0 ? "ちか " + save.endless.best + " かい" : "—"],
     ["ぶき", weaponFor(li.level).name],
-    ["しょうごう", save.finalClear ? "まおうを たおせし者" : rankFor(li.level)]
+    ["しょうごう", (save.finalClear || Object.keys(save.finalClears).length) ? "まおうを たおせし者" : rankFor(li.level)]
   ].forEach(function (pair) {
     var dt = document.createElement("dt"); dt.textContent = pair[0];
     var dd = document.createElement("dd"); dd.textContent = pair[1];
@@ -2125,7 +2313,7 @@ function openStatus() {
   /* しゅうじゅく度マップ（問題ごとの記憶ボックスを色で表示） */
   var map = $("#status-mastery");
   map.innerHTML = "";
-  SUBJECTS.forEach(function (sub) {
+  courseSubjects().forEach(function (sub) {
     var h = document.createElement("div");
     h.className = "mastery-subject";
     h.textContent = sub.label;
@@ -2248,7 +2436,7 @@ function populateClassSelect(selected) {
 
 function startAdventure() {
   Sound.select();
-  if (save) { openMenu(); return; }
+  if (save) { openCourseSelect(); return; }
   populateClassSelect(null);
   $("#register-title").textContent = "ぼうけんしゃ とうろく";
   $("#register-submit").textContent = "ぼうけんに でる！";
@@ -2291,7 +2479,7 @@ function submitRegister() {
   persist();
   Sound.levelup();
   syncNow();
-  openMenu();
+  openCourseSelect();
 }
 
 /* =========================================================
@@ -2377,6 +2565,7 @@ window.addEventListener("DOMContentLoaded", function () {
     $("#title-continue-info").textContent =
       save.player.name + "（Lv" + li.level + " " + rankFor(li.level) + "）の ぼうけんのしょ";
   }
+  renderTitleCourse();
   updateMuteButton();
   updateFxButtons();
   startTitleSparkle();
@@ -2449,11 +2638,11 @@ window.addEventListener("DOMContentLoaded", function () {
     if (e.target === this) closeFeedback();   /* 外側クリックで閉じる */
   };
 
-  $("#menu-excel").onclick = function () { Sound.select(); openQuestList("excel"); };
-  $("#menu-word").onclick = function () { Sound.select(); openQuestList("word"); };
+  /* 科目ボタン（エクセルの とう 等）は renderCourseMenu() が作って結線する */
+  $("#menu-course-change").onclick = function () { Sound.select(); openCourseSelect(); };
   $("#menu-review").onclick = function () { Sound.select(); startReview(); };
   $("#menu-final").onclick = function () {
-    if (clearedCount() < ALL_QUESTS.length) {
+    if (!finalUnlocked()) {
       toast("まだ ふういんされている… すべての クエストを クリアせよ！");
       return;
     }
@@ -2467,7 +2656,7 @@ window.addEventListener("DOMContentLoaded", function () {
     Sound.select(); openExpertQuests();
   };
   $("#menu-endless").onclick = function () {
-    if (clearedCount() < ENDLESS_UNLOCK) {
+    if (courseClearedCount() < ENDLESS_UNLOCK) {
       toast("まだ とびらが ひらかない… クエストを " + ENDLESS_UNLOCK + "つ クリアせよ！");
       return;
     }
