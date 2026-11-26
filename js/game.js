@@ -1029,7 +1029,8 @@ function renderPassage(q) {
     q.table.forEach(function (row, ri) {
       var tr = document.createElement("tr");
       row.forEach(function (cell) {
-        var td = document.createElement(ri === 0 ? "th" : "td");
+        /* tableHeader: false の表（見出しの行が無い表）は、1行目も ふつうのセルにする */
+        var td = document.createElement(ri === 0 && q.tableHeader !== false ? "th" : "td");
         td.textContent = cell;
         tr.appendChild(td);
       });
