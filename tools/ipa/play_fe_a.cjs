@@ -26,7 +26,8 @@ const OUT = path.resolve(process.argv[2] || path.join(ROOT, "work", "ipa", "scre
 const QFILE = "js/questions_ipa_fe_a.js";
 const LABELS = "アイウエオカキクケコ";
 const SHOOT = new Set(["FE-2025A-03", "FE-2025A-06", "FE-2025A-14", "FE-2025A-19",
-  "FE-2026A-01", "FE-2026A-06", "FE-2026A-07", "FE-2026A-14", "FE-2026A-17"]);   // 図・表・SQL のある問題
+  "FE-2026A-01", "FE-2026A-06", "FE-2026A-07", "FE-2026A-14", "FE-2026A-17",
+  "FE-2024A-01", "FE-2024A-03", "FE-2024A-13", "FE-2024A-19"]);   // 図・表・SQL のある問題
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".svg": "image/svg+xml", ".json": "application/json", ".webp": "image/webp", ".ico": "image/x-icon" };

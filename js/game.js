@@ -980,7 +980,8 @@ function showQuestion() {
     var label = choiceLabel(q, ci);
     if (label) {
       var mark = document.createElement("span");
-      mark.className = "choice-label";
+      /* 改行のある選択肢（真理値表・複数行の SQL など）は、記号を1行目に置いて、本文の行頭をそろえる */
+      mark.className = "choice-label" + (q.c[ci].indexOf("\n") >= 0 ? " choice-label-block" : "");
       mark.textContent = label;
       btn.appendChild(mark);
     }

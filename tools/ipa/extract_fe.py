@@ -45,6 +45,11 @@ FIGURES = {
         3: (3, 459, 319, 516, 474),    # 2分探索木
         14: (8, 281, 334, 882, 518),   # アローダイアグラム
     },
+    2024: {
+        3: (3, 242, 493, 1033, 298),   # 構成の図と、アクセス時間の表（横に並んでいるので1枚に）
+        13: (6, 278, 1165, 896, 428),  # アローダイアグラム
+        19: (9, 565, 331, 366, 280),   # 散布図
+    },
     2026: {
         6: (6, 204, 772, 1066, 982),   # 論理回路と、選択肢ア〜エのタイミングチャート
     },
@@ -155,13 +160,18 @@ def join_text(lines):
     return out
 
 
+def is_next_paragraph(line):
+    s = line.strip()
+    return s.startswith(CONTINUE_PARA) or (len(s) >= 20 and not re.search(r"\S\s{3,}\S", s))
+
+
 def parse_choices(lines):
     """ア〜エ の位置で選択肢を切り出す。1行に2〜4個並ぶ短い選択肢にも対応"""
     texts = {k: [] for k in LABELS}
     expect = 0
     current = None
     for line in lines:
-        if not line.strip():
+        if not line.strip() or RUBY_RE.match(line):   # 空行と、選択肢の中のルビ（例「脆」の「ぜい」）はとばす
             continue
         pos = 0
         pieces = []
@@ -193,11 +203,11 @@ def draft_question(year, no, block):
     choice_lines = [] if first_choice is None else lines[first_choice:]
 
     # 問題文は、最初の「。」で終わる行まで（そのあと選択肢までに残った行は図・表とみなす）。
-    # ただし、すぐ後に「なお，」「ここで，」「ただし，」で始まる段落が続くときは、改行して問題文に入れる
+    # ただし、すぐ後に文章の段落（「なお，」などで始まる行や、大きな空白の無い長い行）が続くときは、改行して問題文に入れる
     paras, extra = [[]], []
     ended = False
     for line in head:
-        if ended and not any(l.strip() for l in extra) and line.strip().startswith(CONTINUE_PARA):
+        if ended and not any(l.strip() for l in extra) and is_next_paragraph(line):
             paras.append([])
             ended = False
         if ended:
@@ -212,6 +222,9 @@ def draft_question(year, no, block):
     notes = []
     if block["ruby"]:
         notes.append("見出しの上にルビ: " + " ".join(block["ruby"]) + "（問題文にはルビを入れていない）")
+    choice_ruby = [l.strip() for l in choice_lines if RUBY_RE.match(l)]
+    if choice_ruby:
+        notes.append("選択肢の中にルビ: " + " ".join(choice_ruby) + "（選択肢にはルビを入れていない）")
     if not ok:
         notes.append("選択肢を ア〜エ の4つに切り分けられなかった")
     if extra_text.strip():
@@ -331,8 +344,8 @@ def cmd_check(year, path):
             diffs.append("問題文")
         if q["c"] is None or len(q["c"]) != 4:
             errors.append("問%d: 選択肢が4つではありません" % no)
-        elif any("切り分けられなかった" in n for n in draft[no]["notes"]):
-            review.append("問%d: 下書きで選択肢を切り出せなかった（図の中の選択肢など）ので、選択肢は比較していない" % no)
+        elif any("切り分けられなかった" in n or "選択肢の中に表らしき行" in n for n in draft[no]["notes"]):
+            review.append("問%d: 下書きで選択肢を正しく切り出せない形（図や表の選択肢）なので、選択肢は比較していない。PDF と見くらべて確認" % no)
         else:
             for k in range(4):
                 if norm(q["c"][k]) != norm(draft[no]["c"][k]):
