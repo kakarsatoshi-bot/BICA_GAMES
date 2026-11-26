@@ -677,6 +677,7 @@ textarea:focus { border-color: var(--key); outline: none; }
 .choices.fixed { grid-template-columns: 1fr; }
 .choices.fixed .choice { white-space: pre-wrap; }   /* SQL など、改行に意味のある選択肢（\n）を そのまま出す */
 .choice-label { display: inline-block; min-width: 2em; color: var(--accent); font-weight: bold; }
+.choice-label-block { display: block; }
 .battle-source { font-size: 11px; color: #9a9ac0; margin-bottom: 4px; }
 .battle-timer { color: var(--white); font-size: 14px; white-space: nowrap; }
 .battle-timer.low { color: var(--danger); }
