@@ -673,6 +673,42 @@ textarea:focus { border-color: var(--key); outline: none; }
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ---------- IPA の問題（並べ替えなし・記号つき・出典・長文/プログラム/表/図・模試タイマー） ---------- */
+.choices.fixed { grid-template-columns: 1fr; }
+.choice-label { display: inline-block; min-width: 2em; color: var(--accent); font-weight: bold; }
+.battle-source { font-size: 11px; color: #9a9ac0; margin-bottom: 4px; }
+.battle-timer { color: var(--white); font-size: 14px; white-space: nowrap; }
+.battle-timer.low { color: var(--danger); }
+.battle-stage.passage-mode { height: 130px; }
+.battle-passage {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 100%;
+}
+.passage-text { white-space: pre-wrap; }
+.passage-text + * { margin-top: 8px; }
+.passage-figure { display: block; max-width: 100%; height: auto; margin: 6px auto; background: #fff; }
+.passage-scroll { overflow-x: auto; max-width: 100%; }
+.passage-table { border-collapse: collapse; font-size: 13px; margin: 4px 0; }
+.passage-table th, .passage-table td { border: 1px solid #6a6a9a; padding: 3px 8px; white-space: nowrap; text-align: left; }
+.passage-table th { background: #1a1a44; color: var(--key); }
+.passage-code {
+  font-family: "Consolas", "Menlo", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+  background: #000010;
+  border: 2px solid #3a3a6a;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 6px 0 0;
+}
+
 /* ---------- スマホ対応 ---------- */
 @media (max-width: 480px) {
   .game-logo { font-size: 46px; }

@@ -432,7 +432,8 @@ function startFinal() {
     course: currentCourse(),
     qs: qs,
     bossFrom: 0,               // 全問ボス戦
-    bossHp: 9, bossMax: 9,     // 12問中9問せいかいで討伐
+    /* 12問中9問せいかいで討伐。問題が12問に足りない項目では、出せる問題数に合わせてへらす（勝てなくならないように） */
+    bossHp: Math.min(9, Math.ceil(qs.length * 0.75)), bossMax: Math.min(9, Math.ceil(qs.length * 0.75)),
     idx: 0, hearts: 5, maxHearts: 5,
     correct: 0, combo: 0, xp: 0,
     bossPhase: false, bossCorrect: 0
@@ -525,6 +526,50 @@ function battleLive(b, turn) {
   return battle === b && battle.idx === turn && $("#screen-battle").classList.contains("active");
 }
 
+/* ---------- もぎけんていのタイマー（定義に minutes がある模試だけ。MOS の模試は時間なし） ---------- */
+var examTimer = null;
+function stopExamTimer() {
+  clearInterval(examTimer);
+  examTimer = null;
+  $("#battle-timer").classList.add("hidden");
+}
+/* 最初の問題が出たときに始める（画面の切りかえの演出の間は数えない） */
+function startExamTimer() {
+  if (battle.mode !== "exam" || !battle.exam || !battle.exam.minutes || battle.deadline) return;
+  battle.deadline = Date.now() + battle.exam.minutes * 60000;
+  var b = battle;
+  renderExamTimer();
+  examTimer = setInterval(function () {
+    if (battle !== b || !$("#screen-battle").classList.contains("active")) { stopExamTimer(); return; }
+    renderExamTimer();
+    if (Date.now() >= b.deadline) examTimeUp();
+  }, 250);
+}
+function renderExamTimer() {
+  var left = Math.max(0, Math.ceil((battle.deadline - Date.now()) / 1000));
+  var el = $("#battle-timer");
+  el.textContent = "⏱ のこり " + Math.floor(left / 60) + ":" + ("0" + (left % 60)).slice(-2);
+  el.classList.toggle("low", left <= 60);
+  el.classList.remove("hidden");
+}
+/* 時間切れ：まだ答えていない問題は不正解として、結果を出す */
+function examTimeUp() {
+  stopExamTimer();
+  battle.timedOut = true;
+  stopQuickTimer();
+  clearInterval(typer.timer);
+  typer.cb = null;
+  var unanswered = battle.qs.slice(battle.answered);
+  battle.unanswered = unanswered.length;
+  unanswered.forEach(function (q) {
+    var qname = QUESTION_INDEX[q.id] ? QUESTION_INDEX[q.id].quest.name : "";
+    var pq = battle.perQuest[qname] || (battle.perQuest[qname] = { right: 0, total: 0 });
+    pq.total++;
+  });
+  Sound.wrong();
+  endExam();
+}
+
 function setStageTheme(theme) {
   battle.theme = theme;
   StageBg.draw($("#stage-bg"), theme);
@@ -553,6 +598,9 @@ function beginBattle() {
   battle.rightBtn = null;
   battle.answered = 0;   // こたえた数（めいきゅうを途中でぬけたときの集計に使う）
   battle.mastered = 0;   // この戦闘でマスターした問題の数
+  battle.deadline = 0;   // もぎけんていのタイマーの終わりの時刻（最初の問題で決める）
+  battle.timedOut = false;
+  stopExamTimer();
   var b = battle;
 
   resultToken++;
@@ -573,6 +621,7 @@ function beginBattle() {
     $("#enemy-name").classList.remove("hidden", "shiny");
     $("#enemy-name").textContent = "";
     $("#battle-msg").textContent = "";
+    renderQuestionVisual({});
     setEnemyAnim("gone");
 
     /* クエストごとの背景を描画 */
@@ -887,18 +936,49 @@ function showTurn() {
   appear();
 }
 
+/* 選択肢の記号（labels: "aiue" の問題。IPA の問題は「ア イ ウ エ …」で出す） */
+var CHOICE_LABELS = { aiue: "アイウエオカキクケコ" };
+function choiceLabel(q, ci) {
+  var set = q.labels && CHOICE_LABELS[q.labels];
+  return set ? set.charAt(ci) : "";
+}
+/* 解説などで選択肢を示すときの文字（記号つきの問題は「エ  0.94」の形） */
+function choiceText(q, ci) {
+  var label = choiceLabel(q, ci);
+  return label ? label + "  " + q.c[ci] : q.c[ci];
+}
+/* 問題文のほかに、長文・プログラム・表・図をもつ問題か（クイック判定を出さない） */
+function hasHeavyVisual(q) {
+  return !!(q.passage || q.code || q.table || q.figure);
+}
+
 function showQuestion() {
   var q = battle.qs[battle.idx];
+  startExamTimer();
   typeMsg(q.q);
+  /* 長い問題（instant: true）は、タイプライターの演出を飛ばして全文を出す */
+  if (q.instant) finishType();
   renderQuestionVisual(q);
+  renderSource(q);
   var box = $("#battle-choices");
   box.innerHTML = "";
   battle.rightBtn = null;
-  var order = shuffle([0, 1, 2, 3]);
+  /* 選択肢は4個とはかぎらない（科目B は ア〜コ まである）。
+   * fixedOrder の問題（IPA の問題）は並べ替えない（並べ替えも「改変」になるため） */
+  var idxs = q.c.map(function (_, i) { return i; });
+  var order = q.fixedOrder ? idxs : shuffle(idxs);
+  box.classList.toggle("fixed", !!q.fixedOrder);
   order.forEach(function (ci) {
     var btn = document.createElement("button");
     btn.className = "choice";
-    btn.textContent = q.c[ci];
+    var label = choiceLabel(q, ci);
+    if (label) {
+      var mark = document.createElement("span");
+      mark.className = "choice-label";
+      mark.textContent = label;
+      btn.appendChild(mark);
+    }
+    btn.appendChild(document.createTextNode(q.c[ci]));
     if (ci === q.a) battle.rightBtn = btn;
     btn.onclick = function () { answer(ci === q.a, btn); };
     box.appendChild(btn);
@@ -906,13 +986,74 @@ function showQuestion() {
   /* 出たばかりの選択肢は、ほんの一瞬だけ押せなくする（「すすむ」の連打が、次の問題の答えになるのを防ぐ） */
   box.classList.add("arming");
   setTimeout(function () { box.classList.remove("arming"); }, 300);
-  /* もぎけんていでは、クイックのバーも出さない（時間を気にさせない） */
-  if (battle.mode === "exam") resetQuickBar(); else startQuickTimer(q);
+  /* もぎけんていでは、クイックのバーも出さない（時間を気にさせない）。
+   * 長文・プログラム・表・図のある問題も、読む量で不公平になるので出さない */
+  if (battle.mode === "exam" || hasHeavyVisual(q)) resetQuickBar(); else startQuickTimer(q);
+}
+
+/* 出典（IPA の問題は、問題を出している間も解説の間もずっと出す） */
+function renderSource(q) {
+  var el = $("#battle-source");
+  el.textContent = q.source ? "出典:" + q.source : "";
+  el.classList.toggle("hidden", !q.source);
+}
+
+/* 長文・プログラム（等幅）・表・図を、モンスターの下のスクロール領域に出す。
+ * 問題の文字は すべて textContent で入れる（HTML として解釈しない） */
+function renderPassage(q) {
+  var box = $("#battle-passage");
+  box.innerHTML = "";
+  if (!hasHeavyVisual(q)) {
+    box.classList.add("hidden");
+    $("#battle-stage").classList.remove("passage-mode");
+    return;
+  }
+  if (q.passage) {
+    var p = document.createElement("div");
+    p.className = "passage-text";
+    p.textContent = q.passage;
+    box.appendChild(p);
+  }
+  if (q.figure) {
+    var fig = document.createElement("img");
+    fig.className = "passage-figure";
+    fig.src = q.figure;
+    fig.alt = q.figureAlt || "図";
+    box.appendChild(fig);
+  }
+  if (q.table && q.table.length) {
+    var wrap = document.createElement("div");
+    wrap.className = "passage-scroll";
+    var table = document.createElement("table");
+    table.className = "passage-table";
+    q.table.forEach(function (row, ri) {
+      var tr = document.createElement("tr");
+      row.forEach(function (cell) {
+        var td = document.createElement(ri === 0 ? "th" : "td");
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+  }
+  if (q.code) {
+    var pre = document.createElement("pre");
+    pre.className = "passage-code";
+    pre.textContent = q.code;
+    box.appendChild(pre);
+  }
+  box.scrollTop = 0;
+  box.classList.remove("hidden");
+  $("#battle-stage").classList.add("passage-mode");
 }
 
 /* 画面ホットスポット問題（type:"hotspot"）のときはモンスターを隠してリボンUIモックアップ
  * ＋番号バッジを表示する。通常の問題ではモンスター表示に戻す。 */
 function renderQuestionVisual(q) {
+  renderPassage(q);
+  if (!q.id) renderSource(q);   /* 次の問題へ行くとき（renderQuestionVisual({})）は出典も片づける */
   var hotspotBox = $("#hotspot-stage");
   var stage = $("#battle-stage");
   if (q.type === "hotspot") {
@@ -945,6 +1086,7 @@ function renderQuestionVisual(q) {
 }
 
 function answer(isCorrect, btn) {
+  if (battle.timedOut) return;
   finishType();
   var elapsed = stopQuickTimer();
   var q = battle.qs[battle.idx];
@@ -1158,7 +1300,7 @@ function answer(isCorrect, btn) {
     if (!battle.noFail) flashHearts("hurt");
     setFever(false);
     renderCombo();
-    msg = "ミス！ こうげきを うけた…\nせいかいは 「" + q.c[q.a] + "」\n【かいせつ】" + q.exp;
+    msg = "ミス！ こうげきを うけた…\nせいかいは 「" + choiceText(q, q.a) + "」\n【かいせつ】" + q.exp;
   }
 
   /* デイリーミッションの進捗を更新し、達成したぶんだけボーナスEXPを加える */
@@ -1564,6 +1706,7 @@ function presentResult(o) {
 
 /* ---------- 結果（もぎけんてい） ---------- */
 function endExam() {
+  stopExamTimer();
   var score = Math.round(battle.correct / battle.qs.length * 1000);
   var passLine = battle.exam ? battle.exam.pass : 700;
   var pass = score >= passLine;
@@ -1582,6 +1725,7 @@ function endExam() {
   syncNow();
 
   var lines = ["ごうかくライン " + passLine + "てん"];
+  if (battle.timedOut) lines.push("じかん ぎれ！ こたえて いない " + battle.unanswered + " もんは ふせいかい");
   if (battle.exam && battle.exam.note) lines.push("（" + battle.exam.note + "）");
   var weak = [];
   for (var name in battle.perQuest) {
@@ -1736,6 +1880,7 @@ function renderPlayerHeader(prefix) {
 
 function openMenu() {
   resultToken++;        // リザルトの時間差の演出を止める
+  stopExamTimer();
   closeLevelUp();
   stopQuickTimer();
   Sound.setTempo(1);
@@ -2579,7 +2724,7 @@ window.addEventListener("DOMContentLoaded", function () {
   $("#levelup-overlay").onclick = closeLevelUp;
   $("#btn-fx-level").onclick = toggleFxLevel;
   $("#title-fx-toggle").onclick = toggleFxLevel;
-  /* キーボードでも遊べる：1〜4 で選択肢、Enter／スペースで「すすむ」（教室のPCで手を止めずに進める） */
+  /* キーボードでも遊べる：1〜9 で選択肢、Enter／スペースで「すすむ」（教室のPCで手を止めずに進める） */
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
     var tag = (e.target && e.target.tagName) || "";
@@ -2598,7 +2743,7 @@ window.addEventListener("DOMContentLoaded", function () {
     if (!$("#feedback-modal").classList.contains("hidden")) return;
     /* Enter を押しっぱなしにしても、解説を読まないまま次へ進まない */
     if (e.repeat && isGo) { e.preventDefault(); return; }
-    var n = e.key.length === 1 ? "1234".indexOf(e.key) : -1;
+    var n = e.key.length === 1 ? "123456789".indexOf(e.key) : -1;
     if (n >= 0) {
       var box = $("#battle-choices");
       var btns = box.querySelectorAll(".choice");
