@@ -25,7 +25,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const OUT = path.resolve(process.argv[2] || path.join(ROOT, "work", "ipa", "screens"));
 const QFILE = "js/questions_ipa_fe_a.js";
 const LABELS = "アイウエオカキクケコ";
-const SHOOT = new Set(["FE-2025A-03", "FE-2025A-06", "FE-2025A-14", "FE-2025A-19"]);   // 図・表・SQL のある問題
+const SHOOT = new Set(["FE-2025A-03", "FE-2025A-06", "FE-2025A-14", "FE-2025A-19",
+  "FE-2026A-01", "FE-2026A-06", "FE-2026A-07", "FE-2026A-14", "FE-2026A-17"]);   // 図・表・SQL のある問題
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".svg": "image/svg+xml", ".json": "application/json", ".webp": "image/webp", ".ico": "image/x-icon" };
@@ -91,7 +92,8 @@ async function checkQuestionView(page, q) {
   check(v.choices.length === q.c.length, `${id}: 選択肢が ${v.choices.length} 個`);
   v.choices.forEach((c, i) => {
     check(c.label === LABELS[i], `${id}: ${i + 1}番目の選択肢の記号が「${c.label}」`);
-    check(c.text === LABELS[i] + q.c[i], `${id}: ${LABELS[i]} の選択肢が並べ替わっているか、文字が違う`);
+    const want = q.c[i] === LABELS[i] ? LABELS[i] : LABELS[i] + q.c[i];   // 記号だけの選択肢（図の中から選ぶ問題）
+    check(c.text === want, `${id}: ${LABELS[i]} の選択肢が並べ替わっているか、文字が違う`);
   });
   const heavy = !!(q.passage || q.code || q.table || q.figure);
   check(v.passageShown === heavy, `${id}: 図・表などの領域の表示が ${v.passageShown}`);
@@ -145,14 +147,15 @@ async function playBattle(page, { pickWrong, seen, tag }) {
     }));
     check(after.source === "出典:" + q.source, `${q.id}: 解答後に出典が消えた`);
     if (pickWrong) {
-      check(after.msg.includes(`せいかいは 「${LABELS[q.a]}  ${q.c[q.a]}」`), `${q.id}: 不正解のときの「せいかいは」が記号つきで出ない`);
+      const right = q.c[q.a] === LABELS[q.a] ? LABELS[q.a] : `${LABELS[q.a]}  ${q.c[q.a]}`;
+      check(after.msg.includes(`せいかいは 「${right}」`), `${q.id}: 不正解のときの「せいかいは」が記号つきで出ない`);
       check(after.msg.includes("【かいせつ】" + q.exp), `${q.id}: 不正解のときに解説が出ない`);
     } else if (!after.boss) {
       /* ボス戦の正解メッセージには解説が出ない（MOS と同じ仕様） */
       check(after.msg.includes("【まめちしき】" + q.exp), `${q.id}: 正解のときに解説（まめちしき）が出ない`);
     }
     await noOverflow(page, `${q.id}（${tag}・解答後）`);
-    if (pickWrong && q.id === "FE-2025A-06") await page.screenshot({ path: path.join(OUT, `${q.id}_${tag}_wrong.png`), fullPage: true });
+    if (pickWrong && (q.id === "FE-2025A-06" || q.id === "FE-2026A-06")) await page.screenshot({ path: path.join(OUT, `${q.id}_${tag}_wrong.png`), fullPage: true });
     seen.add(q.id);
     await closeOverlays(page);
     await page.locator("#battle-continue").click();

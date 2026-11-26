@@ -945,7 +945,13 @@ function choiceLabel(q, ci) {
 /* 解説などで選択肢を示すときの文字（記号つきの問題は「エ  0.94」の形） */
 function choiceText(q, ci) {
   var label = choiceLabel(q, ci);
+  if (labelOnlyChoice(q, ci)) return label;
   return label ? label + "  " + q.c[ci] : q.c[ci];
+}
+/* 図の中の「ア〜エ」から選ぶ問題は、c に記号だけを入れる（c[i] が記号と同じ）。そのときは記号を1つだけ出す */
+function labelOnlyChoice(q, ci) {
+  var label = choiceLabel(q, ci);
+  return !!label && q.c[ci] === label;
 }
 /* 問題文のほかに、長文・プログラム・表・図をもつ問題か（クイック判定を出さない） */
 function hasHeavyVisual(q) {
@@ -978,7 +984,7 @@ function showQuestion() {
       mark.textContent = label;
       btn.appendChild(mark);
     }
-    btn.appendChild(document.createTextNode(q.c[ci]));
+    if (!labelOnlyChoice(q, ci)) btn.appendChild(document.createTextNode(q.c[ci]));
     if (ci === q.a) battle.rightBtn = btn;
     btn.onclick = function () { answer(ci === q.a, btn); };
     box.appendChild(btn);

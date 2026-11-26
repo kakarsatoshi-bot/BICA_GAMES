@@ -45,6 +45,9 @@ FIGURES = {
         3: (3, 459, 319, 516, 474),    # 2分探索木
         14: (8, 281, 334, 882, 518),   # アローダイアグラム
     },
+    2026: {
+        6: (6, 204, 772, 1066, 982),   # 論理回路と、選択肢ア〜エのタイミングチャート
+    },
 }
 
 LABELS = "アイウエ"
@@ -54,6 +57,7 @@ FOOTER_RE = re.compile(r"^\s*－\s*\d+\s*－\s*$")
 MEMO_RE = re.compile(r"〔\s*メ\s*モ\s*用\s*紙\s*〕")
 CHOICE_START_RE = re.compile(r"^\s*([アイウエ])\s+\S")
 RUBY_RE = re.compile(r"^\s*[ぁ-ゖ]{1,4}\s*$")
+CONTINUE_PARA = ("なお，", "ここで，", "ただし，")
 
 
 def reiwa(year):
@@ -188,14 +192,18 @@ def draft_question(year, no, block):
     head = lines if first_choice is None else lines[:first_choice]
     choice_lines = [] if first_choice is None else lines[first_choice:]
 
-    # 問題文は、最初の「。」で終わる行まで（そのあと選択肢までに残った行は図・表とみなす）
-    body, extra = [], []
+    # 問題文は、最初の「。」で終わる行まで（そのあと選択肢までに残った行は図・表とみなす）。
+    # ただし、すぐ後に「なお，」「ここで，」「ただし，」で始まる段落が続くときは、改行して問題文に入れる
+    paras, extra = [[]], []
     ended = False
     for line in head:
+        if ended and not any(l.strip() for l in extra) and line.strip().startswith(CONTINUE_PARA):
+            paras.append([])
+            ended = False
         if ended:
             extra.append(line)
             continue
-        body.append(line)
+        paras[-1].append(line)
         if line.rstrip().endswith("。"):
             ended = True
     extra_text = "\n".join(l.rstrip() for l in extra).strip("\n")
@@ -216,7 +224,7 @@ def draft_question(year, no, block):
     return {
         "id": "FE-%dA-%02d" % (year, no),
         "no": no,
-        "q": join_text(body),
+        "q": "\n".join(join_text(p) for p in paras),
         "c": choices,
         "source": "令和%d年度 基本情報技術者試験 科目A 公開問題 問%d" % (reiwa(year), no),
         "needsFigure": bool(extra_text.strip()) or no in FIGURES.get(year, {}),
@@ -323,6 +331,8 @@ def cmd_check(year, path):
             diffs.append("問題文")
         if q["c"] is None or len(q["c"]) != 4:
             errors.append("問%d: 選択肢が4つではありません" % no)
+        elif any("切り分けられなかった" in n for n in draft[no]["notes"]):
+            review.append("問%d: 下書きで選択肢を切り出せなかった（図の中の選択肢など）ので、選択肢は比較していない" % no)
         else:
             for k in range(4):
                 if norm(q["c"][k]) != norm(draft[no]["c"][k]):
