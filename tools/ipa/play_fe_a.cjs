@@ -54,6 +54,15 @@ function serve() {
   });
 }
 
+const MAX_REPLAY = 6;   // 1つのクエストを くり返す回数の上限（1回8問なので、48問まで確かめられる）
+const allSeen = (quest, seen) => quest.questions.every((q) => seen.has(q.id));
+/* まだ出ていない問題の記録を、テストの中のセーブから消して「未挑戦」にもどす（未挑戦の問題が先に出るため）。
+ * 不正解にした問題は すぐ復習の期限になり、次の回もそちらが先に出てしまうので、くり返すときに使う */
+async function preferUnseen(page, quest, seen) {
+  const ids = quest.questions.map((q) => q.id).filter((id) => !seen.has(id));
+  await page.evaluate((list) => { list.forEach((id) => { delete save.records[id]; }); }, ids);
+}
+
 let failures = 0;
 const fail = (msg) => { failures++; console.log("  NG " + msg); };
 const check = (cond, msg) => { if (!cond) fail(msg); };
@@ -207,8 +216,12 @@ async function main() {
   console.log("1回目（1280px・すべて正解）");
   const seen1 = new Set();
   for (let i = 0; i < data.quests.length; i++) {
-    await openQuest(i);
-    await playBattle(page, { pickWrong: false, seen: seen1, tag: "pc" });
+    /* 1回のクエストは8問まで。9問以上あるクエストは、全問が出るまでくり返す（未挑戦の問題が先に出る） */
+    for (let n = 0; n < MAX_REPLAY && !allSeen(data.quests[i], seen1); n++) {
+      if (n > 0) await preferUnseen(page, data.quests[i], seen1);
+      await openQuest(i);
+      await playBattle(page, { pickWrong: false, seen: seen1, tag: "pc" });
+    }
     const cleared = await page.evaluate((id) => !!(save.quests[id] && save.quests[id].stars > 0), data.quests[i].id);
     check(cleared, `${data.quests[i].id}: クリアにならない`);
   }
@@ -219,10 +232,13 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
   const seen2 = new Set();
   for (let i = 0; i < data.quests.length; i++) {
-    await openQuest(i);
-    await page.waitForFunction(() => battle && battle.mode === "quest");
-    await page.evaluate(() => { battle.noFail = true; });
-    await playBattle(page, { pickWrong: true, seen: seen2, tag: "sp" });
+    for (let n = 0; n < MAX_REPLAY && !allSeen(data.quests[i], seen2); n++) {
+      if (n > 0) await preferUnseen(page, data.quests[i], seen2);
+      await openQuest(i);
+      await page.waitForFunction(() => battle && battle.mode === "quest");
+      await page.evaluate(() => { battle.noFail = true; });
+      await playBattle(page, { pickWrong: true, seen: seen2, tag: "sp" });
+    }
   }
   check(seen2.size === allIds.length, `2回目で出た問題が ${seen2.size} / ${allIds.length} 問`);
 
