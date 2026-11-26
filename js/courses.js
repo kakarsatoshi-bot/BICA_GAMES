@@ -12,7 +12,12 @@
  * 経験値・レベル・称号・実績・図鑑・ミッションは項目をまたいで共通（1人1セーブ）。
  * ⚠️ key（"mos" / "ipa_fe"）は save.course に保存されるので変えない。
  * 表示する項目は config.js の GAME_CONFIG.COURSES でしぼれる（1つだけなら選択画面を飛ばす）。
+ * 問題が1問も入っていない項目は、COURSES に書いてあっても出さない。
  * ========================================================= */
+/* IPA 基本情報の問題ファイル（フェーズ3の js/questions_ipa_fe_a.js）がまだ無いときは、空の科目にしておく。
+ * 問題が1問も無い対策項目は、選択画面に出さない（availableCourses() 参照）。 */
+window.QUEST_DATA_FE_A = window.QUEST_DATA_FE_A || { subject: "fe_a", label: "科目A の まち", quests: [] };
+
 var COURSES = [
   {
     key: "mos", label: "MOS", sub: "ワード・エクセル", icon: "🗼",

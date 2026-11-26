@@ -41,11 +41,14 @@ COURSES.forEach(function (course) {
 
 /* ---------- 対策項目（コース） ---------- */
 /* 表示する対策項目。GAME_CONFIG.COURSES（例 ["mos", "ipa_fe"]）があれば、それでしぼる */
+/* 問題が1問も入っていない項目（問題ファイル未収録の IPA など）は出さない */
+function courseHasQuestions(c) {
+  return c.subjects.some(function (sub) { return sub.quests.some(function (q) { return q.questions.length > 0; }); });
+}
 function availableCourses() {
   var keys = GAME_CONFIG.COURSES;
-  if (!keys || !keys.length) return COURSES.slice();
-  var list = COURSES.filter(function (c) { return keys.indexOf(c.key) >= 0; });
-  return list.length ? list : COURSES.slice();
+  var list = COURSES.filter(function (c) { return courseHasQuestions(c) && (!keys || !keys.length || keys.indexOf(c.key) >= 0); });
+  return list.length ? list : [COURSES[0]];
 }
 function courseDef(key) {
   return COURSES.filter(function (c) { return c.key === key; })[0] || null;

@@ -27,6 +27,7 @@ var GAME_CONFIG = {
   //   "mos"    … MOS（Word・Excel）
   //   "ipa_fe" … IPA 基本情報技術者試験
   // MOS だけで運用したいときは ["mos"] にする（1つだけなら「対策項目を えらぶ」画面は出ない）。
+  // 問題がまだ入っていない項目（いまの IPA 基本情報）は、ここに書いてあっても表示されない。
   // 上の EXAM_DATES は MOS の試験日（MOS を えらんでいるときだけ表示）。基本情報は CBT で通年のため なし。
   COURSES: ["mos", "ipa_fe"]
 };
