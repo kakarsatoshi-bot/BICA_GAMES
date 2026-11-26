@@ -6,8 +6,8 @@
 <title>MOS QUEST - ワード・エクセルぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2.1.0">
-<link rel="stylesheet" href="css/juice.css?v=2.1.0">
+<link rel="stylesheet" href="css/style.css?v=2.2.0">
+<link rel="stylesheet" href="css/juice.css?v=2.2.0">
 </head>
 <body>
 
@@ -140,6 +140,7 @@
       <button class="btn btn-small" id="battle-quit">にげる</button>
       <span id="battle-quest-name"></span>
       <span id="battle-progress"></span>
+      <span class="battle-timer hidden" id="battle-timer"></span>
       <span class="hearts" id="battle-hearts"></span>
     </div>
     <div class="battle-xp">
@@ -157,12 +158,16 @@
       <div class="combo-hud hidden" id="combo-hud"><span id="combo-num"></span><span class="combo-label">COMBO</span></div>
     </div>
 
+    <!-- 長文・プログラム・表・図（IPA の問題）。問題が持っているときだけ出す -->
+    <div class="window battle-passage hidden" id="battle-passage"></div>
+
     <div class="battle-meters">
       <div class="quick-bar off" id="quick-bar"><div id="quick-fill"></div><span class="meter-label">⚡ クイック</span></div>
       <div class="special-gauge" id="special-gauge"><div id="special-fill"></div><span class="meter-label" id="special-label">ひっさつ</span></div>
     </div>
 
     <div class="window msg-window">
+      <div class="battle-source hidden" id="battle-source"></div>
       <div id="battle-msg"></div>
       <button class="btn btn-continue hidden blink" id="battle-continue">▼ すすむ</button>
     </div>
@@ -307,28 +312,28 @@
 <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js?v=2.1.0"></script>
-<script src="js/sprites.js?v=2.1.0"></script>
-<script src="js/sound.js?v=2.1.0"></script>
-<script src="js/juice.js?v=2.1.0"></script>
-<script src="js/fx.js?v=2.1.0"></script>
-<script src="js/backgrounds.js?v=2.1.0"></script>
-<script src="js/bestiary.js?v=2.1.0"></script>
-<script src="js/countdown.js?v=2.1.0"></script>
-<script src="js/srs.js?v=2.1.0"></script>
-<script src="js/api.js?v=2.1.0"></script>
-<script src="js/questions_excel.js?v=2.1.0"></script>
-<script src="js/questions_word.js?v=2.1.0"></script>
-<script src="js/questions_excel_expert.js?v=2.1.0"></script>
-<script src="js/questions_excel_practical.js?v=2.1.0"></script>
+<script src="js/config.js?v=2.2.0"></script>
+<script src="js/sprites.js?v=2.2.0"></script>
+<script src="js/sound.js?v=2.2.0"></script>
+<script src="js/juice.js?v=2.2.0"></script>
+<script src="js/fx.js?v=2.2.0"></script>
+<script src="js/backgrounds.js?v=2.2.0"></script>
+<script src="js/bestiary.js?v=2.2.0"></script>
+<script src="js/countdown.js?v=2.2.0"></script>
+<script src="js/srs.js?v=2.2.0"></script>
+<script src="js/api.js?v=2.2.0"></script>
+<script src="js/questions_excel.js?v=2.2.0"></script>
+<script src="js/questions_word.js?v=2.2.0"></script>
+<script src="js/questions_excel_expert.js?v=2.2.0"></script>
+<script src="js/questions_excel_practical.js?v=2.2.0"></script>
 <!-- フェーズ3で IPA 基本情報 科目A の問題（js/questions_ipa_fe_a.js）をここに足す -->
-<script src="js/courses.js?v=2.1.0"></script>
-<script src="js/ribbonMockups.js?v=2.1.0"></script>
-<script src="js/streak.js?v=2.1.0"></script>
-<script src="js/achievements.js?v=2.1.0"></script>
-<script src="js/missions.js?v=2.1.0"></script>
-<script src="js/treasure.js?v=2.1.0"></script>
-<script src="js/practical.js?v=2.1.0"></script>
-<script src="js/game.js?v=2.1.0"></script>
+<script src="js/courses.js?v=2.2.0"></script>
+<script src="js/ribbonMockups.js?v=2.2.0"></script>
+<script src="js/streak.js?v=2.2.0"></script>
+<script src="js/achievements.js?v=2.2.0"></script>
+<script src="js/missions.js?v=2.2.0"></script>
+<script src="js/treasure.js?v=2.2.0"></script>
+<script src="js/practical.js?v=2.2.0"></script>
+<script src="js/game.js?v=2.2.0"></script>
 </body>
 </html>
