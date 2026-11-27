@@ -751,82 +751,15 @@ textarea:focus { border-color: var(--key); outline: none; }
 #figure-img { display: block; max-width: 96vw; max-height: calc(94vh - 48px); width: auto; height: auto; background: #fff; border-radius: 4px; cursor: zoom-out; }
 .figure-window .btn { width: auto; margin: 0; }
 
-/* ---------- 戦闘画面のレイアウトの試作（?layout=1 / ?layout=2。js の setupBattleLayout） ---------- */
-/* 上の帯：にげる・♥・Lv・モンスター・クイック・ひっさつ を1つにまとめ、スクロールしても上に残す */
-.layout-proto .battle-top {
-  position: sticky; top: 0; z-index: 20;
-  background: var(--bg);
-  padding: 4px 0 6px;
-  border-bottom: 2px solid #2a2a5a;
-}
-.layout-proto .battle-hud { margin: 0 0 2px; }
-.layout-proto .battle-xp { margin: 0 0 4px; }
-.layout-proto .battle-xp .xpbar { height: 6px; }
-.layout-proto .battle-stage,
-.layout-proto .battle-stage.passage-mode { height: 104px; border-width: 3px; }
-.layout-proto .battle-stage.hotspot-mode { height: 260px; }
-.layout-proto #enemy-canvas { height: 64px; width: auto; }
-.layout-proto .nametag { margin-top: 2px; font-size: 11px; padding: 0 8px; }
-.layout-proto .battle-meters { margin-top: 4px; }
-/* 下：問題文 → 図など → 選択肢 → 出典 */
-.layout-proto .battle-body { margin-top: 8px; }
-.layout-proto .msg-window { min-height: 64px; margin: 0 0 8px; padding: 10px 14px 28px; }
-.layout-proto .battle-passage { max-height: none; overflow: visible; margin: 0 0 8px; padding: 10px 12px; }
-.layout-proto .battle-ctable { margin: 0 0 8px; }
-.layout-proto .passage-figure { max-height: 38vh; width: auto; max-width: 100%; }
-.layout-proto .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr 1fr; }
-.layout-proto .choice { min-height: 0; padding: 8px 10px; }
-
-/* 2：PC は2列（左に図・表・プログラム、右に問題文・選択肢）。左右それぞれ スクロール */
-@media (min-width: 900px) {
-  .layout-2.in-battle #app { max-width: 1240px; }
-  .layout-2 .battle-top { position: static; }
-  .layout-2 .battle-stage, .layout-2 .battle-stage.passage-mode { height: 86px; }
-  .layout-2 #enemy-canvas { height: 52px; }
-  .layout-2 .msg-window { min-height: 0; }
-  .layout-2 .battle-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: 12px;
-    align-items: start;
-  }
-  .layout-2 .battle-body.no-side { grid-template-columns: minmax(0, 640px); justify-content: center; }
-  .layout-2 .battle-body.no-side .battle-side { display: none; }
-  .layout-2 .battle-side,
-  .layout-2 .battle-main {
-    max-height: calc(100vh - var(--battle-top-h, 190px) - 40px);
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-  .layout-2 .battle-passage { margin: 0; }
-  .layout-2 .passage-figure { max-height: calc(100vh - var(--battle-top-h, 190px) - 90px); }
-}
-/* 2 のスマホ（せまい画面）は、1 と同じ並び（問題文 → 図など → 選択肢） */
-@media (max-width: 899px) {
-  .layout-2 .battle-body { display: flex; flex-direction: column; }
-  .layout-2 .battle-main { display: contents; }
-  .layout-2 .msg-window { order: 1; }
-  .layout-2 .battle-side { order: 2; }
-  .layout-2 .battle-ctable { order: 3; }
-  .layout-2 .choices { order: 4; }
-  .layout-2 .battle-source { order: 5; }
-}
-/* スマホ：帯をさらに低く。短い選択肢だけ2列 */
-@media (max-width: 480px) {
-  .layout-proto .battle-stage,
-  .layout-proto .battle-stage.passage-mode { height: 84px; }
-  .layout-proto #enemy-canvas { height: 50px; }
-  .layout-proto .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr; }
-  .layout-proto .choices.fixed.tiny:not(.label-only) { grid-template-columns: 1fr 1fr; }
-  .layout-proto .passage-figure { max-height: 28vh; }
-  .layout-proto .msg-window { padding: 8px 10px 24px; min-height: 0; }
-  .layout-proto #battle-msg { font-size: 14px; }
-  .layout-proto .battle-passage { padding: 6px 8px; }
-}
-
-/* 3・4：モンスターが問題を出す形（1段目に「モンスター｜問題文のふきだし」） */
-.layout-talk .battle-top { position: static; border-bottom: none; padding-bottom: 0; }
-.layout-talk .battle-head {
+/* ---------- 戦闘画面の並び（モンスターが問題を出す形） ----------
+ * 1段目：「モンスター（とクイック・ひっさつ）｜問題文のふきだし」
+ * 2段目：PC は「図・表・プログラム｜解答群・選択肢・出典」（左右それぞれ スクロール）。
+ *        せまい画面は 図など → 解答群 → 選択肢 → 出典 を たてに並べる。
+ * juice.css（あとから読む）の .battle-meters などより強くするため、#screen-battle を付ける */
+#screen-battle .battle-hud { margin: 0 0 2px; }
+#screen-battle .battle-xp { margin: 0 0 4px; }
+#screen-battle .battle-xp .xpbar { height: 6px; }
+#screen-battle .battle-head {
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr);
   gap: 16px;
@@ -834,16 +767,17 @@ textarea:focus { border-color: var(--key); outline: none; }
   margin-top: 4px;
 }
 /* 画面問題（MOS のリボン）は、画面の絵が大きいので1段目を たてに並べる */
-.layout-talk .battle-head:has(.battle-stage.hotspot-mode) { grid-template-columns: minmax(0, 1fr); }
-.layout-talk .battle-monster { display: flex; flex-direction: column; min-width: 0; }
-.layout-talk .battle-stage,
-.layout-talk .battle-stage.passage-mode { height: 150px; }
-.layout-talk .battle-stage.hotspot-mode { height: 260px; }
-.layout-talk #enemy-canvas { height: 84px; }
-.layout-talk .battle-meters { flex-direction: column; gap: 4px; }
-.layout-talk .battle-meters > div { flex: none; }
-.layout-talk .msg-window { margin: 0; min-height: 0; align-self: stretch; }
-.layout-talk .msg-window::before {   /* ふきだしの しっぽ（モンスターのほうを向く） */
+#screen-battle .battle-head:has(.battle-stage.hotspot-mode) { grid-template-columns: minmax(0, 1fr); }
+#screen-battle .battle-monster { display: flex; flex-direction: column; min-width: 0; }
+#screen-battle .battle-stage,
+#screen-battle .battle-stage.passage-mode { height: 150px; }
+#screen-battle .battle-stage.hotspot-mode { height: 260px; }
+#screen-battle #enemy-canvas { height: 84px; width: auto; }
+#screen-battle .nametag { margin-top: 2px; font-size: 11px; padding: 0 8px; }
+#screen-battle .battle-meters { flex-direction: column; gap: 4px; margin-top: 4px; }
+#screen-battle .battle-meters > div { flex: none; }
+#screen-battle .msg-window { margin: 0; min-height: 0; padding: 10px 14px 28px; align-self: stretch; }
+#screen-battle .msg-window::before {   /* ふきだしの しっぽ（モンスターのほうを向く） */
   content: "";
   position: absolute;
   left: -19px; top: 44px;
@@ -851,44 +785,53 @@ textarea:focus { border-color: var(--key); outline: none; }
   border-right: 12px solid var(--white);
   border-left: 0;
 }
-.layout-talk .battle-head:has(.battle-stage.hotspot-mode) .msg-window::before { display: none; }
-.layout-talk .battle-body { margin-top: 12px; }
-.layout-talk .battle-side .battle-passage { margin: 0 0 8px; }
+#screen-battle .battle-head:has(.battle-stage.hotspot-mode) .msg-window::before { display: none; }
+#screen-battle .battle-body { margin-top: 12px; }
+#screen-battle .battle-passage { max-height: none; overflow: visible; margin: 0 0 8px; padding: 10px 12px; }
+#screen-battle .battle-ctable { margin: 0 0 8px; }
+#screen-battle .passage-figure { max-height: 38vh; width: auto; max-width: 100%; }
+#screen-battle .choice { min-height: 0; padding: 8px 10px; }
+#screen-battle .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr 1fr; }   /* 短い選択肢は2列 */
 
-/* 3（PC）：2段目は「図・表・プログラム｜選択肢」。左右それぞれ スクロール */
 @media (min-width: 900px) {
-  .layout-talk.in-battle #app { max-width: 1100px; }
-  .layout-3.in-battle #app { max-width: 1240px; }
-  .layout-3 .battle-body {
+  .in-battle.wide-battle #app { max-width: 1240px; }   /* 図・表・プログラムのある戦闘だけ（js の beginBattle） */
+  #screen-battle .battle-body {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 12px;
     align-items: start;
   }
-  .layout-3 .battle-body.no-side { grid-template-columns: minmax(0, 1fr); }
-  .layout-3 .battle-body.no-side .battle-side { display: none; }
-  .layout-3 .battle-side,
-  .layout-3 .battle-main {
+  #screen-battle .battle-body.no-side { grid-template-columns: minmax(0, 1fr); }
+  #screen-battle .battle-body.no-side .battle-side { display: none; }
+  #screen-battle .battle-side,
+  #screen-battle .battle-main {
     max-height: calc(100vh - var(--battle-top-h, 260px) - 36px);
     overflow-y: auto;
     padding-right: 4px;
   }
-  .layout-3 .battle-side .battle-passage { margin: 0; }
-  .layout-3 .passage-figure { max-height: calc(100vh - var(--battle-top-h, 260px) - 80px); }
-  .layout-4 .passage-figure { max-height: 46vh; }
+  #screen-battle .battle-side .battle-passage { margin: 0; }
+  #screen-battle .passage-figure { max-height: calc(100vh - var(--battle-top-h, 260px) - 80px); }
 }
 @media (max-width: 899px) {
-  .layout-talk .battle-body { display: flex; flex-direction: column; }
+  #screen-battle .battle-body { display: flex; flex-direction: column; }
 }
 /* スマホ：小さいモンスター｜問題文 */
 @media (max-width: 600px) {
-  .layout-talk .battle-head { grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
-  .layout-talk .battle-stage,
-  .layout-talk .battle-stage.passage-mode { height: 96px; border-width: 3px; }
-  .layout-talk .battle-stage.hotspot-mode { height: 200px; }
-  .layout-talk #enemy-canvas { height: 52px; }
-  .layout-talk .nametag { font-size: 10px; padding: 0 4px; white-space: nowrap; max-width: 94px; overflow: hidden; text-overflow: ellipsis; }
-  .layout-talk .quick-bar, .layout-talk .special-gauge { height: 14px; }
-  .layout-talk .meter-label { font-size: 9px; }
-  .layout-talk .msg-window::before { top: 30px; }
+  #screen-battle .battle-head { grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
+  #screen-battle .battle-stage,
+  #screen-battle .battle-stage.passage-mode { height: 96px; border-width: 3px; }
+  #screen-battle .battle-stage.hotspot-mode { height: 200px; }
+  #screen-battle #enemy-canvas { height: 52px; }
+  #screen-battle .nametag { font-size: 10px; padding: 0 4px; white-space: nowrap; max-width: 94px; overflow: hidden; text-overflow: ellipsis; }
+  #screen-battle .quick-bar, #screen-battle .special-gauge { height: 14px; }
+  #screen-battle .meter-label { font-size: 9px; }
+  #screen-battle .msg-window { padding: 8px 10px 24px; }
+  #screen-battle .msg-window::before { top: 30px; }
+  #screen-battle #battle-msg { font-size: 14px; }
+  #screen-battle .battle-passage { padding: 6px 8px; }
+  #screen-battle .passage-figure { max-height: 28vh; }
+}
+@media (max-width: 480px) {
+  #screen-battle .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr; }
+  #screen-battle .choices.fixed.tiny:not(.label-only) { grid-template-columns: 1fr 1fr; }
 }

@@ -102,8 +102,8 @@ async function checkQuestionView(page, q) {
       })),
       code: (passage.querySelector("pre.passage-code") || {}).textContent || null,
       choiceTable: (() => {
-        /* 2列の試作（?layout=2）では、解答群の表は #battle-ctable に出る */
-        const w = document.querySelector("#battle-passage .passage-choice-table, #battle-ctable .passage-choice-table");
+        /* 解答群の表は、選択肢のすぐ上（#battle-ctable）に出る */
+        const w = document.querySelector("#battle-ctable .passage-choice-table");
         return w ? { caption: (w.querySelector(".passage-caption") || {}).textContent || "",
           rows: [...w.querySelector("table").rows].map((r) => [...r.cells].map((c) => c.textContent)) } : null;
       })(),
@@ -239,8 +239,7 @@ async function main() {
     else external.add(new URL(r.url()).host);
   });
 
-  /* LAYOUT=1 / LAYOUT=2 で、戦闘画面のレイアウトの試作（?layout=）でも確かめる */
-  await page.goto(base + (process.env.LAYOUT ? "?layout=" + process.env.LAYOUT : ""));
+  await page.goto(base);
   const subjects = [];
   for (const sub of SUBJECTS) {
     const data = await page.evaluate((name) => (window[name] && window[name].quests.length ? JSON.parse(JSON.stringify(window[name])) : null), sub.data);

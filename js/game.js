@@ -637,6 +637,8 @@ function battleBgm() {
 }
 
 function beginBattle() {
+  /* 図・表・プログラムのある問題が出る戦闘だけ、PC で画面を広く使う（戦闘のあいだは はばを変えない） */
+  document.body.classList.toggle("wide-battle", battle.qs.some(hasHeavyVisual));
   /* どのモードでも共通の、この戦闘のあいだだけ持つ値 */
   battle.useGauge = battle.mode !== "exam";   // もぎけんていは本番と同じ気持ちで解くので、ひっさつは無し
   /* ひっさつゲージ（0〜100）は前の戦闘から持ちこす（「あと少しでMAX」が、もう1回やる理由になる。
@@ -1029,7 +1031,7 @@ function showQuestion() {
   box.classList.toggle("fixed", !!q.fixedOrder);
   /* 選択肢が ぜんぶ記号だけ（ア、イ…）のときは、ボタンを横に並べる */
   box.classList.toggle("label-only", idxs.every(function (ci) { return labelOnlyChoice(q, ci); }));
-  /* 短い選択肢は2列に並べる（レイアウトの試作のときだけ効く。css の .layout-proto） */
+  /* 短い選択肢は2列に並べる（css の .choices.fixed.short / .tiny） */
   /* 長さは見た目の幅で数える（半角は全角の半分ほど） */
   var maxLen = Math.max.apply(null, q.c.map(function (c) {
     if (c.indexOf("\n") >= 0) return 99;
@@ -1149,7 +1151,8 @@ function renderPassage(q) {
   var box = $("#battle-passage");
   box.innerHTML = "";
   if (!hasHeavyVisual(q)) {
-    if ($("#battle-ctable")) { $("#battle-ctable").innerHTML = ""; $("#battle-ctable").classList.add("hidden"); }
+    $("#battle-ctable").innerHTML = "";
+    $("#battle-ctable").classList.add("hidden");
     box.classList.add("hidden");
     $("#battle-stage").classList.remove("passage-mode");
     layoutAfterPassage(false);
@@ -1183,17 +1186,18 @@ function renderPassage(q) {
   }
   /* 解答群が表になっている問題（科目B の「a と b の組合せ」など）。プログラムのあとに出し、
    * 選択肢のボタンには記号（ア、イ…）だけを出す（c に記号だけを入れる） */
-  /* 2列の試作（?layout=2）では、解答群の表を右の列（選択肢のすぐ上）に出す */
+  /* 解答群の表は、選択肢のすぐ上（#battle-ctable）に出す */
   var ctBox = $("#battle-ctable");
-  if (ctBox) { ctBox.innerHTML = ""; ctBox.classList.add("hidden"); }
+  ctBox.innerHTML = "";
+  ctBox.classList.add("hidden");
   if (q.choiceTable) {
     var ct = passageTable(q.choiceTable.rows, true, q.choiceTable.caption || "");
     ct.classList.add("passage-choice-table");
-    if (ctBox) { ctBox.appendChild(ct); ctBox.classList.remove("hidden"); }
-    else box.appendChild(ct);
+    ctBox.appendChild(ct);
+    ctBox.classList.remove("hidden");
   }
   box.scrollTop = 0;
-  /* 解答群の表だけで、左の列に出すものが無いとき（2列の試作） */
+  /* 解答群の表だけで、左の列に出すものが無いとき */
   var empty = !box.childNodes.length;
   box.classList.toggle("hidden", empty);
   $("#battle-stage").classList.add("passage-mode");
@@ -1212,77 +1216,13 @@ function closeFigure() {
   $("#figure-modal").classList.add("hidden");
 }
 
-/* ---------- 戦闘画面のレイアウトの試作（URL に ?layout=1 か ?layout=2 を付けたときだけ） ----------
- * 付けないときは今までどおり。どちらにするか決まったら、決まった方を ふつうの形にして この切りかえは消す。
- *  1: 1列。「にげる・♥・モンスター・クイック・ひっさつ」を上の帯にまとめて、スクロールしても上に残す。
- *     その下に 問題文 → 図・表・プログラム → 選択肢 → 出典。
- *  2: PC（横はば 900px 以上）は2列。上の帯は同じ。左に図・表・プログラム、右に問題文・選択肢・出典。
- *     左右は それぞれ スクロールする。スマホ（せまい画面）では 1 と同じ並び。
- *  3: モンスターが問題を出す形。1段目に「モンスター（とゲージ）｜問題文（ふきだし）」、
- *     2段目に PC は「図・表・プログラム｜選択肢」。
- *  4: 1段目は 3 と同じ。その下に 図・表・プログラム → 選択肢 を たてに並べる。
- *     3・4 とも スマホでは「小さいモンスター｜問題文」の下に 図など → 選択肢。 */
-var BATTLE_LAYOUT = (function () {
-  var m = /[?&]layout=([1-4])\b/.exec(location.search);
-  return m ? m[1] : "";
-})();
-function setupBattleLayout() {
-  if (!BATTLE_LAYOUT) return;
-  var talk = BATTLE_LAYOUT === "3" || BATTLE_LAYOUT === "4";   /* モンスターが問題を出す形 */
-  document.body.classList.add("layout-proto", "layout-" + BATTLE_LAYOUT);
-  if (talk) document.body.classList.add("layout-talk");
-  var scr = $("#screen-battle");
-  var top = document.createElement("div");
-  top.className = "battle-top";
-  top.id = "battle-top";
-  [".battle-hud", ".battle-xp"].concat(talk ? [] : ["#battle-stage", ".battle-meters"]).forEach(function (sel) {
-    top.appendChild(scr.querySelector(sel));
-  });
-  var head = null;
-  if (talk) {
-    head = document.createElement("div");
-    head.className = "battle-head";
-    head.id = "battle-head";
-    var mon = document.createElement("div");
-    mon.className = "battle-monster";
-    mon.appendChild(scr.querySelector("#battle-stage"));
-    mon.appendChild(scr.querySelector(".battle-meters"));
-    head.appendChild(mon);
-  }
-  var body = document.createElement("div");
-  body.className = "battle-body";
-  body.id = "battle-body";
-  var side = document.createElement("div");
-  side.className = "battle-side";
-  side.id = "battle-side";
-  var main = document.createElement("div");
-  main.className = "battle-main";
-  main.id = "battle-main";
-  var msg = scr.querySelector(".msg-window");
-  var passage = $("#battle-passage");
-  if (talk) head.appendChild(msg);
-  else main.appendChild(msg);
-  if (BATTLE_LAYOUT === "1") main.appendChild(passage);
-  else side.appendChild(passage);
-  if (BATTLE_LAYOUT === "2" || BATTLE_LAYOUT === "3") {
-    var ctable = document.createElement("div");
-    ctable.className = "window battle-ctable hidden";
-    ctable.id = "battle-ctable";
-    main.appendChild(ctable);
-  }
-  main.appendChild($("#battle-choices"));
-  main.appendChild($("#battle-source"));
-  body.appendChild(side);
-  body.appendChild(main);
-  scr.innerHTML = "";
-  scr.appendChild(top);
-  if (head) scr.appendChild(head);
-  scr.appendChild(body);
+/* ---------- 戦闘画面の並び（index.html・css の「戦闘画面の並び」） ----------
+ * 1段目「モンスター｜問題文」の高さを はかって、PC の2段目（図など｜選択肢）を画面の高さに収める。
+ * 問題文は1文字ずつ出るので、1段目の高さが変わるたびに はかりなおす */
+function initBattleLayout() {
   window.addEventListener("resize", measureBattleTop);
-  /* 問題文は1文字ずつ出るので、1段目の高さが変わるたびに はかりなおす */
-  if (head && window.ResizeObserver) new ResizeObserver(measureBattleTop).observe(head);
+  if (window.ResizeObserver) new ResizeObserver(measureBattleTop).observe($("#battle-head"));
 }
-/* 上の帯の高さ（2列のとき、左右の列を画面の高さに収めるのに使う） */
 function measureBattleTop() {
   var top = $("#battle-top");
   if (!top || !top.offsetHeight) return;
@@ -1290,8 +1230,8 @@ function measureBattleTop() {
   var h = top.offsetHeight + (head ? head.offsetHeight + 12 : 0);
   document.documentElement.style.setProperty("--battle-top-h", h + "px");
 }
+/* 図などがある問題か どうかで、2段目を2列にするか 1列にするかを切りかえる */
 function layoutAfterPassage(hasPassage) {
-  if (!BATTLE_LAYOUT) return;
   $("#battle-body").classList.toggle("no-side", !hasPassage);
   $("#battle-side").scrollTop = 0;
   $("#battle-main").scrollTop = 0;
@@ -3034,7 +2974,7 @@ window.addEventListener("DOMContentLoaded", function () {
       save.player.name + "（Lv" + li.level + " " + rankFor(li.level) + "）の ぼうけんのしょ";
   }
   renderTitleCourse();
-  setupBattleLayout();
+  initBattleLayout();
   updateMuteButton();
   updateFxButtons();
   startTitleSparkle();

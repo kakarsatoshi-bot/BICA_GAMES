@@ -136,45 +136,57 @@
 
   <!-- ============ バトル ============ -->
   <div class="screen" id="screen-battle">
-    <div class="battle-hud">
-      <button class="btn btn-small" id="battle-quit">にげる</button>
-      <span id="battle-quest-name"></span>
-      <span id="battle-progress"></span>
-      <span class="battle-timer hidden" id="battle-timer"></span>
-      <span class="hearts" id="battle-hearts"></span>
-    </div>
-    <div class="battle-xp">
-      <span id="battle-lv"></span>
-      <div class="xpbar"><div class="xpfill" id="battle-xpfill"></div></div>
-    </div>
-
-    <div class="battle-stage" id="battle-stage">
-      <canvas id="stage-bg"></canvas>
-      <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpghost"></div><div id="boss-hpfill"></div></div>
-      <canvas id="enemy-canvas"></canvas>
-      <div class="nametag" id="enemy-name"></div>
-      <div id="hotspot-stage" class="hidden"></div>
-      <div id="fx-layer"></div>
-      <div class="combo-hud hidden" id="combo-hud"><span id="combo-num"></span><span class="combo-label">COMBO</span></div>
+    <!-- 戦闘画面：1段目に「モンスター｜問題文のふきだし」、2段目に「図・表・プログラム｜選択肢」（css の「戦闘画面の並び」） -->
+    <div class="battle-top" id="battle-top">
+      <div class="battle-hud">
+        <button class="btn btn-small" id="battle-quit">にげる</button>
+        <span id="battle-quest-name"></span>
+        <span id="battle-progress"></span>
+        <span class="battle-timer hidden" id="battle-timer"></span>
+        <span class="hearts" id="battle-hearts"></span>
+      </div>
+      <div class="battle-xp">
+        <span id="battle-lv"></span>
+        <div class="xpbar"><div class="xpfill" id="battle-xpfill"></div></div>
+      </div>
     </div>
 
-    <!-- 長文・プログラム・表・図（IPA の問題）。問題が持っているときだけ出す -->
-    <div class="window battle-passage hidden" id="battle-passage"></div>
-
-    <div class="battle-meters">
-      <div class="quick-bar off" id="quick-bar"><div id="quick-fill"></div><span class="meter-label">⚡ クイック</span></div>
-      <div class="special-gauge" id="special-gauge"><div id="special-fill"></div><span class="meter-label" id="special-label">ひっさつ</span></div>
+    <div class="battle-head" id="battle-head">
+      <div class="battle-monster">
+        <div class="battle-stage" id="battle-stage">
+          <canvas id="stage-bg"></canvas>
+          <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpghost"></div><div id="boss-hpfill"></div></div>
+          <canvas id="enemy-canvas"></canvas>
+          <div class="nametag" id="enemy-name"></div>
+          <div id="hotspot-stage" class="hidden"></div>
+          <div id="fx-layer"></div>
+          <div class="combo-hud hidden" id="combo-hud"><span id="combo-num"></span><span class="combo-label">COMBO</span></div>
+        </div>
+        <div class="battle-meters">
+          <div class="quick-bar off" id="quick-bar"><div id="quick-fill"></div><span class="meter-label">⚡ クイック</span></div>
+          <div class="special-gauge" id="special-gauge"><div id="special-fill"></div><span class="meter-label" id="special-label">ひっさつ</span></div>
+        </div>
+      </div>
+      <div class="window msg-window">
+        <button class="btn btn-small notation-btn hidden" id="battle-notation" type="button">📖 ぎじげんごの きじゅつけいしきを みる</button>
+        <div id="battle-msg"></div>
+        <button class="btn btn-continue hidden blink" id="battle-continue">▼ すすむ</button>
+      </div>
     </div>
 
-    <div class="window msg-window">
-      <button class="btn btn-small notation-btn hidden" id="battle-notation" type="button">📖 ぎじげんごの きじゅつけいしきを みる</button>
-      <div id="battle-msg"></div>
-      <button class="btn btn-continue hidden blink" id="battle-continue">▼ すすむ</button>
+    <div class="battle-body" id="battle-body">
+      <!-- 長文・プログラム・表・図（IPA の問題）。問題が持っているときだけ出す -->
+      <div class="battle-side" id="battle-side">
+        <div class="window battle-passage hidden" id="battle-passage"></div>
+      </div>
+      <div class="battle-main" id="battle-main">
+        <!-- 解答群の表（科目B の「a と b の組合せ」など）。選択肢のすぐ上に出す -->
+        <div class="window battle-ctable hidden" id="battle-ctable"></div>
+        <div class="choices" id="battle-choices"></div>
+        <!-- 出典（IPA の問題）。解くときの じゃまに ならないよう、選択肢の下に小さく出す -->
+        <div class="battle-source hidden" id="battle-source"></div>
+      </div>
     </div>
-
-    <div class="choices" id="battle-choices"></div>
-    <!-- 出典（IPA の問題）。解くときの じゃまに ならないよう、選択肢の下に小さく出す -->
-    <div class="battle-source hidden" id="battle-source"></div>
   </div>
 
   <!-- ============ リザルト ============ -->
