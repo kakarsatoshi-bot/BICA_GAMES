@@ -309,8 +309,29 @@ function syncNow() {
     examWord: save.exams && save.exams.word ? save.exams.word.best : 0,
     examFe: save.exams && save.exams.fe_a ? save.exams.fe_a.best : 0,
     course: save.course || "",
-    examFeB: save.exams && save.exams.fe_b ? save.exams.fe_b.best : 0   // 基本情報 科目B の模試（GAS の列は末尾の examFeB）
+    examFeB: save.exams && save.exams.fe_b ? save.exams.fe_b.best : 0,   // 基本情報 科目B の模試（GAS の列は末尾の examFeB）
+    avatar: avatarCode(),               // ランキングに出す アバター（GAS の列 avatar。v3.1〜）
+    jobLv: save.avatar ? jobLevel(save.job) : 0
   });
+}
+/* ランキングに出す アバターを、短い文字列にする（英数字と _ だけの key を「.」で つなぐ）。
+ * かみがた.かみの色.はだ.め.しょくぎょう.ぶき.いろちがい.セットの光 */
+function avatarCode() {
+  if (!save || !save.avatar) return "";
+  var a = save.avatar, w = drawMyAvatarWeapon(), sets = completedSets();
+  return [a.hair, a.hairColor, a.skin, a.eyes, save.job, w ? w.key : "-",
+    save.jobStyle[save.job] && jobLevel(save.job) >= JOB_LV_STYLE ? 1 : 0, sets.length ? sets[0].key : "-"].join(".");
+}
+/* avatarCode() の文字列から、ランキングの アバターを描く（知らない key は ふつうの見た目になる） */
+function drawAvatarCode(canvas, code, scale) {
+  var p = String(code || "").split(".");
+  if (p.length < 5) return false;
+  var w = p[5] && p[5] !== "-" ? itemDef(p[5]) : null;
+  drawAvatar(canvas, { hair: p[0], hairColor: p[1], skin: p[2], eyes: p[3] }, p[4], scale, p[6] === "1", w);
+  var st = p[7] && p[7] !== "-" ? setDef(p[7]) : null;
+  canvas.classList.toggle("set-glow", !!st);
+  if (st) canvas.style.setProperty("--glow", st.glow);
+  return true;
 }
 
 /* ---------- 画面制御 ---------- */
@@ -591,6 +612,10 @@ function addJobXp(n) {
 function drawMyAvatar(canvas, jobKey, scale) {
   drawAvatar(canvas, save.avatar, jobKey, scale, !!(save.jobStyle[jobKey] && jobLevel(jobKey) >= JOB_LV_STYLE),
     save.equip ? drawMyAvatarWeapon() : null);
+  /* セットを そろえていたら、アバターが光る（いまの しょくぎょうの アバターだけ） */
+  var sets = jobKey === save.job ? completedSets() : [];
+  canvas.classList.toggle("set-glow", sets.length > 0);
+  if (sets.length) canvas.style.setProperty("--glow", sets[0].glow);
 }
 
 /* しょくぎょうの特ちょう（js/avatar.js の JOBS の perks）の、いまの値。持っていなければ 0。
@@ -615,6 +640,7 @@ function perkVal(name) {
   var vals = [jobPerkValue(save.job, name, jobLevel(save.job) >= JOB_LV_BOOST)];
   if (save.subJob && save.subJob !== save.job && jobMastered(save.subJob)) vals.push(jobPerkValue(save.subJob, name, false));
   equippedItems().forEach(function (it) { vals.push(it.perks[name] || 0); });   /* そうびの効果も足す */
+  completedSets().forEach(function (st) { vals.push(st.perks[name] || 0); });   /* そろえた セットの効果も足す */
   if (name === "reviewXp" || name === "shiny") return Math.max.apply(null, vals);   /* 倍率は いちばん大きいもの */
   return vals.reduce(function (a, b) { return a + b; }, 0);
 }
@@ -624,6 +650,12 @@ function equippedItems() {
   if (!save || !save.equip) return [];
   return ITEM_SLOTS.map(function (sl) { return save.equip[sl[0]] && save.items[save.equip[sl[0]]] ? itemDef(save.equip[sl[0]]) : null; })
     .filter(Boolean);
+}
+/* ぜんぶの そうびを そうびしている セット */
+function completedSets() {
+  if (!save || !save.equip || typeof ITEM_SETS === "undefined") return [];
+  var eq = equippedItems().map(function (it) { return it.key; });
+  return ITEM_SETS.filter(function (st) { return st.pieces.every(function (k) { return eq.indexOf(k) >= 0; }); });
 }
 function weaponAtk() {
   var w = save.equip.weapon && save.items[save.equip.weapon] ? itemDef(save.equip.weapon) : null;
@@ -2684,6 +2716,48 @@ function renderEquip() {
     list.appendChild(d);
   });
   $("#item-count").textContent = "あつめた そうび " + owned + " / " + shown.length + "（おすと 解説カード。もっていない そうびは 手に入れ方が わかるよ）";
+  /* セット：いまの対策項目で手に入る そうびの セットだけ */
+  var sbox = $("#set-list");
+  sbox.innerHTML = "";
+  var done = completedSets().map(function (st) { return st.key; });
+  ITEM_SETS.filter(function (st) { return st.pieces.every(function (k) { var it = itemDef(k); return itemCourseOk(it) || save.items[k]; }); })
+    .forEach(function (st) {
+      var d = document.createElement("div");
+      d.className = "set-row window has-card" + (done.indexOf(st.key) >= 0 ? " is-done" : "");
+      d.tabIndex = 0;
+      d.setAttribute("role", "button");
+      var nm = document.createElement("div");
+      nm.className = "set-name";
+      nm.textContent = (done.indexOf(st.key) >= 0 ? "✨ " : "") + st.name;
+      var ps = document.createElement("div");
+      ps.className = "set-pieces";
+      ps.textContent = st.pieces.map(function (k) {
+        var it = itemDef(k);
+        return (save.equip[it.slot] === k ? "✔ " : save.items[k] ? "・" : "？ ") + (save.items[k] ? it.name : "？？？");
+      }).join("　");
+      d.appendChild(nm); d.appendChild(ps);
+      d.onclick = function () { Sound.select(); openSetCard(st.key); };
+      sbox.appendChild(d);
+    });
+}
+function openSetCard(key) {
+  var st = setDef(key);
+  var done = completedSets().some(function (x) { return x.key === key; });
+  openCard({
+    kind: "セット カード" + (done ? "（そろっている！）" : ""),
+    title: st.name,
+    sub: "キーワード：" + st.card.key,
+    sections: [
+      { h: "📖 キーワード「" + st.card.key + "」", text: st.card.about },
+      { h: "🧩 そろえる そうび", text: st.pieces.map(function (k) {
+        var it = itemDef(k);
+        return (save.equip[it.slot] === k ? "✔ そうびちゅう：" : save.items[k] ? "・もっている：" : "？ まだ もっていない：") + (save.items[k] ? it.name : "？？？（" + itemFromText(it) + "）");
+      }).join("\n") },
+      { h: "✨ セットの こうか", text: "ぜんぶ そうびすると アバターが光る。" + perksText(st.perks) + "（もぎしけんでは きかない）" },
+      { h: "💡 こうかの わけ", text: st.card.why }
+    ],
+    actions: []
+  });
 }
 function itemFromText(it) {
   var f = it.from;
@@ -3675,7 +3749,19 @@ function openRanking() {
       statsEl.className = "ranking-stats";
       statsEl.textContent = "Lv." + r.level + " / XP " + r.xp + " / ⭐" + r.stars;
       info.appendChild(nameEl); info.appendChild(statsEl);
-      row.appendChild(rankEl); row.appendChild(info);
+      /* アバターと しょくぎょう（成績シートが v3.1 以降のときだけ届く） */
+      var av = document.createElement("canvas");
+      av.className = "ranking-avatar";
+      var hasAv = r.avatar && drawAvatarCode(av, r.avatar, 2);
+      if (hasAv) {
+        var jobEl = document.createElement("div");
+        jobEl.className = "ranking-job";
+        jobEl.textContent = "🧑‍💻 " + jobDef(String(r.avatar).split(".")[4]).name + (r.jobLv ? " Lv " + r.jobLv : "");
+        info.appendChild(jobEl);
+      }
+      row.appendChild(rankEl);
+      if (hasAv) row.appendChild(av);
+      row.appendChild(info);
       box.appendChild(row);
     });
   });

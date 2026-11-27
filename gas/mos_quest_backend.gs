@@ -80,7 +80,9 @@ function handleSync(player) {
     /* v2.1 で末尾に追加（既存の列の順番は変えない） */
     "examFe", "course",
     /* v2.4 で末尾に追加：基本情報 科目B の模試の最高点（examFe は科目A） */
-    "examFeB"
+    "examFeB",
+    /* v3.1 で末尾に追加：ランキングに出す アバター（英数字と _ . だけの短い文字列）と しょくぎょうレベル */
+    "avatar", "jobLv"
   ];
   var sheet = getOrCreateSheet(SHEET_PLAYERS, header);
   /* 前の版で作ったシートには末尾の列（examFe・course・examFeB）の見出しが無いので、足りない分だけ書き足す */
@@ -99,7 +101,8 @@ function handleSync(player) {
     player.stars, player.questsCleared, player.answered, player.correct, player.accuracy,
     player.bossWins, player.finalClear, player.examExcel, player.examWord, new Date(),
     player.examFe || 0, player.course || "",
-    player.examFeB || 0
+    player.examFeB || 0,
+    cleanAvatar_(player.avatar), Math.max(0, Math.min(99, Number(player.jobLv) || 0))
   ];
 
   if (rowIndex > 0) {
@@ -108,6 +111,11 @@ function handleSync(player) {
     sheet.appendRow(row);
   }
   return jsonResponse({ ok: true });
+}
+
+/* アバターの文字列は、英数字と _ . - だけを残して 100 文字までにする（ほかの文字は入れない） */
+function cleanAvatar_(v) {
+  return String(v || "").replace(/[^A-Za-z0-9_.\-]/g, "").slice(0, 100);
 }
 
 /* =========================================================
@@ -152,7 +160,10 @@ function getSortedRankingRows_(playersSheet) {
       xp: r[colIndex.xp],
       stars: r[colIndex.stars],
       questsCleared: r[colIndex.questsCleared],
-      accuracy: (typeof accuracy === "number") ? Math.round(accuracy * 1000) / 10 : accuracy
+      accuracy: (typeof accuracy === "number") ? Math.round(accuracy * 1000) / 10 : accuracy,
+      /* v3.1：アバターと しょくぎょうレベル（列が無い古いシートでは空） */
+      avatar: colIndex.avatar !== undefined ? cleanAvatar_(r[colIndex.avatar]) : "",
+      jobLv: colIndex.jobLv !== undefined ? (Number(r[colIndex.jobLv]) || 0) : 0
     };
   });
 }
