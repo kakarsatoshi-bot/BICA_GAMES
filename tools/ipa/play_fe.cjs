@@ -4,8 +4,8 @@
  *
  *   node tools/ipa/play_fe.cjs [スクリーンショットの保存先]   （既定: work/ipa/screens）
  *
- * js/questions_ipa_fe_a.js・js/questions_ipa_fe_b.js は、まだ index.html で読み込んでいない（生徒の画面に出さない）ので、
- * このスクリプトの中でだけ index.html に <script> を差しこんで読み込ませる（リポジトリは変えない）。
+ * js/questions_ipa_fe_a.js・js/questions_ipa_fe_b.js を index.html が読み込んでいないときは、
+ * このスクリプトの中でだけ <script> を差しこんで読み込ませる（リポジトリは変えない）。
  *
  *   1回目（PC の幅 1280px）: 科目A・科目B の各クエストを順に、すべて正解で進める（次のクエストが開く）
  *   はんい : 「科目A だけ」「科目B だけ」「A＋B」で、復習・まおうの城・もぎしけんの一覧が切りかわる
@@ -50,8 +50,9 @@ function serve() {
         const html = body.toString("utf8");
         const tag = '<script src="js/courses.js';
         if (!html.includes(tag)) throw new Error("index.html に courses.js の読み込みが見つかりません");
-        QFILES.forEach((f) => { if (html.includes(`<script src="${f}`)) throw new Error("index.html がすでに " + f + " を読み込んでいます"); });
-        body = html.replace(tag, QFILES.map((f) => `<script src="${f}"></script>\n`).join("") + tag);
+        /* index.html がまだ読み込んでいないファイルだけを差しこむ（読み込み済みならそのまま） */
+        const missing = QFILES.filter((f) => !html.includes(`<script src="${f}`));
+        body = html.replace(tag, missing.map((f) => `<script src="${f}"></script>\n`).join("") + tag);
       }
       res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
       res.end(body);
