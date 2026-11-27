@@ -1217,21 +1217,38 @@ function closeFigure() {
  *  1: 1列。「にげる・♥・モンスター・クイック・ひっさつ」を上の帯にまとめて、スクロールしても上に残す。
  *     その下に 問題文 → 図・表・プログラム → 選択肢 → 出典。
  *  2: PC（横はば 900px 以上）は2列。上の帯は同じ。左に図・表・プログラム、右に問題文・選択肢・出典。
- *     左右は それぞれ スクロールする。スマホ（せまい画面）では 1 と同じ並び。 */
+ *     左右は それぞれ スクロールする。スマホ（せまい画面）では 1 と同じ並び。
+ *  3: モンスターが問題を出す形。1段目に「モンスター（とゲージ）｜問題文（ふきだし）」、
+ *     2段目に PC は「図・表・プログラム｜選択肢」。
+ *  4: 1段目は 3 と同じ。その下に 図・表・プログラム → 選択肢 を たてに並べる。
+ *     3・4 とも スマホでは「小さいモンスター｜問題文」の下に 図など → 選択肢。 */
 var BATTLE_LAYOUT = (function () {
-  var m = /[?&]layout=([12])\b/.exec(location.search);
+  var m = /[?&]layout=([1-4])\b/.exec(location.search);
   return m ? m[1] : "";
 })();
 function setupBattleLayout() {
   if (!BATTLE_LAYOUT) return;
+  var talk = BATTLE_LAYOUT === "3" || BATTLE_LAYOUT === "4";   /* モンスターが問題を出す形 */
   document.body.classList.add("layout-proto", "layout-" + BATTLE_LAYOUT);
+  if (talk) document.body.classList.add("layout-talk");
   var scr = $("#screen-battle");
   var top = document.createElement("div");
   top.className = "battle-top";
   top.id = "battle-top";
-  [".battle-hud", ".battle-xp", "#battle-stage", ".battle-meters"].forEach(function (sel) {
+  [".battle-hud", ".battle-xp"].concat(talk ? [] : ["#battle-stage", ".battle-meters"]).forEach(function (sel) {
     top.appendChild(scr.querySelector(sel));
   });
+  var head = null;
+  if (talk) {
+    head = document.createElement("div");
+    head.className = "battle-head";
+    head.id = "battle-head";
+    var mon = document.createElement("div");
+    mon.className = "battle-monster";
+    mon.appendChild(scr.querySelector("#battle-stage"));
+    mon.appendChild(scr.querySelector(".battle-meters"));
+    head.appendChild(mon);
+  }
   var body = document.createElement("div");
   body.className = "battle-body";
   body.id = "battle-body";
@@ -1243,10 +1260,11 @@ function setupBattleLayout() {
   main.id = "battle-main";
   var msg = scr.querySelector(".msg-window");
   var passage = $("#battle-passage");
-  main.appendChild(msg);
+  if (talk) head.appendChild(msg);
+  else main.appendChild(msg);
   if (BATTLE_LAYOUT === "1") main.appendChild(passage);
   else side.appendChild(passage);
-  if (BATTLE_LAYOUT === "2") {
+  if (BATTLE_LAYOUT === "2" || BATTLE_LAYOUT === "3") {
     var ctable = document.createElement("div");
     ctable.className = "window battle-ctable hidden";
     ctable.id = "battle-ctable";
@@ -1258,21 +1276,26 @@ function setupBattleLayout() {
   body.appendChild(main);
   scr.innerHTML = "";
   scr.appendChild(top);
+  if (head) scr.appendChild(head);
   scr.appendChild(body);
   window.addEventListener("resize", measureBattleTop);
+  /* 問題文は1文字ずつ出るので、1段目の高さが変わるたびに はかりなおす */
+  if (head && window.ResizeObserver) new ResizeObserver(measureBattleTop).observe(head);
 }
 /* 上の帯の高さ（2列のとき、左右の列を画面の高さに収めるのに使う） */
 function measureBattleTop() {
   var top = $("#battle-top");
   if (!top || !top.offsetHeight) return;
-  document.documentElement.style.setProperty("--battle-top-h", top.offsetHeight + "px");
+  var head = $("#battle-head");
+  var h = top.offsetHeight + (head ? head.offsetHeight + 12 : 0);
+  document.documentElement.style.setProperty("--battle-top-h", h + "px");
 }
 function layoutAfterPassage(hasPassage) {
   if (!BATTLE_LAYOUT) return;
   $("#battle-body").classList.toggle("no-side", !hasPassage);
   $("#battle-side").scrollTop = 0;
   $("#battle-main").scrollTop = 0;
-  if (BATTLE_LAYOUT === "1") window.scrollTo(0, 0);
+  window.scrollTo(0, 0);
   setTimeout(measureBattleTop, 0);
 }
 
