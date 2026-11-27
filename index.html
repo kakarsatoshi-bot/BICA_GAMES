@@ -6,8 +6,8 @@
 <title>MOS QUEST - ワード・エクセルぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2.2.4">
-<link rel="stylesheet" href="css/juice.css?v=2.2.4">
+<link rel="stylesheet" href="css/style.css?v=2.3.0">
+<link rel="stylesheet" href="css/juice.css?v=2.3.0">
 </head>
 <body>
 
@@ -59,6 +59,11 @@
     <div class="course-bar">
       <span class="course-bar-name"><span id="menu-course-icon"></span> <span id="menu-course-name"></span></span>
       <button class="btn btn-small" id="menu-course-change" type="button">たいさく こうもくを かえる</button>
+    </div>
+    <!-- はんい（IPA 基本情報で、科目A と科目B の両方に問題があるときだけ出る） -->
+    <div class="scope-bar hidden" id="menu-scope">
+      <span class="scope-label">ふくしゅう・まおうの城・めいきゅう・もぎしけんの はんい</span>
+      <div class="scope-buttons" id="menu-scope-buttons"></div>
     </div>
     <div class="window player-header">
       <div class="ph-left">
@@ -168,6 +173,7 @@
 
     <div class="window msg-window">
       <div class="battle-source hidden" id="battle-source"></div>
+      <button class="btn btn-small notation-btn hidden" id="battle-notation" type="button">📖 ぎじげんごの きじゅつけいしきを みる</button>
       <div id="battle-msg"></div>
       <button class="btn btn-continue hidden blink" id="battle-continue">▼ すすむ</button>
     </div>
@@ -297,6 +303,16 @@
   </div>
 </div>
 
+<!-- ============ 擬似言語の記述形式（科目B） ============ -->
+<div class="modal hidden" id="notation-modal" role="dialog" aria-modal="true" aria-labelledby="notation-title">
+  <div class="window notation-window">
+    <h2 class="window-title" id="notation-title"></h2>
+    <div class="notation-body" id="notation-body"></div>
+    <div class="battle-source" id="notation-source"></div>
+    <button class="btn" id="notation-close" type="button">とじる</button>
+  </div>
+</div>
+
 <!-- ============ レベルアップ ============ -->
 <div class="modal hidden" id="levelup-overlay">
   <div class="levelup-card">
@@ -312,28 +328,28 @@
 <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js?v=2.2.4"></script>
-<script src="js/sprites.js?v=2.2.4"></script>
-<script src="js/sound.js?v=2.2.4"></script>
-<script src="js/juice.js?v=2.2.4"></script>
-<script src="js/fx.js?v=2.2.4"></script>
-<script src="js/backgrounds.js?v=2.2.4"></script>
-<script src="js/bestiary.js?v=2.2.4"></script>
-<script src="js/countdown.js?v=2.2.4"></script>
-<script src="js/srs.js?v=2.2.4"></script>
-<script src="js/api.js?v=2.2.4"></script>
-<script src="js/questions_excel.js?v=2.2.4"></script>
-<script src="js/questions_word.js?v=2.2.4"></script>
-<script src="js/questions_excel_expert.js?v=2.2.4"></script>
-<script src="js/questions_excel_practical.js?v=2.2.4"></script>
-<!-- フェーズ3で IPA 基本情報 科目A の問題（js/questions_ipa_fe_a.js）をここに足す -->
-<script src="js/courses.js?v=2.2.4"></script>
-<script src="js/ribbonMockups.js?v=2.2.4"></script>
-<script src="js/streak.js?v=2.2.4"></script>
-<script src="js/achievements.js?v=2.2.4"></script>
-<script src="js/missions.js?v=2.2.4"></script>
-<script src="js/treasure.js?v=2.2.4"></script>
-<script src="js/practical.js?v=2.2.4"></script>
-<script src="js/game.js?v=2.2.4"></script>
+<script src="js/config.js?v=2.3.0"></script>
+<script src="js/sprites.js?v=2.3.0"></script>
+<script src="js/sound.js?v=2.3.0"></script>
+<script src="js/juice.js?v=2.3.0"></script>
+<script src="js/fx.js?v=2.3.0"></script>
+<script src="js/backgrounds.js?v=2.3.0"></script>
+<script src="js/bestiary.js?v=2.3.0"></script>
+<script src="js/countdown.js?v=2.3.0"></script>
+<script src="js/srs.js?v=2.3.0"></script>
+<script src="js/api.js?v=2.3.0"></script>
+<script src="js/questions_excel.js?v=2.3.0"></script>
+<script src="js/questions_word.js?v=2.3.0"></script>
+<script src="js/questions_excel_expert.js?v=2.3.0"></script>
+<script src="js/questions_excel_practical.js?v=2.3.0"></script>
+<!-- IPA 基本情報の問題（js/questions_ipa_fe_a.js・js/questions_ipa_fe_b.js）は、先生の読み合わせのあとで、ここに足す -->
+<script src="js/courses.js?v=2.3.0"></script>
+<script src="js/ribbonMockups.js?v=2.3.0"></script>
+<script src="js/streak.js?v=2.3.0"></script>
+<script src="js/achievements.js?v=2.3.0"></script>
+<script src="js/missions.js?v=2.3.0"></script>
+<script src="js/treasure.js?v=2.3.0"></script>
+<script src="js/practical.js?v=2.3.0"></script>
+<script src="js/game.js?v=2.3.0"></script>
 </body>
 </html>
