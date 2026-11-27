@@ -342,6 +342,8 @@ function show(id) {
   });
   $("#" + id).classList.add("active");
   document.body.classList.toggle("in-battle", id === "screen-battle");
+  /* バトルの外では、待たせていたお知らせを出す */
+  if (id !== "screen-battle") Juice.holdBanners(false);
   /* 画面を切りかえたら、開いていた解説カード（スタンプカード など）は とじる */
   if ($("#card-modal")) $("#card-modal").classList.add("hidden");
   if (typeof GachaFx !== "undefined") GachaFx.close();
@@ -1377,6 +1379,8 @@ function hasHeavyVisual(q) {
 function showQuestion() {
   var q = battle.qs[battle.idx];
   startExamTimer();
+  /* 問題を読んでいる間は、お知らせの帯を出さない（こたえたあとに出す） */
+  Juice.holdBanners(true);
   typeMsg(q.q);
   /* 長い問題（instant: true）は、タイプライターの演出を飛ばして全文を出す */
   if (q.instant) finishType();
@@ -1644,6 +1648,11 @@ function renderQuestionVisual(q) {
 function answer(isCorrect, btn) {
   if (battle.timedOut) return;
   finishType();
+  Juice.holdBanners(false);
+  /* 長い問題で下のほうの選択肢を押したときは、結果と解説（いちばん上の ふきだし）が見えるところまで もどす */
+  if ($("#battle-head").getBoundingClientRect().top < 0) {
+    window.scrollTo({ top: 0, behavior: Juice.isLow() ? "auto" : "smooth" });
+  }
   var elapsed = stopQuickTimer();
   var q = battle.qs[battle.idx];
   var b = battle, turn = battle.idx;
@@ -4180,6 +4189,8 @@ window.addEventListener("DOMContentLoaded", function () {
   /* キーボードでも遊べる：1〜9 で選択肢、Enter／スペースで「すすむ」（教室のPCで手を止めずに進める） */
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    /* ご意見箱は、Esc でも とじられる（入力中でも効くように、いちばん先に見る） */
+    if (e.key === "Escape" && !$("#feedback-modal").classList.contains("hidden")) { e.preventDefault(); closeFeedback(); return; }
     var tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     var isGo = e.key === "Enter" || e.key === " ";
@@ -4314,6 +4325,12 @@ window.addEventListener("DOMContentLoaded", function () {
   $("#battle-quit").onclick = quitBattle;
   $("#battle-continue").onclick = nextTurn;
   $("#battle-msg").onclick = finishType;
+  /* 「すすむ」が出ているときは、ふきだしの どこを押しても すすむ（小さいボタンを ねらわなくてよい） */
+  $(".msg-window").addEventListener("click", function (e) {
+    if (e.target.closest("#battle-continue, #battle-notation")) return;
+    var cont = $("#battle-continue");
+    if (!cont.classList.contains("hidden")) cont.click();
+  });
   $("#result-next").onclick = function () { Sound.select(); openMenu(); };
   $("#result-retry").onclick = retryBattle;
   $("#btn-mute").onclick = function () { Sound.cycleMode(); updateMuteButton(); Sound.select(); };

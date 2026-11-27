@@ -90,11 +90,19 @@ html.hitstop *, html.hitstop *::before, html.hitstop *::after {
   overflow-wrap: anywhere;
   animation: jzBannerIn .35s cubic-bezier(.2, 1.5, .4, 1) both;
 }
-/* バトル中は、右上のハート（のこりの いのち）と問題数を隠さないよう、左に寄せて細くする */
+/* バトル中は、上の HUD（にげる・クエスト名・レベル・問題数・ハート）と問題文を隠さないよう、画面の下に出す。
+ * 出すのは こたえたあとだけ（js の Juice.holdBanners）。右下の 📮・♪ のボタンは よける */
 body:has(#screen-battle.active) .jz-banner {
-  margin-left: max(8px, calc(50vw - 312px));
-  max-width: min(calc(100vw - 112px), 430px);
+  top: auto; bottom: 12px;
+  max-width: min(calc(100vw - 240px), 520px);
   padding: 4px 12px;
+  animation-name: jzBannerInUp;
+}
+body:has(#screen-battle.active) .jz-banner.out { animation-name: jzBannerOutDown; }
+@keyframes jzBannerInUp    { from { transform: translateY(160%); } to { transform: translateY(0); } }
+@keyframes jzBannerOutDown { from { transform: translateY(0); opacity: 1; } to { transform: translateY(160%); opacity: 0; } }
+@media (max-width: 600px) {
+  body:has(#screen-battle.active) .jz-banner { margin-left: 8px; max-width: calc(100vw - 124px); }
 }
 body:has(#screen-battle.active) .jz-banner-icon { font-size: 20px; }
 body:has(#screen-battle.active) .jz-banner-head { font-size: 11px; }
@@ -479,6 +487,7 @@ body:has(#screen-battle.active) .jz-banner-body { font-size: 13px; }
   #result-big-num { font-size: 36px; }
   .fx-cutin { height: 72px; margin-top: -36px; }
   .jz-banner { top: 8px; padding: 6px 12px; }
+  body:has(#screen-battle.active) .jz-banner { top: auto; }
 }
 
 /* =========================================================

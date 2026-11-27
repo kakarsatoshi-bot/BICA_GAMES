@@ -1048,3 +1048,115 @@ kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px soli
   #battle-msg .msg-tip { margin-top: 6px; padding: 4px 8px 5px; line-height: 1.6; }
   #battle-msg .msg-label { margin-bottom: 2px; }
 }
+
+
+/* =========================================================
+ * UI の見なおし（v3.2.1）
+ *  - PC の戦闘画面を大きく（問題文・選択肢の文字、モンスター）
+ *  - 解説が出ても選択肢が動かないよう、ふきだしの高さを先にとっておく（PC の ふつうの問題）
+ *  - 「すすむ」を大きく・ふきだしの中に置く（ふきだし全体を押しても すすむ）
+ *  - キーボードのフォーカス・タップしやすさ・小さい文字・ロック中の表示
+ * ======================================================= */
+
+/* ---------- 「すすむ」 ---------- */
+#screen-battle .btn-continue {
+  position: static;
+  display: block;
+  width: auto;
+  margin: 6px 0 0 auto;
+  padding: 6px 10px;
+  font-size: 16px;
+}
+.btn-continue:focus::before { content: none; }   /* 「▶ ▼ すすむ」と矢印が2つ並ばないように */
+#screen-battle .msg-window { padding-bottom: 10px; }
+@media (hover: hover) and (pointer: fine) {
+  #screen-battle .btn-continue::after { content: "  Enter"; font-size: 12px; color: #9a9ac0; }
+}
+
+/* ---------- キーボードのフォーカスを はっきり見せる ---------- */
+.btn:focus-visible, .choice:focus-visible, .item-cell:focus-visible, .set-row:focus-visible,
+.bestiary-card:focus-visible, .equip-slot:focus-visible, .job-card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+#screen-battle .btn-continue:focus-visible { outline: none; }   /* いつもフォーカスが当たるので、わくは出さない（点滅で分かる） */
+
+/* ---------- 小さい文字を読みやすく ---------- */
+.menu-lock { font-size: 12px; }
+.menu-btn .menu-record { font-size: 12px; }
+#screen-battle .meter-label { font-size: 11px; }
+.battle-source { font-size: 12px; }
+.mastery-label { font-size: 12px; }
+#screen-battle .nametag { font-size: 12px; }
+@media (max-width: 600px) {
+  #screen-battle .nametag { font-size: 11px; }
+  #screen-battle .meter-label { font-size: 10px; }
+}
+
+/* ---------- ロック中：うすくするのは絵と名前だけ。「どうすれば ひらくか」は読める濃さで出す ---------- */
+.menu-btn.locked { opacity: 1; border-color: #55557a; color: #8a8aa8; }
+.menu-btn.locked .menu-icon { opacity: .5; filter: grayscale(1); }
+.menu-btn.locked .menu-lock { color: #c8c8e8; }
+.quest-card.locked { opacity: 1; filter: none; border-color: #55557a; }
+.quest-card.locked canvas { opacity: .5; filter: grayscale(1); }
+.quest-card.locked .quest-name { color: #8a8aa8; }
+.quest-card.locked .quest-desc { color: #c8c8e8; }
+.quest-card.locked .quest-stars { opacity: .4; }
+
+/* ---------- リザルト：レベルアップの わくは 点滅させない（読みにくいため） ---------- */
+.levelup { animation: none; }
+
+/* ---------- アバター・しょくぎょう：「けってい」は いつも画面の下に見えるようにする（長い画面を最後まで送らなくてよい） ---------- */
+#avatar-done {
+  position: sticky;
+  bottom: 10px;
+  z-index: 5;
+  box-shadow: 0 0 0 4px var(--bg), 0 -6px 12px 4px var(--bg);
+}
+
+@media (max-width: 900px) {
+  /* せまい画面では、右下の 📮・♪ のボタンを よける */
+  #avatar-done { width: calc(100% - 120px); margin-left: 0; font-size: 16px; white-space: nowrap; }
+}
+
+/* ---------- 指で押す端末：小さいボタンを押しやすく ---------- */
+@media (pointer: coarse) {
+  .btn-small, .btn-back { min-height: 44px; padding: 8px 12px; }
+  .avatar-arrow { min-height: 44px; }
+  .quest-reco-btn { min-height: 40px; padding: 6px 14px; }
+  #screen-battle .btn-continue { min-height: 44px; padding: 8px 12px; }
+  .title-fx-toggle, .title-vocab-link { padding: 10px 6px; font-size: 13px; }
+  #btn-feedback { bottom: 62px; }   /* ♪ のボタンが高くなったぶん、上へ ずらす */
+}
+
+/* ---------- PC：戦闘画面を大きく ---------- */
+@media (min-width: 900px) {
+  .in-battle #app { max-width: 900px; }
+  .in-battle.wide-battle #app { max-width: 1240px; }
+  #screen-battle .battle-hud { font-size: 15px; }
+  #screen-battle .battle-xp { font-size: 13px; }
+
+  /* ふつうの問題（図・表・プログラムの無い戦闘） */
+  .in-battle:not(.wide-battle) #screen-battle #battle-msg { font-size: 18px; }
+  .in-battle:not(.wide-battle) #screen-battle .choice { font-size: 17px; padding: 12px 14px; }
+  .in-battle:not(.wide-battle) #screen-battle .battle-head:not(:has(.hotspot-mode)) { grid-template-columns: 300px minmax(0, 1fr); }
+  .in-battle:not(.wide-battle) #screen-battle .battle-stage:not(.hotspot-mode) { height: 200px; }
+  .in-battle:not(.wide-battle) #screen-battle #enemy-canvas { height: 112px; }
+  .in-battle:not(.wide-battle) #screen-battle #battle-avatar { height: 72px; }
+  .in-battle:not(.wide-battle) #screen-battle .nametag { font-size: 14px; margin-top: 4px; padding: 0 10px; }
+  .in-battle:not(.wide-battle) #screen-battle .quick-bar,
+  .in-battle:not(.wide-battle) #screen-battle .special-gauge { height: 20px; }
+  .in-battle:not(.wide-battle) #screen-battle .meter-label { font-size: 12px; line-height: 16px; }
+  /* 解説が出たときに ふきだしが のびて選択肢が下へ動かないよう、先に高さを とっておく */
+  .in-battle:not(.wide-battle) #screen-battle .battle-head:not(:has(.hotspot-mode)) .msg-window { min-height: 300px; }
+  .in-battle:not(.wide-battle) #screen-battle .msg-window::before { top: 60px; }
+
+  /* 図・表・プログラムのある戦闘：1行が長くなりすぎないようにし、モンスターは小さくして 下の図・プログラムを広く */
+  .in-battle.wide-battle #screen-battle #battle-msg { font-size: 16px; max-width: 54em; }
+  .in-battle.wide-battle #screen-battle .choice { font-size: 15px; }
+  /* 図などの無い問題のときは、ふきだしと選択肢を同じ はばに そろえて せまくする（画面問題は絵が大きいので そのまま） */
+  .in-battle.wide-battle #screen-battle:has(.battle-body.no-side):not(:has(.hotspot-mode)) :is(.battle-head, .battle-body) { max-width: 900px; }
+  .in-battle.wide-battle #screen-battle .battle-stage:not(.hotspot-mode) { height: 124px; }
+  .in-battle.wide-battle #screen-battle #enemy-canvas { height: 68px; }
+  .in-battle.wide-battle #screen-battle #battle-avatar { height: 46px; }
+}
