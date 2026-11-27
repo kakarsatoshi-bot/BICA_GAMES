@@ -11,7 +11,7 @@
  *     「令和N年度 基本情報技術者試験 科目[AB] 公開問題 問N」（末尾に「(一部改変)」可）に合わない、
  *     id と source の年度・科目・問番号が合わない
  *   - IPA の問題で fixedOrder: true・labels: "aiue" が無い（並べ替えると「改変」になるため）
- *   - 解説（exp）が15文字未満、figure の画像ファイルが無い、table の形がおかしい
+ *   - 解説（exp）が15文字未満、figure の画像ファイルが無い、table・tables の形がおかしい
  *   - クエストの問題数が8未満（index.html で読み込んでいるファイルだけ。まだ読み込んでいない
  *     ファイルは、生徒の画面に出ないので「注意」にとどめる）
  *   - くらべる相手のコミットにあった問題 id が消えている（id は一度公開したら変更・削除しない）
@@ -92,10 +92,13 @@ function checkQuestion(q, where, file) {
     if (typeof q.figure !== "string" || !existsSync(join(ROOT, q.figure))) err(at, `figure のファイルがありません: ${q.figure}`);
     if (!q.figureAlt) warn(at, "figureAlt（図の説明）がありません");
   }
-  if (q.table !== undefined) {
-    const ok = Array.isArray(q.table) && q.table.length > 0 &&
-      q.table.every((r) => Array.isArray(r) && r.length === q.table[0].length && r.every((c) => typeof c === "string"));
-    if (!ok) err(at, "table は同じ長さの文字列の配列の配列にしてください");
+  const tableOk = (rows) => Array.isArray(rows) && rows.length > 0 &&
+    rows.every((r) => Array.isArray(r) && r.length === rows[0].length && r.every((c) => typeof c === "string"));
+  if (q.table !== undefined && !tableOk(q.table)) err(at, "table は同じ長さの文字列の配列の配列にしてください");
+  if (q.tables !== undefined) {
+    const ok = Array.isArray(q.tables) && q.tables.length > 0 &&
+      q.tables.every((t) => t && tableOk(t.rows) && (t.caption === undefined || typeof t.caption === "string"));
+    if (!ok) err(at, "tables は [{ caption, rows }] の配列にしてください（rows は table と同じ形）");
   }
   for (const k of ["passage", "code", "source"]) {
     if (q[k] !== undefined && typeof q[k] !== "string") err(at, `${k} は文字列にしてください`);
