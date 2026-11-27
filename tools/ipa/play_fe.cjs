@@ -173,6 +173,9 @@ async function closeOverlays(page) {
   await page.evaluate(() => {
     const lv = document.querySelector("#levelup-overlay");
     if (lv && !lv.classList.contains("hidden")) lv.classList.add("hidden");
+    /* まいにちの スタンプカード（メニューを開いたあと 少しして出る）も とじる */
+    const cm = document.querySelector("#card-modal");
+    if (cm && !cm.classList.contains("hidden")) cm.classList.add("hidden");
   });
 }
 

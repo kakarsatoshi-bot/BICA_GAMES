@@ -6,8 +6,8 @@
 <title>STUDY QUEST - しかくたいさくぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2.9.0">
-<link rel="stylesheet" href="css/juice.css?v=2.9.0">
+<link rel="stylesheet" href="css/style.css?v=3.0.0">
+<link rel="stylesheet" href="css/juice.css?v=3.0.0">
 </head>
 <body>
 
@@ -71,6 +71,7 @@
         <span class="ph-level" id="menu-level"></span>
         <span class="ph-rank" id="menu-rank"></span>
         <span class="streak-chip hidden" id="menu-streak-chip"></span>
+        <span class="medal-chip" id="menu-medals" title="まなびメダル"></span>
       </div>
       <div class="xpbar"><div class="xpfill" id="menu-xpfill"></div></div>
       <div class="xptext" id="menu-xptext"></div>
@@ -119,6 +120,9 @@
       </button>
       <button class="btn menu-btn" id="menu-avatar">
         <span class="menu-icon">🧑‍💻</span>アバター・しょくぎょう
+      </button>
+      <button class="btn menu-btn" id="menu-gacha">
+        <span class="menu-icon">🎰</span>まなびガチャ
       </button>
       <button class="btn menu-btn" id="menu-ranking">
         <span class="menu-icon">👑</span>ランキング
@@ -243,6 +247,25 @@
     <p class="note" id="item-count"></p>
     <div class="item-list" id="item-list"></div>
     <button class="btn btn-big" id="avatar-done" type="button">これで けってい！</button>
+  </div>
+
+  <!-- ============ まなびガチャ（js/gacha.js） ============ -->
+  <div class="screen" id="screen-gacha">
+    <div class="screen-header">
+      <button class="btn btn-back">◀ マップ</button>
+      <h2>🎰 まなびガチャ</h2>
+    </div>
+    <div class="window gacha-top">
+      <div class="gacha-medals">🪙 <span id="gacha-medals"></span> メダル</div>
+      <p class="note">メダルは べんきょうで たまる：せいかい・ふくしゅう・きょうの ミッション・まいにちの スタンプ。<br>出るものは ぜんぶ 解説カードつき。用語カードは、引いたあと「確認クイズ」に せいかいすると メダルが もどってくる。</p>
+      <div class="gacha-buttons">
+        <button class="btn btn-big" id="gacha-one" type="button"></button>
+        <button class="btn" id="gacha-five" type="button"></button>
+      </div>
+      <button class="btn btn-small" id="gacha-stamp-btn" type="button"><span id="gacha-stamp"></span></button>
+    </div>
+    <p class="note" id="gacha-count"></p>
+    <div class="item-list" id="gacha-list"></div>
   </div>
 
   <div class="screen" id="screen-ranking">
@@ -404,33 +427,34 @@
 <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js?v=2.9.0"></script>
-<script src="js/sprites.js?v=2.9.0"></script>
-<script src="js/avatar.js?v=2.9.0"></script>
-<script src="js/items.js?v=2.9.0"></script>
-<script src="js/sound.js?v=2.9.0"></script>
-<script src="js/juice.js?v=2.9.0"></script>
-<script src="js/fx.js?v=2.9.0"></script>
-<script src="js/backgrounds.js?v=2.9.0"></script>
-<script src="js/bestiary.js?v=2.9.0"></script>
-<script src="js/bestiary_notes.js?v=2.9.0"></script>
-<script src="js/countdown.js?v=2.9.0"></script>
-<script src="js/srs.js?v=2.9.0"></script>
-<script src="js/api.js?v=2.9.0"></script>
-<script src="js/questions_excel.js?v=2.9.0"></script>
-<script src="js/questions_word.js?v=2.9.0"></script>
-<script src="js/questions_excel_expert.js?v=2.9.0"></script>
-<script src="js/questions_excel_practical.js?v=2.9.0"></script>
+<script src="js/config.js?v=3.0.0"></script>
+<script src="js/sprites.js?v=3.0.0"></script>
+<script src="js/avatar.js?v=3.0.0"></script>
+<script src="js/items.js?v=3.0.0"></script>
+<script src="js/gacha.js?v=3.0.0"></script>
+<script src="js/sound.js?v=3.0.0"></script>
+<script src="js/juice.js?v=3.0.0"></script>
+<script src="js/fx.js?v=3.0.0"></script>
+<script src="js/backgrounds.js?v=3.0.0"></script>
+<script src="js/bestiary.js?v=3.0.0"></script>
+<script src="js/bestiary_notes.js?v=3.0.0"></script>
+<script src="js/countdown.js?v=3.0.0"></script>
+<script src="js/srs.js?v=3.0.0"></script>
+<script src="js/api.js?v=3.0.0"></script>
+<script src="js/questions_excel.js?v=3.0.0"></script>
+<script src="js/questions_word.js?v=3.0.0"></script>
+<script src="js/questions_excel_expert.js?v=3.0.0"></script>
+<script src="js/questions_excel_practical.js?v=3.0.0"></script>
 <!-- IPA 基本情報の問題（科目A・科目B）。courses.js より前に読み込む -->
-<script src="js/questions_ipa_fe_a.js?v=2.9.0"></script>
-<script src="js/questions_ipa_fe_b.js?v=2.9.0"></script>
-<script src="js/courses.js?v=2.9.0"></script>
-<script src="js/ribbonMockups.js?v=2.9.0"></script>
-<script src="js/streak.js?v=2.9.0"></script>
-<script src="js/achievements.js?v=2.9.0"></script>
-<script src="js/missions.js?v=2.9.0"></script>
-<script src="js/treasure.js?v=2.9.0"></script>
-<script src="js/practical.js?v=2.9.0"></script>
-<script src="js/game.js?v=2.9.0"></script>
+<script src="js/questions_ipa_fe_a.js?v=3.0.0"></script>
+<script src="js/questions_ipa_fe_b.js?v=3.0.0"></script>
+<script src="js/courses.js?v=3.0.0"></script>
+<script src="js/ribbonMockups.js?v=3.0.0"></script>
+<script src="js/streak.js?v=3.0.0"></script>
+<script src="js/achievements.js?v=3.0.0"></script>
+<script src="js/missions.js?v=3.0.0"></script>
+<script src="js/treasure.js?v=3.0.0"></script>
+<script src="js/practical.js?v=3.0.0"></script>
+<script src="js/game.js?v=3.0.0"></script>
 </body>
 </html>
