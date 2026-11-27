@@ -248,6 +248,7 @@ function ensureSaveShape(s) {
   s.equip = s.equip || { weapon: null, armor: null, accessory: null };
   /* v3.0 で足したもの（まなびメダル・ガチャ・スタンプ。js/gacha.js） */
   s.medals = s.medals || 0;                // まなびメダル
+  s.gachaPity = s.gachaPity || 0;          // ガチャの天井（スーパーが出ないまま 引いた回数）
   s.cards = s.cards || {};                 // 用語カードの key -> もっている数
   s.colors = s.colors || {};               // ガチャで手に入れた 髪の色の key -> 1
   s.stampDate = s.stampDate || null;       // さいごに スタンプを おした日（1日1回）
@@ -343,6 +344,7 @@ function show(id) {
   document.body.classList.toggle("in-battle", id === "screen-battle");
   /* 画面を切りかえたら、開いていた解説カード（スタンプカード など）は とじる */
   if ($("#card-modal")) $("#card-modal").classList.add("hidden");
+  if (typeof GachaFx !== "undefined") GachaFx.close();
   /* バトルの外では、ステージの粒を止めて、マップの曲にもどす（リザルトは無音でジングルを聞かせる） */
   if (id !== "screen-battle") { Fx.stopAmbient(); Fx.cancel(); }
   if (id !== "screen-battle" && id !== "screen-result") Sound.playBgm("menu");
@@ -3154,9 +3156,13 @@ function gachaPool() {
 }
 function gachaPull() {
   var r = Math.random(), rarity = r < GACHA_RATES.super ? "super" : r < GACHA_RATES.super + GACHA_RATES.rare ? "rare" : "normal";
+  /* 天井：スーパーが 出ないまま GACHA_PITY 回目になったら、かならず スーパー */
+  save.gachaPity = (save.gachaPity || 0) + 1;
+  if (save.gachaPity >= GACHA_PITY) rarity = "super";
   var pool = gachaPool();
   var cand = pool.filter(function (p) { return p.rarity === rarity; });
   var got = pick(cand.length ? cand : pool);
+  if (got.rarity === "super") save.gachaPity = 0;
   var dup = false;
   if (got.type === "card") { dup = !!save.cards[got.key]; save.cards[got.key] = (save.cards[got.key] || 0) + 1; }
   else if (got.type === "color") { dup = !!save.colors[got.key]; save.colors[got.key] = 1; }
@@ -3178,18 +3184,20 @@ function doGacha(times) {
   for (var i = 0; i < times; i++) results.push(gachaPull());
   persist();
   syncNow();
-  Sound.rattle();
-  var best = results.some(function (x) { return x.rarity === "super"; }) ? "super" : results.some(function (x) { return x.rarity === "rare"; }) ? "rare" : "normal";
-  setTimeout(function () {
-    if (best === "super") { Sound.shiny(); Juice.confetti(40); } else Sound.chest();
-    renderGacha();
-    showGachaResult(results, 0);
-  }, Juice.isLow() ? 0 : 500);
+  renderGacha();
+  Sound.encounter();
+  /* 演出（js/gacha_fx.js）：せつぞく・ダウンロード → 1つずつ 復号して登場 → 解説カード */
+  GachaFx.intro(results, function () { revealGachaResult(results, 0); });
+}
+function revealGachaResult(results, idx) {
+  GachaFx.reveal(results[idx], { index: idx, total: results.length }, function () { showGachaResult(results, idx); });
 }
 /* ガチャの結果を1つずつ見せる（つぎへ で次の結果。確認クイズは 引いたあとだけ メダルが もらえる） */
 function showGachaResult(results, idx) {
   var res = results[idx];
-  var next = idx + 1 < results.length ? { label: "▶ つぎへ（" + (idx + 2) + "/" + results.length + "）", onClick: function () { showGachaResult(results, idx + 1); } } : null;
+  var next = idx + 1 < results.length ? { label: "▶ つぎへ（" + (idx + 2) + "/" + results.length + "）", onClick: function () { closeCard(); revealGachaResult(results, idx + 1); } }
+    : save.medals >= GACHA_COST * results.length ? { replay: true, label: "🎰 もう1回 " + results.length + "かい ひく（" + GACHA_COST * results.length + " メダル）", onClick: function () { closeCard(); doGacha(results.length); } }
+    : save.medals >= GACHA_COST ? { replay: true, label: "🎰 もう1回 ひく（" + GACHA_COST + " メダル）", onClick: function () { closeCard(); doGacha(1); } } : null;
   var dupNote = res.dup ? "（もっていたので ＋" + MEDAL_DUP + " メダル もどった）" : "（はじめて！）";
   openGachaCard(res, { fromPull: true, next: next, dupNote: dupNote });
 }
@@ -3208,7 +3216,7 @@ function openGachaCard(res, opt) {
       sections: [{ h: "📖 カラーコード " + c.code, text: c.about }],
       actions: [{ label: "この 色に する", primary: true, onClick: function () {
         save.avatar.hairColor = c.key; persist(); toast("髪の色を「" + c.label + "」に した！");
-        if (opt.next) opt.next.onClick(); else closeCard();
+        if (opt.next && !opt.next.replay) opt.next.onClick(); else closeCard();
       } }].concat(extra)
     });
     return;
@@ -3287,6 +3295,7 @@ function renderGacha() {
   $("#gacha-five").textContent = "5かい ひく（" + GACHA_COST * 5 + " メダル）";
   $("#gacha-one").disabled = save.medals < GACHA_COST;
   $("#gacha-five").disabled = save.medals < GACHA_COST * 5;
+  $("#gacha-pity").textContent = "⭐⭐⭐ スーパーレアまで あと " + (GACHA_PITY - (save.gachaPity || 0)) + " 回（" + GACHA_PITY + " 回までに かならず 1つ 出る）";
   var day = stampDay();
   $("#gacha-stamp").textContent = "📅 れんぞく ログイン " + save.streak.current + "日目（スタンプ " + day + "/7。あしたは ＋" + STAMP_REWARDS[day % STAMP_REWARDS.length] + " メダル）";
   var list = $("#gacha-list");
