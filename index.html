@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MOS QUEST - ワード・エクセルぼうけんの書</title>
+<title>STUDY QUEST - しかくたいさくぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2.4.1">
-<link rel="stylesheet" href="css/juice.css?v=2.4.1">
+<link rel="stylesheet" href="css/style.css?v=2.5.0">
+<link rel="stylesheet" href="css/juice.css?v=2.5.0">
 </head>
 <body>
 
@@ -21,11 +21,11 @@
         <canvas id="title-sprite-2"></canvas>
         <canvas id="title-sprite-3"></canvas>
       </div>
-      <h1 class="game-logo"><span id="logo-prefix">MOS</span><br>QUEST</h1>
-      <p class="game-subtitle" id="title-subtitle">〜 ワード・エクセル ぼうけんの書 〜</p>
+      <h1 class="game-logo">STUDY<br>QUEST</h1>
+      <p class="game-subtitle">〜 しかく たいさく ぼうけんの書 〜</p>
       <button class="btn btn-big blink" id="title-start">ぼうけんを はじめる</button>
       <p class="title-continue" id="title-continue-info"></p>
-      <p class="title-copy" id="title-copy">BICA MOS対策クエスト</p>
+      <p class="title-copy">BICA 資格対策クエスト</p>
       <a class="title-vocab-link" id="title-vocab-link" href="vocab/index.html">📘 MOS単語帳（英語で用語を確認）</a>
       <button class="title-fx-toggle" id="title-fx-toggle" type="button"></button>
     </div>
@@ -59,11 +59,6 @@
     <div class="course-bar">
       <span class="course-bar-name"><span id="menu-course-icon"></span> <span id="menu-course-name"></span></span>
       <button class="btn btn-small" id="menu-course-change" type="button">たいさく こうもくを かえる</button>
-    </div>
-    <!-- はんい（IPA 基本情報で、科目A と科目B の両方に問題があるときだけ出る） -->
-    <div class="scope-bar hidden" id="menu-scope">
-      <span class="scope-label">ふくしゅう・まおうの城・めいきゅう・もぎしけんの はんい</span>
-      <div class="scope-buttons" id="menu-scope-buttons"></div>
     </div>
     <div class="window player-header">
       <div class="ph-left">
@@ -172,13 +167,14 @@
     </div>
 
     <div class="window msg-window">
-      <div class="battle-source hidden" id="battle-source"></div>
       <button class="btn btn-small notation-btn hidden" id="battle-notation" type="button">📖 ぎじげんごの きじゅつけいしきを みる</button>
       <div id="battle-msg"></div>
       <button class="btn btn-continue hidden blink" id="battle-continue">▼ すすむ</button>
     </div>
 
     <div class="choices" id="battle-choices"></div>
+    <!-- 出典（IPA の問題）。解くときの じゃまに ならないよう、選択肢の下に小さく出す -->
+    <div class="battle-source hidden" id="battle-source"></div>
   </div>
 
   <!-- ============ リザルト ============ -->
@@ -303,6 +299,24 @@
   </div>
 </div>
 
+<!-- ============ 図の かくだい（図をクリック／タップ） ============ -->
+<div class="modal hidden" id="figure-modal" role="dialog" aria-modal="true" aria-label="図の かくだい">
+  <div class="figure-window">
+    <img id="figure-img" alt="">
+    <button class="btn btn-small" id="figure-close" type="button">とじる</button>
+  </div>
+</div>
+
+<!-- ============ はんいを えらぶ（ふっかつのほこら・まおうの城・むげんの めいきゅうに入るとき） ============ -->
+<div class="modal hidden" id="scope-modal" role="dialog" aria-modal="true" aria-labelledby="scope-title">
+  <div class="window scope-window">
+    <h2 class="window-title" id="scope-title"></h2>
+    <p class="note">どの はんいで ちょうせんする？</p>
+    <div class="scope-list" id="scope-list"></div>
+    <button class="btn" id="scope-close" type="button">やめる</button>
+  </div>
+</div>
+
 <!-- ============ 擬似言語の記述形式（科目B） ============ -->
 <div class="modal hidden" id="notation-modal" role="dialog" aria-modal="true" aria-labelledby="notation-title">
   <div class="window notation-window">
@@ -328,30 +342,30 @@
 <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js?v=2.4.1"></script>
-<script src="js/sprites.js?v=2.4.1"></script>
-<script src="js/sound.js?v=2.4.1"></script>
-<script src="js/juice.js?v=2.4.1"></script>
-<script src="js/fx.js?v=2.4.1"></script>
-<script src="js/backgrounds.js?v=2.4.1"></script>
-<script src="js/bestiary.js?v=2.4.1"></script>
-<script src="js/countdown.js?v=2.4.1"></script>
-<script src="js/srs.js?v=2.4.1"></script>
-<script src="js/api.js?v=2.4.1"></script>
-<script src="js/questions_excel.js?v=2.4.1"></script>
-<script src="js/questions_word.js?v=2.4.1"></script>
-<script src="js/questions_excel_expert.js?v=2.4.1"></script>
-<script src="js/questions_excel_practical.js?v=2.4.1"></script>
+<script src="js/config.js?v=2.5.0"></script>
+<script src="js/sprites.js?v=2.5.0"></script>
+<script src="js/sound.js?v=2.5.0"></script>
+<script src="js/juice.js?v=2.5.0"></script>
+<script src="js/fx.js?v=2.5.0"></script>
+<script src="js/backgrounds.js?v=2.5.0"></script>
+<script src="js/bestiary.js?v=2.5.0"></script>
+<script src="js/countdown.js?v=2.5.0"></script>
+<script src="js/srs.js?v=2.5.0"></script>
+<script src="js/api.js?v=2.5.0"></script>
+<script src="js/questions_excel.js?v=2.5.0"></script>
+<script src="js/questions_word.js?v=2.5.0"></script>
+<script src="js/questions_excel_expert.js?v=2.5.0"></script>
+<script src="js/questions_excel_practical.js?v=2.5.0"></script>
 <!-- IPA 基本情報の問題（科目A・科目B）。courses.js より前に読み込む -->
-<script src="js/questions_ipa_fe_a.js?v=2.4.1"></script>
-<script src="js/questions_ipa_fe_b.js?v=2.4.1"></script>
-<script src="js/courses.js?v=2.4.1"></script>
-<script src="js/ribbonMockups.js?v=2.4.1"></script>
-<script src="js/streak.js?v=2.4.1"></script>
-<script src="js/achievements.js?v=2.4.1"></script>
-<script src="js/missions.js?v=2.4.1"></script>
-<script src="js/treasure.js?v=2.4.1"></script>
-<script src="js/practical.js?v=2.4.1"></script>
-<script src="js/game.js?v=2.4.1"></script>
+<script src="js/questions_ipa_fe_a.js?v=2.5.0"></script>
+<script src="js/questions_ipa_fe_b.js?v=2.5.0"></script>
+<script src="js/courses.js?v=2.5.0"></script>
+<script src="js/ribbonMockups.js?v=2.5.0"></script>
+<script src="js/streak.js?v=2.5.0"></script>
+<script src="js/achievements.js?v=2.5.0"></script>
+<script src="js/missions.js?v=2.5.0"></script>
+<script src="js/treasure.js?v=2.5.0"></script>
+<script src="js/practical.js?v=2.5.0"></script>
+<script src="js/game.js?v=2.5.0"></script>
 </body>
 </html>

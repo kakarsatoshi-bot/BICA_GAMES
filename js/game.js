@@ -75,8 +75,13 @@ function inCourse(qid) {
 }
 /* ---------- はんい（科目A だけ／科目B だけ／A＋B） ----------
  * 対策項目の定義に scopes があり、問題の入っている科目が2つ以上あるときだけ選べる。
- * 復習・まおうの城・むげんの めいきゅう・もぎけんていの一覧は、この はんいの科目の問題だけを使う。
- * クエスト（科目ボタンから入るもの）は、はんいに関係なく その科目のまま。 */
+ * 復習・まおうの城・むげんの めいきゅうは、入るときに はんいを えらぶ（enterWithScope）。
+ * えらんだ はんいは activeScopeKey に入れ、メニューに もどると消す。メニューの上では
+ * いちばん広い はんい（A＋B）として数える（復習の件数・解放の判定など）。
+ * もぎけんていは科目ごとに分かれているので、はんいは えらばない。
+ * クエスト（科目ボタンから入るもの）は、はんいに関係なく その科目のまま。
+ * save.scopes[対策項目] は「まえ回 えらんだ はんい」（えらぶ画面で目印を付けるだけ）。 */
+var activeScopeKey = null;
 function scopeChoices() {
   var def = currentCourseDef();
   if (!def.scopes) return [];
@@ -86,12 +91,20 @@ function scopeChoices() {
   if (filled.length < 2) return [];
   return def.scopes;
 }
+function widestScope(list) {
+  return list.reduce(function (a, b) { return b.subjects.length > a.subjects.length ? b : a; });
+}
 function currentScope() {
   var list = scopeChoices();
   if (!list.length) return null;
-  var key = save.scopes && save.scopes[currentCourse()];
-  for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
-  return list[0];
+  for (var i = 0; i < list.length; i++) if (list[i].key === activeScopeKey) return list[i];
+  return widestScope(list);
+}
+/* はんいを一時的に かえて fn を呼ぶ（えらぶ画面で、はんいごとの解放・件数を出すため） */
+function withScope(key, fn) {
+  var prev = activeScopeKey;
+  activeScopeKey = key;
+  try { return fn(); } finally { activeScopeKey = prev; }
 }
 function scopeHasSubject(subjectKey) {
   var sc = currentScope();
@@ -292,6 +305,7 @@ function show(id) {
     s.classList.remove("active");
   });
   $("#" + id).classList.add("active");
+  document.body.classList.toggle("in-battle", id === "screen-battle");
   /* バトルの外では、ステージの粒を止めて、マップの曲にもどす（リザルトは無音でジングルを聞かせる） */
   if (id !== "screen-battle") { Fx.stopAmbient(); Fx.cancel(); }
   if (id !== "screen-battle" && id !== "screen-result") Sound.playBgm("menu");
@@ -1015,6 +1029,16 @@ function showQuestion() {
   box.classList.toggle("fixed", !!q.fixedOrder);
   /* 選択肢が ぜんぶ記号だけ（ア、イ…）のときは、ボタンを横に並べる */
   box.classList.toggle("label-only", idxs.every(function (ci) { return labelOnlyChoice(q, ci); }));
+  /* 短い選択肢は2列に並べる（レイアウトの試作のときだけ効く。css の .layout-proto） */
+  /* 長さは見た目の幅で数える（半角は全角の半分ほど） */
+  var maxLen = Math.max.apply(null, q.c.map(function (c) {
+    if (c.indexOf("\n") >= 0) return 99;
+    var w = 0;
+    for (var k = 0; k < c.length; k++) w += c.charCodeAt(k) < 0x80 ? 0.55 : 1;
+    return w;
+  }));
+  box.classList.toggle("short", maxLen <= 22);
+  box.classList.toggle("tiny", maxLen <= 9);
   renderNotationButton(q);
   order.forEach(function (ci) {
     var btn = document.createElement("button");
@@ -1125,8 +1149,10 @@ function renderPassage(q) {
   var box = $("#battle-passage");
   box.innerHTML = "";
   if (!hasHeavyVisual(q)) {
+    if ($("#battle-ctable")) { $("#battle-ctable").innerHTML = ""; $("#battle-ctable").classList.add("hidden"); }
     box.classList.add("hidden");
     $("#battle-stage").classList.remove("passage-mode");
+    layoutAfterPassage(false);
     return;
   }
   if (q.passage) {
@@ -1140,6 +1166,8 @@ function renderPassage(q) {
     fig.className = "passage-figure";
     fig.src = q.figure;
     fig.alt = q.figureAlt || "図";
+    fig.title = "クリック（タップ）で かくだい";
+    fig.onclick = function () { openFigure(fig.src, fig.alt); };
     box.appendChild(fig);
   }
   /* 表は table（1つ）か tables（題名つきで複数。[{ caption, rows, header }]）。どちらも図のあと・プログラムの前に出す */
@@ -1155,14 +1183,97 @@ function renderPassage(q) {
   }
   /* 解答群が表になっている問題（科目B の「a と b の組合せ」など）。プログラムのあとに出し、
    * 選択肢のボタンには記号（ア、イ…）だけを出す（c に記号だけを入れる） */
+  /* 2列の試作（?layout=2）では、解答群の表を右の列（選択肢のすぐ上）に出す */
+  var ctBox = $("#battle-ctable");
+  if (ctBox) { ctBox.innerHTML = ""; ctBox.classList.add("hidden"); }
   if (q.choiceTable) {
     var ct = passageTable(q.choiceTable.rows, true, q.choiceTable.caption || "");
     ct.classList.add("passage-choice-table");
-    box.appendChild(ct);
+    if (ctBox) { ctBox.appendChild(ct); ctBox.classList.remove("hidden"); }
+    else box.appendChild(ct);
   }
   box.scrollTop = 0;
-  box.classList.remove("hidden");
+  /* 解答群の表だけで、左の列に出すものが無いとき（2列の試作） */
+  var empty = !box.childNodes.length;
+  box.classList.toggle("hidden", empty);
   $("#battle-stage").classList.add("passage-mode");
+  layoutAfterPassage(!empty);
+}
+
+/* 図を大きく見る（図をクリック／タップ）。Esc・外側・とじるで閉じる */
+function openFigure(src, alt) {
+  var img = $("#figure-img");
+  img.src = src;
+  img.alt = alt || "図";
+  $("#figure-modal").classList.remove("hidden");
+  $("#figure-close").focus();
+}
+function closeFigure() {
+  $("#figure-modal").classList.add("hidden");
+}
+
+/* ---------- 戦闘画面のレイアウトの試作（URL に ?layout=1 か ?layout=2 を付けたときだけ） ----------
+ * 付けないときは今までどおり。どちらにするか決まったら、決まった方を ふつうの形にして この切りかえは消す。
+ *  1: 1列。「にげる・♥・モンスター・クイック・ひっさつ」を上の帯にまとめて、スクロールしても上に残す。
+ *     その下に 問題文 → 図・表・プログラム → 選択肢 → 出典。
+ *  2: PC（横はば 900px 以上）は2列。上の帯は同じ。左に図・表・プログラム、右に問題文・選択肢・出典。
+ *     左右は それぞれ スクロールする。スマホ（せまい画面）では 1 と同じ並び。 */
+var BATTLE_LAYOUT = (function () {
+  var m = /[?&]layout=([12])\b/.exec(location.search);
+  return m ? m[1] : "";
+})();
+function setupBattleLayout() {
+  if (!BATTLE_LAYOUT) return;
+  document.body.classList.add("layout-proto", "layout-" + BATTLE_LAYOUT);
+  var scr = $("#screen-battle");
+  var top = document.createElement("div");
+  top.className = "battle-top";
+  top.id = "battle-top";
+  [".battle-hud", ".battle-xp", "#battle-stage", ".battle-meters"].forEach(function (sel) {
+    top.appendChild(scr.querySelector(sel));
+  });
+  var body = document.createElement("div");
+  body.className = "battle-body";
+  body.id = "battle-body";
+  var side = document.createElement("div");
+  side.className = "battle-side";
+  side.id = "battle-side";
+  var main = document.createElement("div");
+  main.className = "battle-main";
+  main.id = "battle-main";
+  var msg = scr.querySelector(".msg-window");
+  var passage = $("#battle-passage");
+  main.appendChild(msg);
+  if (BATTLE_LAYOUT === "1") main.appendChild(passage);
+  else side.appendChild(passage);
+  if (BATTLE_LAYOUT === "2") {
+    var ctable = document.createElement("div");
+    ctable.className = "window battle-ctable hidden";
+    ctable.id = "battle-ctable";
+    main.appendChild(ctable);
+  }
+  main.appendChild($("#battle-choices"));
+  main.appendChild($("#battle-source"));
+  body.appendChild(side);
+  body.appendChild(main);
+  scr.innerHTML = "";
+  scr.appendChild(top);
+  scr.appendChild(body);
+  window.addEventListener("resize", measureBattleTop);
+}
+/* 上の帯の高さ（2列のとき、左右の列を画面の高さに収めるのに使う） */
+function measureBattleTop() {
+  var top = $("#battle-top");
+  if (!top || !top.offsetHeight) return;
+  document.documentElement.style.setProperty("--battle-top-h", top.offsetHeight + "px");
+}
+function layoutAfterPassage(hasPassage) {
+  if (!BATTLE_LAYOUT) return;
+  $("#battle-body").classList.toggle("no-side", !hasPassage);
+  $("#battle-side").scrollTop = 0;
+  $("#battle-main").scrollTop = 0;
+  if (BATTLE_LAYOUT === "1") window.scrollTo(0, 0);
+  setTimeout(measureBattleTop, 0);
 }
 
 /* 画面ホットスポット問題（type:"hotspot"）のときはモンスターを隠してリボンUIモックアップ
@@ -2002,6 +2113,7 @@ function openMenu() {
   Sound.setTempo(1);
   Juice.clear();
   flushPendingLevelUp();
+  activeScopeKey = null;   /* メニューでは はんいを えらんでいない（A＋B として数える） */
   renderPlayerHeader("menu");
   var due = specialistDueList().length;
   var badge = $("#menu-review-badge");
@@ -2011,12 +2123,12 @@ function openMenu() {
   renderCourseMenu();
 
   /* まおうの城は、選択中の対策項目のクエストを ぜんぶ クリアすると解放 */
-  var allCleared = finalUnlocked();
+  var allCleared = finalUnlockedAny();
   var finalBtn = $("#menu-final");
   finalBtn.classList.toggle("locked", !allCleared);
   $("#menu-final-lock").textContent = allCleared
     ? (isFinalCleared() ? "とうばつずみ！ なんども ちょうせんできる" : "ふういんが とかれた…！")
-    : "ぜんぶの クエストを クリアすると かいほう";
+    : (scopeChoices().length ? "どちらかの科目の クエストを ぜんぶ クリアすると かいほう" : "ぜんぶの クエストを クリアすると かいほう");
 
   var expertBtn = $("#menu-expert");
   expertBtn.classList.toggle("locked", !save.finalClear);
@@ -2061,6 +2173,82 @@ function finalUnlocked() {
   var qs = scopeQuests();
   return qs.length > 0 && scopeClearedCount() >= qs.length;
 }
+/* メニューの まおうの城は、どれか1つの はんいで解放されていれば入れる（入るときに はんいを えらぶ） */
+function finalUnlockedAny() {
+  var list = scopeChoices();
+  if (!list.length) return finalUnlocked();
+  return list.some(function (sc) { return withScope(sc.key, finalUnlocked); });
+}
+
+/* 入るときに はんいを えらぶ（ふっかつのほこら・まおうの城・むげんの めいきゅう） */
+var SCOPE_ENTRIES = {
+  review: {
+    title: "⛩️ ふっかつの ほこら",
+    open: function () { return true; },
+    status: function () {
+      var n = specialistDueList().length;
+      if (n > 0) return "復習まち " + n + "もん";
+      return specialistWeakList().length ? "にがて とっくん" : "復習する もんだいは まだ ない";
+    },
+    start: function () { startReview(); }
+  },
+  final: {
+    title: "🌋 まおうの しろ",
+    open: function () { return finalUnlocked(); },
+    status: function () { return finalUnlocked() ? "ちょうせんできる" : "この はんいの クエストを ぜんぶ クリアすると かいほう"; },
+    start: function () { startFinal(); }
+  },
+  endless: {
+    title: "🌀 むげんの めいきゅう",
+    open: function () { return scopeClearedCount() >= ENDLESS_UNLOCK; },
+    status: function () {
+      var n = scopeClearedCount();
+      return n >= ENDLESS_UNLOCK ? "クリアした クエスト " + n + "こ から 出る" : "この はんいで クエストを " + ENDLESS_UNLOCK + "つ クリアすると かいほう";
+    },
+    start: function () { startEndless(); }
+  }
+};
+function enterWithScope(kind) {
+  var entry = SCOPE_ENTRIES[kind];
+  var list = scopeChoices();
+  if (!list.length) { entry.start(); return; }
+  var last = save.scopes && save.scopes[currentCourse()];
+  var box = $("#scope-list");
+  box.innerHTML = "";
+  $("#scope-title").textContent = entry.title;
+  list.forEach(function (sc) {
+    var open = withScope(sc.key, entry.open);
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn scope-btn" + (sc.key === last ? " is-last" : "");
+    btn.disabled = !open;
+    btn.dataset.scope = sc.key;
+    var nm = document.createElement("span");
+    nm.className = "scope-name";
+    nm.textContent = sc.label + (sc.key === last ? "（まえ回）" : "");
+    var st = document.createElement("span");
+    st.className = "scope-status";
+    st.textContent = (open ? "" : "🔒 ") + withScope(sc.key, entry.status);
+    btn.appendChild(nm); btn.appendChild(st);
+    btn.onclick = function () {
+      Sound.select();
+      save.scopes[currentCourse()] = sc.key;
+      persist();
+      closeScopeSelect();
+      activeScopeKey = sc.key;
+      entry.start();
+      /* 入れなかったとき（復習する問題が無い など）は、メニューのまま なので はんいを もどす */
+      if (!$("#screen-battle").classList.contains("active")) activeScopeKey = null;
+    };
+    box.appendChild(btn);
+  });
+  $("#scope-modal").classList.remove("hidden");
+  var focus = box.querySelector(".is-last:not(:disabled)") || box.querySelector(".scope-btn:not(:disabled)") || $("#scope-close");
+  focus.focus();
+}
+function closeScopeSelect() {
+  $("#scope-modal").classList.add("hidden");
+}
 
 /* メニューのボタンを、選択中の対策項目の定義（js/courses.js の menu）の順に並べ、ほかは隠す。
  * 科目ボタン（"subject:<科目キー>"）だけは JS で作る（id は menu-<科目キー>）。 */
@@ -2097,33 +2285,6 @@ function renderCourseMenu() {
   $("#menu-course-icon").textContent = def.icon;
   $("#menu-course-name").textContent = def.label + "（" + def.sub + "）";
   $("#menu-course-change").classList.toggle("hidden", availableCourses().length < 2);
-  renderScopeBar();
-}
-
-/* はんいの選択ボタン（IPA 基本情報で、科目A と科目B の両方に問題があるときだけ出る） */
-function renderScopeBar() {
-  var bar = $("#menu-scope");
-  var box = $("#menu-scope-buttons");
-  var list = scopeChoices();
-  box.innerHTML = "";
-  bar.classList.toggle("hidden", !list.length);
-  if (!list.length) return;
-  var cur = currentScope();
-  list.forEach(function (sc) {
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn btn-small scope-btn" + (sc.key === cur.key ? " is-current" : "");
-    btn.setAttribute("aria-pressed", sc.key === cur.key ? "true" : "false");
-    btn.dataset.scope = sc.key;
-    btn.textContent = sc.label;
-    btn.onclick = function () {
-      Sound.select();
-      save.scopes[currentCourse()] = sc.key;
-      persist();
-      openMenu();   /* 復習の件数・まおうの城の解放などを はんいに合わせて出しなおす */
-    };
-    box.appendChild(btn);
-  });
 }
 
 /* ---------- 対策項目を えらぶ ---------- */
@@ -2179,16 +2340,9 @@ function chooseCourse(key) {
   openMenu();
 }
 
-/* タイトルの表示（ロゴの上の行・副題・単語帳リンク）を、選択中の対策項目に合わせる。
- * まだ えらんでいないときは共通の表示（単語帳リンクは出したまま） */
-function renderTitleCourse() {
-  var def = save && save.course ? courseDef(save.course) : null;
-  $("#logo-prefix").textContent = def ? def.logo : "BICA";
-  $("#title-subtitle").textContent = def ? def.subtitle : "〜 しかく たいさく ぼうけんの書 〜";
-  $("#title-copy").textContent = def ? def.copy : "BICA 資格対策クエスト";
-  $("#title-vocab-link").classList.toggle("hidden", !!def && !def.vocabLink);
-  document.title = (def ? def.logo : "BICA") + " QUEST" + (def ? " - " + def.subtitle.replace(/[〜\s]/g, "") : "");
-}
+/* タイトルは対策項目に関係なく「STUDY QUEST」1つ（index.html に書いてある）。
+ * 対策項目は「ぼうけんを はじめる」のあとに えらぶ。呼んでいる所が残っているので、関数だけ残す */
+function renderTitleCourse() {}
 
 /* ---------- ストリーク ---------- */
 function renderStreakChip() {
@@ -2857,6 +3011,7 @@ window.addEventListener("DOMContentLoaded", function () {
       save.player.name + "（Lv" + li.level + " " + rankFor(li.level) + "）の ぼうけんのしょ";
   }
   renderTitleCourse();
+  setupBattleLayout();
   updateMuteButton();
   updateFxButtons();
   startTitleSparkle();
@@ -2881,6 +3036,16 @@ window.addEventListener("DOMContentLoaded", function () {
     /* クエストの一覧は、Enter／スペースでも選べる */
     if (isGo && e.target.classList && e.target.classList.contains("quest-card") && !e.repeat) {
       e.preventDefault(); e.target.click(); return;
+    }
+    /* 図の かくだいは、Esc・Enter でも とじられる */
+    if (!$("#figure-modal").classList.contains("hidden")) {
+      if (e.key === "Escape" || isGo) { e.preventDefault(); closeFigure(); }
+      return;
+    }
+    /* はんいを えらぶ画面は、Esc でも とじられる */
+    if (!$("#scope-modal").classList.contains("hidden")) {
+      if (e.key === "Escape") { e.preventDefault(); closeScopeSelect(); }
+      return;
     }
     /* 擬似言語の記述形式は、Esc でも とじられる（開いている間は、うしろの選択肢を キーで えらばない） */
     if (!$("#notation-modal").classList.contains("hidden")) {
@@ -2938,13 +3103,17 @@ window.addEventListener("DOMContentLoaded", function () {
 
   /* 科目ボタン（エクセルの とう 等）は renderCourseMenu() が作って結線する */
   $("#menu-course-change").onclick = function () { Sound.select(); openCourseSelect(); };
-  $("#menu-review").onclick = function () { Sound.select(); startReview(); };
+  $("#figure-close").onclick = function () { closeFigure(); };
+  $("#figure-modal").onclick = function (e) { if (e.target === this || e.target.id === "figure-img") closeFigure(); };
+  $("#scope-close").onclick = function () { Sound.select(); closeScopeSelect(); };
+  $("#scope-modal").onclick = function (e) { if (e.target === this) closeScopeSelect(); };
+  $("#menu-review").onclick = function () { Sound.select(); enterWithScope("review"); };
   $("#menu-final").onclick = function () {
-    if (!finalUnlocked()) {
+    if (!finalUnlockedAny()) {
       toast("まだ ふういんされている… すべての クエストを クリアせよ！");
       return;
     }
-    Sound.select(); startFinal();
+    Sound.select(); enterWithScope("final");
   };
   $("#menu-expert").onclick = function () {
     if (!save.finalClear) {
@@ -2958,7 +3127,7 @@ window.addEventListener("DOMContentLoaded", function () {
       toast("まだ とびらが ひらかない… クエストを " + ENDLESS_UNLOCK + "つ クリアせよ！");
       return;
     }
-    Sound.select(); startEndless();
+    Sound.select(); enterWithScope("endless");
   };
   $("#menu-exam").onclick = function () { Sound.select(); openExamSelect(); };
   $("#menu-practical").onclick = function () { Sound.select(); openPractical(); };
