@@ -444,8 +444,9 @@ function avatarAltColor(hex) {
   return "#" + f(0) + f(8) + f(4);
 }
 
-/* アバターを canvas に描く（avatar: {hair, hairColor, skin, eyes}、jobKey: しょくぎょう、alt: いろちがいの服） */
-function drawAvatar(canvas, avatar, jobKey, scale, alt) {
+/* アバターを canvas に描く（avatar: {hair, hairColor, skin, eyes}、jobKey: しょくぎょう、alt: いろちがいの服、
+ * weapon: 手に持たせる ぶき（js/items.js の そうび。無ければ 持たない）） */
+function drawAvatar(canvas, avatar, jobKey, scale, alt, weapon) {
   avatar = avatar || {};
   var job = jobDef(jobKey);
   var grid = AVATAR_BODY.map(function (r) { return r.split(""); });
@@ -462,6 +463,13 @@ function drawAvatar(canvas, avatar, jobKey, scale, alt) {
   });
   over(avatarPart("hair", avatar.hair).rows);
   over(job.headgear);
+  /* ぶきは 右手（12〜15列）に重ねる。文字は「w1」などにして、下の色の表で ぶきの色にする */
+  var held = weapon && typeof ITEM_HELD !== "undefined" ? ITEM_HELD[weapon.shape] : null;
+  if (held) {
+    Object.keys(held).forEach(function (y) {
+      held[y].split("").forEach(function (ch, i) { if (ch !== ".") grid[y][12 + i] = "w" + ch; });
+    });
+  }
   var skin = avatarPart("skin", avatar.skin).colors;
   var hair = avatarPart("hairColor", avatar.hairColor).colors;
   var col = {
@@ -470,6 +478,7 @@ function drawAvatar(canvas, avatar, jobKey, scale, alt) {
     A: alt ? avatarAltColor(job.colors[2]) : job.colors[2], P: job.colors[3], X: "#4a3020",
     G: job.headColors ? job.headColors[0] : "#2a2a3a", g: job.headColors ? job.headColors[1] : "#e05252", L: "#7ab0f0"
   };
+  if (held) { col.w1 = weapon.colors[0]; col.w2 = weapon.colors[1]; col.w3 = weapon.colors[2]; }
   canvas.width = AVATAR_W * scale;
   canvas.height = AVATAR_H * scale;
   var ctx = canvas.getContext("2d");
