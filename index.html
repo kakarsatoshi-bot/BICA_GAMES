@@ -77,6 +77,23 @@
       <div class="xptext" id="menu-xptext"></div>
     </div>
 
+    <div class="window missions-box hidden" id="menu-missions">
+      <div class="window-title">📋 きょうの ミッション</div>
+      <div id="missions-list"></div>
+      <p class="menu-goal hidden" id="menu-goal"></p>
+    </div>
+
+    <div class="window messenger hidden" id="menu-messenger">
+      <div class="messenger-headline hidden" id="messenger-headline"></div>
+      <div class="messenger-row">
+        <canvas id="messenger-sprite"></canvas>
+        <div class="messenger-bubble">
+          <div class="messenger-name" id="messenger-name"></div>
+          <div class="messenger-text" id="messenger-text"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="menu-grid" id="menu-grid">
       <!-- 科目のボタン（エクセルの とう・ワードの しろ 等）は js/courses.js の定義から game.js が作る -->
       <button class="btn menu-btn" id="menu-review">
@@ -114,24 +131,6 @@
         <span class="menu-icon">📜</span>ぼうけんの しょ
       </button>
     </div>
-
-    <div class="window missions-box hidden" id="menu-missions">
-      <div class="window-title">📋 きょうの ミッション</div>
-      <div id="missions-list"></div>
-      <p class="menu-goal hidden" id="menu-goal"></p>
-    </div>
-
-    <div class="window messenger hidden" id="menu-messenger">
-      <div class="messenger-headline hidden" id="messenger-headline"></div>
-      <div class="messenger-row">
-        <canvas id="messenger-sprite"></canvas>
-        <div class="messenger-bubble">
-          <div class="messenger-name" id="messenger-name"></div>
-          <div class="messenger-text" id="messenger-text"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- あそぶ場所ではないもの（アバター・ガチャ・ランキング・ぼうけんの しょ）。小さいボタンで下にまとめる（game.js の MENU_SUB） -->
     <div class="menu-sub" id="menu-sub"></div>
     <p class="menu-hint">「ふっかつのほこら」では わすれかけた もんだいと まちがえた もんだいを 復習できるぞ！</p>
