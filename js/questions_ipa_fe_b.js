@@ -75,7 +75,7 @@ var QUEST_DATA_FE_B = {
           id: "FE-2025B-01",
           q: "次のプログラム中の ［ a ］ と ［ b ］ に入れる正しい答えの組合せを，解答群の中から選べ。",
           passage: "関数 function1 が受け取る引数と，関数 function2 が受け取る引数とが同じとき，二つの関数は同じ値を返す。ここで，引数 n と引数 m は正の整数であり，引数 m は引数 n よりも 10 以上大きい数とする。",
-          code: "〔プログラム〕\n○整数型: function1(整数型: n, 整数型: m)\n  整数型: count ← 0\n  整数型: i\n  for (iをnからmまで1ずつ増やす)\n    if ((i mod 4)が0と等しい)\n      count ← count ＋ 1\n    endif\n  endfor\n  return count\n○整数型: function2(整数型: n, 整数型: m)\n  整数型: count ← 0\n  整数型: tempN ← n\n  整数型: i, j\n  for (［ a ］)\n    if ((tempN mod 4)が0と等しい)\n      繰返し処理を終了する\n    endif\n    tempN ← tempN ＋ 1\n  endfor\n  for (［ b ］)\n    count ← count ＋ 1\n  endfor\n  return count",
+          code: "〔プログラム〕\n○整数型: function1(整数型: n, 整数型: m)\n  整数型: count ← 0\n  整数型: i\n  for (iをnからmまで1ずつ増やす)\n    if ((i mod 4)が0と等しい)\n      count ← count ＋ 1\n    endif\n  endfor\n  return count\n\n○整数型: function2(整数型: n, 整数型: m)\n  整数型: count ← 0\n  整数型: tempN ← n\n  整数型: i, j\n  for (［ a ］)\n    if ((tempN mod 4)が0と等しい)\n      繰返し処理を終了する\n    endif\n    tempN ← tempN ＋ 1\n  endfor\n  for (［ b ］)\n    count ← count ＋ 1\n  endfor\n  return count",
           choiceTable: { caption: "解答群", rows: [
             ["", "a", "b"],
             ["ア", "iを1から2まで1ずつ増やす", "jをnから始めてmを超えない範囲でtempNずつ増やす"],
@@ -110,7 +110,7 @@ var QUEST_DATA_FE_B = {
           passage: "関数 push は，引数で与えられた整数をスタックに格納する。格納できた場合は true を返し，格納できなかった場合は false を返す。\n関数 pop は，スタックから値を取り出して返す。スタックが空のときは未定義の値を返す。\nスタックを，要素数が 4 である大域の整数型の配列 stack，及び次に値を格納する位置を示す大域の変数 stackPos で表現する。スタックの初期状態を図に示す。\nプログラムでは，配列の領域外を参照してはならないものとする。",
           figure: "img/fe/2025r07_b03.png",
           figureAlt: "図 スタックの初期状態。配列 stack の要素番号 1 は 4，要素番号 2 は 3，要素番号 3 と 4 は網掛け（未定義）。stackPos は要素番号 3 を指している。注記：網掛けはその要素が未定義であることを示す。",
-          code: "〔プログラム〕\n大域: 整数型: stackPos ← 3\n大域: 整数型の配列: stack ← {4, 3, 未定義の値, 未定義の値}\n○論理型: push(整数型: inputData)\n  if (stackPos ≦ stackの要素数)\n    stack[［ a ］] ← inputData\n    stackPos ← stackPos ＋ 1\n    return true\n  else\n    return false\n  endif\n○整数型: pop()\n  整数型: popData ← 未定義の値\n  if (stackPos ＞ 1)\n    stackPos ← ［ b ］\n    popData ← stack[stackPos]\n    stack[stackPos] ← 未定義の値\n  endif\n  return popData",
+          code: "〔プログラム〕\n大域: 整数型: stackPos ← 3\n大域: 整数型の配列: stack ← {4, 3, 未定義の値, 未定義の値}\n\n○論理型: push(整数型: inputData)\n  if (stackPos ≦ stackの要素数)\n    stack[［ a ］] ← inputData\n    stackPos ← stackPos ＋ 1\n    return true\n  else\n    return false\n  endif\n\n○整数型: pop()\n  整数型: popData ← 未定義の値\n  if (stackPos ＞ 1)\n    stackPos ← ［ b ］\n    popData ← stack[stackPos]\n    stack[stackPos] ← 未定義の値\n  endif\n  return popData",
           choiceTable: { caption: "解答群", rows: [
             ["", "a", "b"],
             ["ア", "stackPos", "stackPos ＋ 1"],
@@ -129,7 +129,7 @@ var QUEST_DATA_FE_B = {
           id: "FE-2025B-04",
           q: "次の記述中の ［　　　］ に入れる正しい答えを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
           passage: "関数 search は，二つの文字型の配列を，それぞれ引数 data 及び key で受け取り，data から，key の要素の並びと同じ並びを全て探し，その先頭の要素番号を全て格納した配列を返す。見つからなければ，要素数 0 の配列を返す。\n関数 search を search({\"a\", \"b\", \"a\", \"b\", \"c\", \"a\", \"b\", \"c\"}, {\"a\", \"b\", \"c\"}) として呼び出すと，/*** β ***/の行の条件式が真となる回数は ［　　　］ 回である。",
-          code: "〔プログラム〕\n/* keyは，要素数1以上の配列である */\n○整数型の配列: search(文字型の配列: data, 文字型の配列: key)\n  整数型: i, j, lenData, lenKey\n  整数型の配列: result ← {} // 要素数0の配列\n  lenData ← dataの要素数\n  lenKey ← keyの要素数\n  /* (lenData － lenKey ＋ 1) が0以下のときは繰返し処理を実行しない */\n  for (i を 1 から (lenData － lenKey ＋ 1) まで 1 ずつ増やす)\n    for (j を 1 から lenKey まで 1 ずつ増やす) // α\n      if (data[i ＋ j － 1] が key[j] と等しい) /*** β ***/\n        if (j が lenKey と等しい)\n          resultの末尾 に iの値 を追加する\n        endif\n      else\n        αの行から始まる繰返し処理を終了する\n      endif\n    endfor\n  endfor\n  return result",
+          code: "〔プログラム〕\n/* keyは，要素数1以上の配列である */\n○整数型の配列: search(文字型の配列: data, 文字型の配列: key)\n  整数型: i, j, lenData, lenKey\n  整数型の配列: result ← {} // 要素数0の配列\n\n  lenData ← dataの要素数\n  lenKey ← keyの要素数\n\n  /* (lenData － lenKey ＋ 1) が0以下のときは繰返し処理を実行しない */\n  for (i を 1 から (lenData － lenKey ＋ 1) まで 1 ずつ増やす)\n    for (j を 1 から lenKey まで 1 ずつ増やす) // α\n      if (data[i ＋ j － 1] が key[j] と等しい) /*** β ***/\n        if (j が lenKey と等しい)\n          resultの末尾 に iの値 を追加する\n        endif\n      else\n        αの行から始まる繰返し処理を終了する\n      endif\n    endfor\n  endfor\n  return result",
           c: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
           a: 7,
           fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
@@ -230,7 +230,7 @@ var QUEST_DATA_FE_B = {
           id: "FE-2026B-03",
           q: "次のプログラム中の ［　　　］ に入れる正しい答えを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
           passage: "関数 func1 に与える引数と，関数 func2 に与える引数とが同じとき，二つの関数は同じ値を返す。プログラムでは，配列の領域外を参照してはならないものとする。",
-          code: "〔プログラム〕\n○整数型: func1(整数型: n)\n  if (nが2以下)\n    return 1\n  endif\n  return 2 × func1(n － 2) ＋ func1(n － 1)\n○整数型: func2(整数型: n)\n  整数型の配列: data ← {1, 1, 1}\n  整数型: i\n  /* nが3より小さいときは繰返し処理を実行しない */\n  for (iを3からnまで1ずつ増やす)\n    data[1] ← data[2]\n    data[2] ← data[3]\n    data[3] ← ［　　　］\n  endfor\n  return data[3]",
+          code: "〔プログラム〕\n○整数型: func1(整数型: n)\n  if (nが2以下)\n    return 1\n  endif\n  return 2 × func1(n － 2) ＋ func1(n － 1)\n\n○整数型: func2(整数型: n)\n  整数型の配列: data ← {1, 1, 1}\n  整数型: i\n\n  /* nが3より小さいときは繰返し処理を実行しない */\n  for (iを3からnまで1ずつ増やす)\n    data[1] ← data[2]\n    data[2] ← data[3]\n    data[3] ← ［　　　］\n  endfor\n  return data[3]",
           c: [
             "2 × data[1] ＋ data[2]",
             "2 × data[2] ＋ data[1]",
@@ -259,7 +259,7 @@ var QUEST_DATA_FE_B = {
               ["", "10", "20", "30", "40"]
             ] }
           ],
-          code: "〔プログラム〕\n大域: 整数型の配列: dataList ← {10, 30, 20, 40, 未定義の値}\n大域: 整数型の配列: pointerList ← {3, 4, 2, 未定義の値, 未定義の値}\n○整数型の配列: orderList()\n  整数型: i, p ← 1\n  整数型の配列: linearList ← {} // 要素数0の配列\n  for (i を 1 から dataListの要素数 まで 1 ずつ増やす)\n    linearListの末尾 に dataList[p]の値 を追加する\n    if (［ a ］ が 未定義)\n      繰返し処理を終了する\n    endif\n    p ← ［ b ］\n  endfor\n  return linearList",
+          code: "〔プログラム〕\n大域: 整数型の配列: dataList ← {10, 30, 20, 40, 未定義の値}\n大域: 整数型の配列: pointerList ← {3, 4, 2, 未定義の値, 未定義の値}\n\n○整数型の配列: orderList()\n  整数型: i, p ← 1\n  整数型の配列: linearList ← {} // 要素数0の配列\n  for (i を 1 から dataListの要素数 まで 1 ずつ増やす)\n    linearListの末尾 に dataList[p]の値 を追加する\n    if (［ a ］ が 未定義)\n      繰返し処理を終了する\n    endif\n    p ← ［ b ］\n  endfor\n  return linearList",
           choiceTable: { caption: "解答群", rows: [
             ["", "a", "b"],
             ["ア", "dataList[p]", "i"],
@@ -278,7 +278,7 @@ var QUEST_DATA_FE_B = {
           id: "FE-2026B-05",
           q: "次のプログラム中の ［ a ］ と ［ b ］ に入れる正しい答えの組合せを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
           passage: "一つの要素だけが 1 で他の要素が 0 であるような整数型の配列による表現を，本問では One-Hot 表現という。関数 oneHotEncoding は，図のように，色の名前が格納されている要素数 1 以上の文字列型の配列を引数として受け取り，配列に含まれる色の名前（図の例では 3 種類）に基づいて，各要素を One-Hot 表現に変換し，整数型配列の配列に格納して返す。関数 oneHotEncoding における変換の例を図に示す。\n\n〔図　関数 oneHotEncoding における変換の例〕\n引数の例：{\"Red\", \"Green\", \"Blue\", \"Red\"}\n　↓\n\"Red\"の One-Hot 表現：{1, 0, 0}\n\"Green\"の One-Hot 表現：{0, 1, 0}\n\"Blue\"の One-Hot 表現：{0, 0, 1}\n　↓\n引数の例に対応する戻り値：{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 0}}",
-          code: "〔プログラム〕\n○整数型配列の配列: oneHotEncoding(文字列型の配列: colors)\n  整数型: i, j, k\n  文字列型の配列: colorVector ← {} // 要素数0の配列\n  整数型の配列: tempVector\n  整数型配列の配列: oneHotVector ← {} // 要素数0の配列\n  /* 名前一覧の作成 */\n  for (i を 1 から colorsの要素数 まで 1 ずつ増やす)\n    if (colorVector の要素のいずれにも colors[i]の値 が格納されていない)\n      colorVectorの末尾 に ［ a ］ を追加する\n    endif\n  endfor\n  /* One-Hot表現への変換 */\n  for (j を 1 から colorsの要素数 まで 1 ずつ増やす)\n    tempVector ← {} // 要素数0の配列\n    for (k を 1 から colorVectorの要素数 まで 1 ずつ増やす)\n      if (［ b ］)\n        tempVectorの末尾 に 1 を追加する\n      else\n        tempVectorの末尾 に 0 を追加する\n      endif\n    endfor\n    oneHotVectorの末尾 に tempVector を追加する\n  endfor\n  return oneHotVector",
+          code: "〔プログラム〕\n○整数型配列の配列: oneHotEncoding(文字列型の配列: colors)\n  整数型: i, j, k\n  文字列型の配列: colorVector ← {} // 要素数0の配列\n  整数型の配列: tempVector\n  整数型配列の配列: oneHotVector ← {} // 要素数0の配列\n\n  /* 名前一覧の作成 */\n  for (i を 1 から colorsの要素数 まで 1 ずつ増やす)\n    if (colorVector の要素のいずれにも colors[i]の値 が格納されていない)\n      colorVectorの末尾 に ［ a ］ を追加する\n    endif\n  endfor\n\n  /* One-Hot表現への変換 */\n  for (j を 1 から colorsの要素数 まで 1 ずつ増やす)\n    tempVector ← {} // 要素数0の配列\n    for (k を 1 から colorVectorの要素数 まで 1 ずつ増やす)\n      if (［ b ］)\n        tempVectorの末尾 に 1 を追加する\n      else\n        tempVectorの末尾 に 0 を追加する\n      endif\n    endfor\n    oneHotVectorの末尾 に tempVector を追加する\n  endfor\n  return oneHotVector",
           choiceTable: { caption: "解答群", rows: [
             ["", "a", "b"],
             ["ア", "colors[i]の値", "colors の要素のいずれかに colorVector[k]の値 が格納されている"],
@@ -383,7 +383,7 @@ var QUEST_DATA_FE_B = {
           id: "FE-2024B-04",
           q: "次の記述中の ［　　　］ に入れる正しい答えを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
           passage: "関数 merge は，昇順に整列された整数型の配列 data1 及び data2 を受け取り，これらを併合してできる昇順に整列された整数型の配列を返す。\n関数 merge を merge({2, 3}, {1, 4}) として呼び出すと，/*** α ***/ の行は ［　　　］。",
-          code: "〔プログラム〕\n○整数型の配列: merge(整数型の配列: data1, 整数型の配列: data2)\n  整数型: n1 ← data1の要素数\n  整数型: n2 ← data2の要素数\n  整数型の配列: work ← {(n1 ＋ n2)個の 未定義の値}\n  整数型: i ← 1\n  整数型: j ← 1\n  整数型: k ← 1\n  while ((i ≦ n1) and (j ≦ n2))\n    if (data1[i] ≦ data2[j])\n      work[k] ← data1[i]\n      i ← i ＋ 1\n    else\n      work[k] ← data2[j]\n      j ← j ＋ 1\n    endif\n    k ← k ＋ 1\n  endwhile\n  while (i ≦ n1)\n    work[k] ← data1[i]\n    i ← i ＋ 1\n    k ← k ＋ 1\n  endwhile\n  while (j ≦ n2)\n    work[k] ← data2[j]   /*** α ***/\n    j ← j ＋ 1\n    k ← k ＋ 1\n  endwhile\n  return work",
+          code: "〔プログラム〕\n○整数型の配列: merge(整数型の配列: data1, 整数型の配列: data2)\n  整数型: n1 ← data1の要素数\n  整数型: n2 ← data2の要素数\n  整数型の配列: work ← {(n1 ＋ n2)個の 未定義の値}\n  整数型: i ← 1\n  整数型: j ← 1\n  整数型: k ← 1\n\n  while ((i ≦ n1) and (j ≦ n2))\n    if (data1[i] ≦ data2[j])\n      work[k] ← data1[i]\n      i ← i ＋ 1\n    else\n      work[k] ← data2[j]\n      j ← j ＋ 1\n    endif\n    k ← k ＋ 1\n  endwhile\n\n  while (i ≦ n1)\n    work[k] ← data1[i]\n    i ← i ＋ 1\n    k ← k ＋ 1\n  endwhile\n\n  while (j ≦ n2)\n    work[k] ← data2[j]   /*** α ***/\n    j ← j ＋ 1\n    k ← k ＋ 1\n  endwhile\n\n  return work",
           c: ["実行されない", "1 回実行される", "2 回実行される", "3 回実行される"],
           a: 1,
           fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
@@ -408,7 +408,7 @@ var QUEST_DATA_FE_B = {
               ["6", "C, E"]
             ] }
           ],
-          code: "〔プログラム〕\n// 注文データ（ここでは表の例を与えている）\n大域: 文字列型配列の配列: orders ← {{\"A\", \"B\", \"D\"}, {\"A\", \"D\"}, {\"A\"},\n                                   {\"A\", \"B\", \"E\"}, {\"B\"}, {\"C\", \"E\"}}\n○putRelatedItem(文字列型: item)\n  文字列型の配列: allItems ← ordersに含まれる文字列を\n                             重複なく辞書順に格納した配列\n                             // 表の例では {\"A\", \"B\", \"C\", \"D\", \"E\"}\n  文字列型の配列: otherItems ← allItemsの複製から値がitemである\n                               要素を除いた配列\n  整数型: i, itemCount ← 0\n  整数型の配列: arrayK ← {otherItemsの要素数個の0}\n  整数型の配列: arrayM ← {otherItemsの要素数個の0}\n  実数型: valueL, maxL ← －∞\n  文字列型の配列: order\n  文字列型: relatedItem\n  for (orderにordersの要素を順に代入する)\n    if (orderのいずれかの要素の値がitemの値と等しい)\n      itemCountの値を1増やす\n    endif\n    for (iを1からotherItemsの要素数まで1ずつ増やす)\n      if (orderのいずれかの要素の値がotherItems[i]の値と等しい)\n        if (orderのいずれかの要素の値がitemの値と等しい)\n          ［ a ］の値を1増やす\n        endif\n        ［ b ］の値を1増やす\n      endif\n    endfor\n  endfor\n  for (iを1からotherItemsの要素数まで1ずつ増やす)\n    valueL ← (arrayM[i] × ［ c ］) ÷ (itemCount × arrayK[i])\n                                  /* 実数として計算する */\n    if (valueLがmaxLより大きい)\n      maxL ← valueL\n      relatedItem ← otherItems[i]\n    endif\n  endfor\n  relatedItemの値とmaxLの値をこの順にコンマ区切りで出力する",
+          code: "〔プログラム〕\n// 注文データ（ここでは表の例を与えている）\n大域: 文字列型配列の配列: orders ← {{\"A\", \"B\", \"D\"}, {\"A\", \"D\"}, {\"A\"},\n                                   {\"A\", \"B\", \"E\"}, {\"B\"}, {\"C\", \"E\"}}\n\n○putRelatedItem(文字列型: item)\n  文字列型の配列: allItems ← ordersに含まれる文字列を\n                             重複なく辞書順に格納した配列\n                             // 表の例では {\"A\", \"B\", \"C\", \"D\", \"E\"}\n\n  文字列型の配列: otherItems ← allItemsの複製から値がitemである\n                               要素を除いた配列\n\n  整数型: i, itemCount ← 0\n  整数型の配列: arrayK ← {otherItemsの要素数個の0}\n  整数型の配列: arrayM ← {otherItemsの要素数個の0}\n  実数型: valueL, maxL ← －∞\n  文字列型の配列: order\n  文字列型: relatedItem\n\n  for (orderにordersの要素を順に代入する)\n    if (orderのいずれかの要素の値がitemの値と等しい)\n      itemCountの値を1増やす\n    endif\n    for (iを1からotherItemsの要素数まで1ずつ増やす)\n      if (orderのいずれかの要素の値がotherItems[i]の値と等しい)\n        if (orderのいずれかの要素の値がitemの値と等しい)\n          ［ a ］の値を1増やす\n        endif\n        ［ b ］の値を1増やす\n      endif\n    endfor\n  endfor\n  for (iを1からotherItemsの要素数まで1ずつ増やす)\n    valueL ← (arrayM[i] × ［ c ］) ÷ (itemCount × arrayK[i])\n                                  /* 実数として計算する */\n    if (valueLがmaxLより大きい)\n      maxL ← valueL\n      relatedItem ← otherItems[i]\n    endif\n  endfor\n  relatedItemの値とmaxLの値をこの順にコンマ区切りで出力する",
           choiceTable: { caption: "解答群", rows: [
             ["", "a", "b", "c"],
             ["ア", "arrayK[i]", "arrayM[i]", "allItemsの要素数"],
@@ -441,6 +441,118 @@ var QUEST_DATA_FE_B = {
           source: "令和6年度 基本情報技術者試験 科目B 公開問題 問6",
           field: "セキュリティ",
           exp: "今は A 社利用クラウドサービスへのログインを社内ネットワークからだけに制限し、利用者 ID とパスワードで認証している。直接接続できるようにすると社外からもログインできるようになり、パスワードが盗まれたときに不正アクセスされるリスクが高まる。そこで社外から接続するときの認証を 2 要素認証にして、パスワードだけではログインできないようにする。アは社内からの通信の監視なので、社外からの直接接続には効かない。イは通信の遅さを悪化させるだけ。エは対象を減らしても、グループウェアへの不正アクセスのリスクは残る。オは情報を私有 PC に保存できるようになり、かえってリスクが増える。"
+        },
+        {
+          id: "FE-2023B-01",
+          q: "次のプログラム中の ［ a ］ と ［ b ］ に入れる正しい答えの組合せを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
+          passage: "関数 findPrimeNumbers は，引数で与えられた整数以下の，全ての素数だけを格納した配列を返す関数である。ここで，引数に与える整数は 2 以上である。",
+          code: "〔プログラム〕\n○整数型の配列: findPrimeNumbers(整数型: maxNum)\n  整数型の配列: pnList ← {} // 要素数0の配列\n  整数型: i, j\n  論理型: divideFlag\n  for (i を 2 から ［ a ］ まで 1 ずつ増やす)\n    divideFlag ← true\n\n    /* iの正の平方根の整数部分が2未満のときは，繰返し処理を実行しない */\n    for (j を 2 から iの正の平方根の整数部分 まで 1 ずつ増やす) // α\n      if (［ b ］)\n        divideFlag ← false\n        αの行から始まる繰返し処理を終了する\n      endif\n    endfor\n    if (divideFlag が true と等しい)\n      pnListの末尾 に iの値 を追加する\n    endif\n  endfor\n  return pnList",
+          choiceTable: { caption: "解答群", rows: [
+            ["", "a", "b"],
+            ["ア", "maxNum", "i ÷ j の余り が 0 と等しい"],
+            ["イ", "maxNum", "i ÷ j の商 が 1 と等しくない"],
+            ["ウ", "maxNum ＋ 1", "i ÷ j の余り が 0 と等しい"],
+            ["エ", "maxNum ＋ 1", "i ÷ j の商 が 1 と等しくない"]
+          ] },
+          c: ["ア", "イ", "ウ", "エ"],
+          a: 0,
+          fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
+          source: "令和5年度 基本情報技術者試験 科目B 公開問題 問1",
+          field: "アルゴリズムとプログラミング",
+          exp: "maxNum 以下の素数を求めるので、i は 2 から maxNum まで調べる（a は maxNum。maxNum ＋ 1 だと maxNum ＋ 1 まで調べてしまう）。2 から i の平方根までの j のどれかで割り切れれば素数ではない。割り切れるとは「i ÷ j の余りが 0」なので、b は「i ÷ j の余り が 0 と等しい」。例：maxNum ＝ 10 なら、4・6・8・10（2 で割り切れる）と 9（3 で割り切れる）が除かれ、{2, 3, 5, 7} になる。商が 1 かどうかは、割り切れるかどうかとは関係がない。"
+        },
+        {
+          id: "FE-2023B-02",
+          q: "次の記述中の ［　　　］ に入れる正しい答えを，解答群の中から選べ。",
+          passage: "次のプログラムにおいて，手続 proc2 を呼び出すと，［　　　］ の順に出力される。",
+          code: "〔プログラム〕\n○proc1()\n  \"A\" を出力する\n  proc3()\n\n○proc2()\n  proc3()\n  \"B\" を出力する\n  proc1()\n\n○proc3()\n  \"C\" を出力する",
+          c: [
+            "“A”，“B”，“B”，“C”",
+            "“A”，“C”",
+            "“A”，“C”，“B”，“C”",
+            "“B”，“A”，“B”，“C”",
+            "“B”，“C”，“B”，“A”",
+            "“C”，“B”",
+            "“C”，“B”，“A”",
+            "“C”，“B”，“A”，“C”"
+          ],
+          a: 7,
+          fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
+          source: "令和5年度 基本情報技術者試験 科目B 公開問題 問2",
+          field: "アルゴリズムとプログラミング",
+          exp: "proc2 は、まず proc3 を呼び出して “C” を出力し、次に “B” を出力し、最後に proc1 を呼び出す。proc1 は “A” を出力してから proc3 を呼び出すので、もう一度 “C” を出力する。出力の順は “C”，“B”，“A”，“C”。呼び出した手続が終わると、呼び出したところの次の行にもどって続きを実行する。"
+        },
+        {
+          id: "FE-2023B-03",
+          q: "次の記述中の ［　　　］ に入れる正しい答えを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
+          passage: "次の手続 sort は，大域の整数型の配列 data の，引数 first で与えられた要素番号から引数 last で与えられた要素番号までの要素を昇順に整列する。ここで，first ＜ last とする。手続 sort を sort(1, 5) として呼び出すと，/*** α ***/ の行を最初に実行したときの出力は“［　　　］”となる。",
+          code: "〔プログラム〕\n大域: 整数型の配列: data ← {2, 1, 3, 5, 4}\n\n○sort(整数型: first, 整数型: last)\n  整数型: pivot, i, j\n  pivot ← data[(first ＋ last) ÷ 2 の商]\n  i ← first\n  j ← last\n\n  while (true)\n    while (data[i] ＜ pivot)\n      i ← i ＋ 1\n    endwhile\n    while (pivot ＜ data[j])\n      j ← j － 1\n    endwhile\n    if (i ≧ j)\n      繰返し処理を終了する\n    endif\n    data[i]とdata[j]の値を入れ替える\n    i ← i ＋ 1\n    j ← j － 1\n  endwhile\n  dataの全要素の値を要素番号の順に空白区切りで出力する   /*** α ***/\n  if (first ＜ i － 1)\n    sort(first, i － 1)\n  endif\n  if (j ＋ 1 ＜ last)\n    sort(j ＋ 1, last)\n  endif",
+          c: ["1 2 3 4 5", "1 2 3 5 4", "2 1 3 4 5", "2 1 3 5 4"],
+          a: 3,
+          fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
+          source: "令和5年度 基本情報技術者試験 科目B 公開問題 問3",
+          field: "アルゴリズムとプログラミング",
+          exp: "pivot ＝ data[(1 ＋ 5) ÷ 2 の商] ＝ data[3] ＝ 3。i は 1 から data[i] ＜ 3 の間進むので、2 と 1 を飛ばして i ＝ 3（値 3）で止まる。j は 5 から 3 ＜ data[j] の間もどるので、4 と 5 を飛ばして j ＝ 3 で止まる。i ≧ j なので入れ替えをせずに繰返しを終わり、最初の出力は data のままの「2 1 3 5 4」。このあと sort(1, 2) と sort(4, 5) が呼ばれ、最後は 1 2 3 4 5 に整列される。"
+        },
+        {
+          id: "FE-2023B-04",
+          q: "次の記述中の ［　　　］ に入れる正しい答えを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
+          passage: "関数 add は，引数で指定された正の整数 value を大域の整数型の配列 hashArray に格納する。格納できた場合は true を返し，格納できなかった場合は false を返す。ここで，整数 value を hashArray のどの要素に格納すべきかを，関数 calcHash1 及び calcHash2 を利用して決める。\n手続 test は，関数 add を呼び出して，hashArray に正の整数を格納する。手続 test の処理が終了した直後の hashArray の内容は，［　　　］ である。",
+          code: "〔プログラム〕\n大域: 整数型の配列: hashArray\n\n○論理型: add(整数型: value)\n  整数型: i ← calcHash1(value)\n  if (hashArray[i] ＝ －1)\n    hashArray[i] ← value\n    return true\n  else\n    i ← calcHash2(value)\n    if (hashArray[i] ＝ －1)\n      hashArray[i] ← value\n      return true\n    endif\n  endif\n  return false\n\n○整数型: calcHash1(整数型: value)\n  return (value mod hashArrayの要素数) ＋ 1\n\n○整数型: calcHash2(整数型: value)\n  return ((value ＋ 3) mod hashArrayの要素数) ＋ 1\n\n○test()\n  hashArray ← {5個の －1}\n  add(3)\n  add(18)\n  add(11)",
+          c: [
+            "{－1, 3, －1, 18, 11}",
+            "{－1, 11, －1, 3, －1}",
+            "{－1, 11, －1, 18, －1}",
+            "{－1, 18, －1, 3, 11}",
+            "{－1, 18, 11, 3, －1}"
+          ],
+          a: 3,
+          fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
+          source: "令和5年度 基本情報技術者試験 科目B 公開問題 問4",
+          field: "アルゴリズムとプログラミング",
+          exp: "hashArray の要素数は 5。add(3)：calcHash1 ＝ (3 mod 5) ＋ 1 ＝ 4 なので、4 番目に 3。add(18)：(18 mod 5) ＋ 1 ＝ 4 は うまっているので、calcHash2 ＝ ((18 ＋ 3) mod 5) ＋ 1 ＝ 2 で、2 番目に 18。add(11)：(11 mod 5) ＋ 1 ＝ 2 は うまっているので、((11 ＋ 3) mod 5) ＋ 1 ＝ 5 で、5 番目に 11。結果は {－1, 18, －1, 3, 11}。"
+        },
+        {
+          id: "FE-2023B-05",
+          q: "次のプログラム中の ［ a ］ と ［ b ］ に入れる正しい答えの組合せを，解答群の中から選べ。ここで，配列の要素番号は 1 から始まる。",
+          passage: "コサイン類似度は，二つのベクトルの向きの類似性を測る尺度である。関数 calcCosineSimilarity は，いずれも要素数が n(n≧1) である実数型の配列 vector1 と vector2 を受け取り，二つの配列のコサイン類似度を返す。配列 vector1 が {a₁, a₂, …, aₙ}，配列 vector2 が {b₁, b₂, …, bₙ} のとき，コサイン類似度は次の数式で計算される。ここで，配列 vector1 と配列 vector2 のいずれも，全ての要素に 0 が格納されていることはないものとする。",
+          figure: "img/fe/2023r05_b05.png",
+          figureAlt: "コサイン類似度の式。分子は a₁b₁ ＋ a₂b₂ ＋ … ＋ aₙbₙ。分母は (a₁² ＋ a₂² ＋ … ＋ aₙ²) の正の平方根と (b₁² ＋ b₂² ＋ … ＋ bₙ²) の正の平方根の積。",
+          code: "〔プログラム〕\n○実数型: calcCosineSimilarity(実数型の配列: vector1,\n                              実数型の配列: vector2)\n  実数型: similarity, numerator, denominator, temp ← 0\n  整数型: i\n  numerator ← 0\n\n  for (i を 1 から vector1の要素数 まで 1 ずつ増やす)\n    numerator ← numerator ＋ ［ a ］\n  endfor\n\n  for (i を 1 から vector1の要素数 まで 1 ずつ増やす)\n    temp ← temp ＋ vector1[i]の2乗\n  endfor\n  denominator ← tempの正の平方根\n\n  temp ← 0\n  for (i を 1 から vector2の要素数 まで 1 ずつ増やす)\n    temp ← temp ＋ vector2[i]の2乗\n  endfor\n  denominator ← ［ b ］\n\n  similarity ← numerator ÷ denominator\n  return similarity",
+          choiceTable: { caption: "解答群", rows: [
+            ["", "a", "b"],
+            ["ア", "(vector1[i] × vector2[i])の正の平方根", "denominator × (tempの正の平方根)"],
+            ["イ", "(vector1[i] × vector2[i])の正の平方根", "denominator ＋ (tempの正の平方根)"],
+            ["ウ", "(vector1[i] × vector2[i])の正の平方根", "tempの正の平方根"],
+            ["エ", "vector1[i] × vector2[i]", "denominator × (tempの正の平方根)"],
+            ["オ", "vector1[i] × vector2[i]", "denominator ＋ (tempの正の平方根)"],
+            ["カ", "vector1[i] × vector2[i]", "tempの正の平方根"],
+            ["キ", "vector1[i]の2乗", "denominator × (tempの正の平方根)"],
+            ["ク", "vector1[i]の2乗", "denominator ＋ (tempの正の平方根)"],
+            ["ケ", "vector1[i]の2乗", "tempの正の平方根"]
+          ] },
+          c: ["ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ"],
+          a: 3,
+          fixedOrder: true, labels: "aiue", instant: true, notation: "fe_pseudo",
+          source: "令和5年度 基本情報技術者試験 科目B 公開問題 問5",
+          field: "アルゴリズムとプログラミング",
+          exp: "分子 a₁b₁ ＋ a₂b₂ ＋ … ＋ aₙbₙ は、同じ番号の要素どうしの積を足したものなので、a は vector1[i] × vector2[i]。分母は 2 つの平方根の積。プログラムでは、先に vector1 の 2 乗の和の平方根を denominator に入れ、そのあと temp に vector2 の 2 乗の和を求めているので、b は denominator × (tempの正の平方根)。足し算（イ・オ・ク）では式と合わず、tempの正の平方根だけ（ウ・カ・ケ）では vector1 の分が消えてしまう。"
+        },
+        {
+          id: "FE-2023B-06",
+          q: "設問　対策が必要であると A 社が評価した情報セキュリティリスクはどれか。解答群のうち，最も適切なものを選べ。",
+          passage: "A 社は，放送会社や運輸会社向けに広告制作ビジネスを展開している。A 社は，人事業務の効率化を図るべく，人事業務の委託を検討することにした。A 社が委託する業務（以下，B 業務という）を図 1 に示す。\n\n〔図1　B 業務〕\n・採用予定者から郵送されてくる入社時の誓約書，前職の源泉徴収票などの書類を PDF ファイルに変換し，ファイルサーバに格納する。\n（省略）\n\n委託先候補の C 社は，B 業務について，次のように A 社に提案した。\n・B 業務だけに従事する専任の従業員を割り当てる。\n・B 業務では，図 2 の複合機のスキャン機能を使用する。\n\n〔図2　複合機のスキャン機能（抜粋）〕\n・スキャン機能を使用する際は，従業員ごとに付与した利用者 ID とパスワードをパネルに入力する。\n・スキャンしたデータを PDF ファイルに変換する。\n・PDF ファイルを従業員ごとに異なる鍵で暗号化して，電子メールに添付する。\n・スキャンを実行した本人宛てに電子メールを送信する。\n・PDF ファイルが大きい場合は，PDF ファイルを添付する代わりに，自社の社内ネットワーク上に設置したサーバ（以下，B サーバという）1)に自動的に保存し，保存先の URL を電子メールの本文に記載して送信する。\n注 1) B サーバにアクセスする際は，従業員ごとの利用者 ID とパスワードが必要になる。\n\nA 社は，C 社と業務委託契約を締結する前に，秘密保持契約を締結した。その後，C 社に質問表を送付し，回答を受けて，業務委託での情報セキュリティリスクの評価を実施した。その結果，図 3 の発見があった。\n\n〔図3　発見事項〕\n・複合機のスキャン機能では，電子メールの差出人アドレス，件名，本文及び添付ファイル名を初期設定 1)の状態で使用しており，誰がスキャンを実行しても同じである。\n・複合機のスキャン機能の初期設定情報はベンダーの Web サイトで公開されており，誰でも閲覧できる。\n注 1) 複合機の初期設定は C 社の情報システム部だけが変更可能である。\n\nそこで，A 社では，初期設定の状態のままでは A 社にとって情報セキュリティリスクがあり，初期設定から変更するという対策が必要であると評価した。",
+          c: [
+            "B 業務に従事する従業員が，攻撃者からの電子メールを複合機からのものと信じて本文中にある URL をクリックし，フィッシングサイトに誘導される。その結果，A 社の採用予定者の個人情報が漏えいする。",
+            "B 業務に従事する従業員が，複合機から送信される電子メールをスパムメールと誤認し，電子メールを削除する。その結果，再スキャンが必要となり，B 業務が遅延する。",
+            "攻撃者が，複合機から送信される電子メールを盗聴し，添付ファイルを暗号化して身代金を要求する。その結果，A 社が復号鍵を受け取るために多額の身代金を支払うことになる。",
+            "攻撃者が，複合機から送信される電子メールを盗聴し，本文に記載されている URL を使って B サーバにアクセスする。その結果，A 社の採用予定者の個人情報が漏えいする。"
+          ],
+          a: 0,
+          fixedOrder: true, labels: "aiue", instant: true,
+          source: "令和5年度 基本情報技術者試験 科目B 公開問題 問6",
+          field: "セキュリティ",
+          exp: "差出人・件名・本文・添付ファイル名が初期設定のままで、その内容がベンダーの Web サイトで公開されているので、攻撃者は複合機からの電子メールとそっくりの偽メールを簡単に作れる。従業員が本物と信じて本文の URL をクリックすると、フィッシングサイトに誘導されて ID・パスワードなどをだまし取られ、採用予定者の個人情報が漏えいするおそれがある（ア）。イはスパムと誤認する話で、初期設定を変える対策とは関係が薄い。ウ・エは盗聴の話だが、添付ファイルは暗号化され、B サーバへのアクセスには ID とパスワードが必要なので、初期設定を変えて防ぐリスクではない。"
         }
       ]
     }
