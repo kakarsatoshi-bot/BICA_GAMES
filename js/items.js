@@ -10,7 +10,7 @@
  *   from   : 手に入れ方 { quest: "クエストid" } 初クリア ／ { level: N } レベル ／ { chest: true } たからばこ ／ { final: true } まおうの城
  *   card   : 解説カード { key: 用語, about: 解説, why: 効果の わけ }
  * ⚠️ key は生徒のセーブに保存される。変えない・消さない（足すのはよい）。
- * 解説は、作り手とは別の確認役（AI）が確かめている（バックアップの方式・ハッシュ・SQL・SWOT・RAID の5件を直した）。
+ * 解説は、作り手とは別の確認役（AI）が確かめている（バックアップの方式・ハッシュ・SQL・SWOT・RAID の5件を直した）。v3.2 で足した そうび4つと セット3つも確認ずみ（2件を直した）。
  * ========================================================= */
 
 var ITEMS = [
@@ -60,6 +60,10 @@ var ITEMS = [
     card: { key: "マクロ", about: "よく行う操作を記録しておき、ボタン1つで くり返し実行できるようにするしくみ。Office では VBA という言語で作られ、マクロを ふくむ Excel ファイルは「.xlsm」で保存する。",
       why: "記録した わざを 一気に くり出す（ひっさつわざの EXP が ふえる）。" } },
 
+  { key: "gantt_staff", slot: "weapon", shape: "staff", name: "ガントチャートの つえ", rarity: "rare", course: "ipa_fe",
+    colors: ["#b0824a", "#7a5528", "#f08c3a"], atk: 15, perks: { bossXp: 2 }, from: { chest: true },
+    card: { key: "ガントチャート", about: "横の軸を時間にして、作業ごとの予定（や実績）を横向きの棒で表した図。いつ どの作業をするか、予定より おくれていないかが、ひと目で わかる。プロジェクトの日程（スケジュール）の管理に使う。",
+      why: "予定を見ながら、しめきり（ボス）に まにあわせる（ボスに正解したときの EXP が ふえる）。" } },
   /* ===== ぼうぐ ===== */
   { key: "firewall_shield", slot: "armor", shape: "shield", name: "ファイアウォールの たて", rarity: "rare", course: "ipa_fe",
     colors: ["#f05252", "#9e2b2b", "#ffd23b"], perks: { heartGuard: 1 }, from: { quest: "FEA5" },
@@ -90,6 +94,14 @@ var ITEMS = [
     card: { key: "スタイル", about: "「見出し1」などの、書式の組み合わせに名前を付けたもの。まとめて適用でき、スタイルを変えると、そのスタイルの文字が全部いっしょに変わる。見出しスタイルは目次にも使われる。",
       why: "まとめて ととのえる → コンボの力（コンボ5以上で ひっさつゲージが たまりやすい）。" } },
 
+  { key: "flowchart_cape", slot: "armor", shape: "cape", name: "流れ図の マント", rarity: "rare", course: "ipa_fe",
+    colors: ["#ffd23b", "#a07f18", "#4f8fe0"], perks: { startGauge: 10 }, from: { quest: "FEB1" },
+    card: { key: "流れ図（フローチャート）", about: "処理の流れを、決まった記号（はじめと終わり・処理・判断など）と線で表した図。どんな処理も「順次（上から順に）・選択（条件で分かれる）・繰返し」の3つの形の組み合わせで表せる。",
+      why: "先に 流れを図にしておく → じゅんび ばんたんで たたかいが はじまる（ひっさつゲージが少し たまった状態で はじまる）。" } },
+  { key: "pdca_armor", slot: "armor", shape: "armor", name: "PDCAの よろい", rarity: "rare", course: "ipa_fe",
+    colors: ["#f08c3a", "#b05a1a", "#ffd23b"], perks: { specialMul: 0.1 }, from: { quest: "FEA7" },
+    card: { key: "PDCA サイクル", about: "計画（Plan）→ 実行（Do）→ 評価（Check）→ 改善（Act）を くり返して、仕事や しくみを少しずつ よくしていく考え方。品質の管理や、情報セキュリティの管理（ISMS）などでも使われる。",
+      why: "ふりかえって改善を くり返す → わざが みがかれる（ひっさつわざの EXP が ふえる）。" } },
   /* ===== アクセサリー ===== */
   { key: "cache_ring", slot: "accessory", shape: "ring", name: "キャッシュの ゆびわ", rarity: "rare", course: "ipa_fe",
     colors: ["#ffd23b", "#a07f18", "#4ae0e0"], perks: { startGauge: 15 }, from: { quest: "FEA2" },
@@ -130,7 +142,11 @@ var ITEMS = [
   { key: "undo_amulet", slot: "accessory", shape: "amulet", name: "Ctrl+Zの おまもり", rarity: "super", course: "mos",
     colors: ["#ffd23b", "#a07f18", "#f05252"], perks: { heartGuard: 1 }, from: { chest: true },
     card: { key: "元に戻す（Ctrl＋Z）", about: "直前の操作を取り消して、前の状態に もどす機能。取り消した操作を もう一度やるのは「やり直し」（Ctrl＋Y）。",
-      why: "まちがいを1回とりけす（1回、まちがえても ♥が へらない）。" } }
+      why: "まちがいを1回とりけす（1回、まちがえても ♥が へらない）。" } },
+  { key: "trace_glasses", slot: "accessory", shape: "glasses", name: "トレースの めがね", rarity: "rare", course: "ipa_fe",
+    colors: ["#2a2a3a", "#141423", "#ffd23b"], perks: { gaugeOnMiss: 4 }, from: { chest: true },
+    card: { key: "トレース", about: "プログラムを1行ずつ たどりながら、変数の値が どう変わるかを、表などに書いて確かめること。科目B の 擬似言語の問題を解くときの、基本の方法。",
+      why: "1行ずつ たどれば、どこで まちがえたか わかる（まちがえても ひっさつゲージが たまる）。" } }
 ];
 
 /* アイコンの形（10×10）。1=本体 2=かげ 3=アクセント W=白 B=りんかく */
@@ -207,7 +223,22 @@ var ITEM_SETS = [
     glow: "#9fd2ff", perks: { reviewXp: 1.15 },
     card: { key: "Word の文書づくりの わざ",
       about: "スタイル（見出しなどの書式をまとめて ととのえる）と 変更履歴（だれが どこを直したかを記録する）は、長い文書を作ったり、ほかの人と いっしょに直したりするときに役立つ Word の機能。",
-      why: "書式を ととのえ、直したあとを ふりかえる（復習の EXP が ふえる）。" } }
+      why: "書式を ととのえ、直したあとを ふりかえる（復習の EXP が ふえる）。" } },
+  { key: "algo", name: "アルゴリズム セット", pieces: ["sort_spear", "flowchart_cape", "trace_glasses"],
+    glow: "#ffd23b", perks: { comboKeep: 1 },
+    card: { key: "アルゴリズムの基本",
+      about: "アルゴリズムは、問題を解くための 手順。流れ図で 手順を表し、整列（ソート）などの 決まった手順を おぼえ、トレースで 1行ずつ 動きを確かめる。科目B では、擬似言語で書かれた プログラムを読んで、トレースで 答えを確かめる力が よく問われる。",
+      why: "決まった手順どおりに 進めば、まよわない（1回、まちがえても コンボが半分のこる）。" } },
+  { key: "mgmt", name: "マネジメント セット", pieces: ["gantt_staff", "pdca_armor", "wbs_book"],
+    glow: "#f08c3a", perks: { missionXp: 5 },
+    card: { key: "プロジェクトと仕事の管理",
+      about: "WBS で 作業を細かく分け、ガントチャートで 日程を管理し、PDCA サイクルで ふりかえって改善する。どれも、仕事や プロジェクトを うまく進めるための 考え方や道具。WBS と ガントチャートは 科目A の プロジェクトマネジメントで、PDCA は マネジメントや 経営・セキュリティの分野で よく出る。",
+      why: "分けて・日程を立てて・ふりかえる → 目標を達成しやすい（ミッション たっせいの EXP が ふえる）。" } },
+  { key: "fault", name: "しょうがい たいさく セット", pieces: ["backup_cape", "log_book"],
+    glow: "#a6b8ff", perks: { regen: 1 },
+    card: { key: "障害への そなえ",
+      about: "バックアップを とっておけば、データが こわれたり消えたりしても もとにもどせる。ログ（記録）を残しておけば、何が起きたのか、あとから原因を調べられる（データベースでは、バックアップと 更新の ログを組み合わせて、こわれる直前の状態まで もどすことも できる）。故障や事故に そなえて、もとにもどす しくみと、原因を調べる しくみの両方を用意しておくことが大切。",
+      why: "こわれても もとにもどして、たてなおす（1回、3問つづけて正解すると ♥が1つ回復）。" } }
 ];
 function setDef(key) {
   for (var i = 0; i < ITEM_SETS.length; i++) if (ITEM_SETS[i].key === key) return ITEM_SETS[i];

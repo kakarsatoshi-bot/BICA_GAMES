@@ -16,6 +16,8 @@ var MEDAL_DUP = 10;                  // もっている カード・髪の色が
 var STAMP_REWARDS = [10, 15, 20, 25, 30, 40, 60];
 /* ガチャの めずらしさの確率（合計 1） */
 var GACHA_RATES = { super: 0.05, rare: 0.25, normal: 0.70 };
+/* 天井：スーパーが 出ないまま この回数に なったら、かならず スーパー（1回 5% なので ふつうは 20回に1回くらい） */
+var GACHA_PITY = 30;
 
 /* 用語カード。field は IPA の問題の分野（確認クイズに使う）、quest は MOS のクエスト id（同じく） */
 var GACHA_CARDS = [

@@ -955,3 +955,96 @@ html.fx-low canvas.set-glow { filter: drop-shadow(0 0 2px var(--glow, #ffd23b));
 .set-pieces { font-size: 12px; color: #9a9ac0; margin-top: 2px; }
 .ranking-avatar { image-rendering: pixelated; flex-shrink: 0; }
 .ranking-job { font-size: 12px; color: #7ab0f0; margin-top: 2px; }
+
+/* ===== まなびガチャの演出（js/gacha_fx.js） ===== */
+.gacha-pity { margin: 2px 0 6px; color: var(--key); font-size: 15px; }
+.gfx { position: fixed; inset: 0; z-index: 94; background: #05060d; color: #d8ffe0; display: flex; align-items: center; justify-content: center;
+  padding: 16px; overflow-x: hidden; overflow-y: auto; cursor: pointer; --tier: #d7dbe3; }
+.gfx.tier-rare { --tier: #6ea8ff; }
+.gfx.tier-super { --tier: #ffd23b; }
+.gfx::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px); }
+.gfx-rain { position: absolute; inset: 0; pointer-events: none; opacity: .28; }
+.gfx-rain-col { position: absolute; top: -60%; writing-mode: vertical-rl; font-size: 14px; letter-spacing: 4px; color: var(--tier);
+  animation: gfxRain linear infinite; text-shadow: 0 0 6px var(--tier); }
+@keyframes gfxRain { to { transform: translateY(170vh); } }
+html.fx-low .gfx-rain-col { animation-duration: 12s !important; }
+.gfx-body { position: relative; z-index: 1; width: 100%; max-width: 640px; }
+.gfx-skip { position: absolute; top: 12px; right: 12px; z-index: 2; background: rgba(0,0,0,.6); color: #fff; border: 2px solid #fff;
+  font: inherit; font-size: 14px; padding: 6px 12px; cursor: pointer; }
+.gfx-term { border: 2px solid var(--tier); background: rgba(0,10,4,.85); padding: 12px 14px; box-shadow: 0 0 18px rgba(0,0,0,.6), inset 0 0 20px rgba(0,0,0,.6);
+  font-size: 15px; line-height: 1.5; transition: border-color .3s; }
+.gfx-term-title { color: var(--tier); margin-bottom: 6px; transition: color .3s; }
+.gfx-line { color: #b6ffc8; white-space: pre-wrap; word-break: break-all; }
+.gfx-prompt { color: var(--tier); }
+.gfx-ok { color: #6ef08c; }
+.gfx-sub { color: #8fa3b8; font-size: 12px; margin: 0 0 6px 1.2em; }
+.gfx-dl { margin-top: 12px; text-align: center; }
+.gfx-dl-label { font-size: 15px; margin-bottom: 6px; }
+.gfx-leds { display: flex; justify-content: center; gap: 10px; margin-bottom: 8px; }
+.gfx-led { width: 22px; height: 22px; border: 2px solid #3a3f55; background: #11131d; }
+.gfx-led.on { animation: gfxPop .25s steps(3); }
+.gfx-led.r-normal { background: #d7dbe3; box-shadow: 0 0 6px #d7dbe3; }
+.gfx-led.r-rare { background: #6ea8ff; box-shadow: 0 0 10px #6ea8ff; }
+.gfx-led.r-super { background: #ffd23b; box-shadow: 0 0 14px #ffd23b, 0 0 4px #fff; }
+.gfx-bar { height: 18px; border: 2px solid var(--tier); background: #0b0d16; transition: border-color .3s; }
+.gfx-bar-fill { height: 100%; width: 0; background: var(--tier); box-shadow: 0 0 12px var(--tier); transition: background .3s; }
+.gfx-pct { margin-top: 4px; font-size: 14px; color: var(--tier); }
+.gfx-upgrade { margin-top: 8px; color: var(--tier); font-size: 18px; text-shadow: 0 0 8px var(--tier); animation: gfxPop .3s steps(3); }
+.gfx-reveal { text-align: center; }
+.gfx-count { font-size: 14px; color: #8fa3b8; }
+.gfx-decode-label { color: var(--tier); font-size: 15px; margin-bottom: 6px; }
+.gfx.revealed .gfx-decode-label { visibility: hidden; }
+.gfx-stage { position: relative; width: 180px; height: 180px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+.gfx-icon { position: relative; z-index: 1; width: 120px; height: 120px; image-rendering: pixelated; }
+.gfx.revealed .gfx-icon { animation: gfxIcon .5s steps(5); filter: drop-shadow(0 0 8px var(--tier)); }
+.gfx-rays { position: absolute; inset: -40px; opacity: 0; border-radius: 50%; }
+.gfx.tier-rare.revealed .gfx-rays, .gfx.tier-super.revealed .gfx-rays { opacity: .55;
+  background: repeating-conic-gradient(from 0deg, var(--tier) 0deg 8deg, transparent 8deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); mask: radial-gradient(circle, #000 20%, transparent 70%);
+  animation: gfxSpin 6s linear infinite; }
+.gfx.tier-super.revealed .gfx-rays { opacity: .85; animation-duration: 3s; }
+html.fx-low .gfx-rays { animation: none !important; }
+@keyframes gfxSpin { to { transform: rotate(360deg); } }
+@keyframes gfxPop { 0% { transform: scale(.4); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes gfxIcon { 0% { transform: scale(.2) rotate(-20deg); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+.gfx-rarity { font-size: 22px; margin-top: 4px; animation: gfxPop .35s steps(3); }
+.gfx-rarity.r-normal { color: #d7dbe3; }
+.gfx-rarity.r-rare { color: #6ea8ff; text-shadow: 0 0 8px #6ea8ff; }
+.gfx-rarity.r-super { color: #ffd23b; font-size: 30px; text-shadow: 0 0 10px #ffd23b, 2px 2px 0 #a0400f; letter-spacing: 2px; }
+.gfx-name { font-size: 26px; color: #fff; margin: 4px 0 8px; min-height: 1.3em; word-break: break-all; font-family: inherit; }
+.gfx.revealed .gfx-name { color: var(--tier); text-shadow: 0 0 8px var(--tier); }
+.gfx-hint { border: 2px dashed #3a3f55; background: rgba(10,12,22,.85); padding: 8px 12px; text-align: left; font-size: 14px; line-height: 1.6; }
+.gfx-hint-h { color: #6ee7ff; margin-bottom: 2px; }
+.gfx-hint-t { color: #cfd6e4; }
+.gfx-after { margin-top: 10px; min-height: 64px; }
+.gfx-note { font-size: 14px; color: #cfd6e4; margin-bottom: 6px; }
+.gfx-go { width: auto; min-width: 240px; margin: 0 auto; }
+@media (max-width: 480px) {
+  .gfx { align-items: flex-start; padding-top: 52px; }
+  .gfx-term { font-size: 13px; }
+  .gfx-name { font-size: 22px; }
+  .gfx-stage { width: 150px; height: 150px; }
+  .gfx-icon { width: 100px; height: 100px; }
+}
+
+/* ===== 読みやすい日本語の折り返し（js/jptext.js が ことばの切れ目に <wbr> を入れる） ===== */
+.jp { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+#battle-msg { line-height: 1.65; }
+#battle-msg .msg-nl { display: none; }
+#battle-msg .msg-tip { margin-top: 8px; padding: 6px 10px 7px; border-left: 4px solid #6ee7ff; background: rgba(110, 231, 255, .08); line-height: 1.75; }
+#battle-msg .msg-tip-miss { border-left-color: #ffd23b; background: rgba(255, 210, 59, .08); }
+#battle-msg .msg-label { display: block; font-size: 0; line-height: 1; margin-bottom: 4px; }
+#battle-msg .msg-label::before { content: "📘 まめちしき"; font-size: 13px; color: #6ee7ff; letter-spacing: 1px; }
+#battle-msg .msg-tip-miss .msg-label::before { content: "📖 かいせつ"; color: #ffd23b; }
+#battle-msg .msg-answer { color: #6ef08c; margin-top: 4px; }
+#battle-msg .msg-note { font-size: .88em; color: #ffd23b; margin-top: 4px; }
+kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px solid #9fb0d0; border-bottom-width: 3px; border-radius: 3px;
+  background: #1d2133; color: #fff; font: inherit; font-size: .92em; line-height: 1.35; white-space: nowrap; vertical-align: 1px; }
+.card-text.jp { line-height: 1.75; }
+.jp .nobr { white-space: nowrap; }
+@media (max-width: 480px) {
+  #battle-msg { line-height: 1.55; }
+  #battle-msg .msg-tip { margin-top: 6px; padding: 4px 8px 5px; line-height: 1.6; }
+  #battle-msg .msg-label { margin-bottom: 2px; }
+}
