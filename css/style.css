@@ -944,3 +944,14 @@ html.fx-low #battle-avatar { animation: none !important; }
 #hotspot-stage .ribbon-groups { padding-bottom: 30px; }
 #screen-battle .battle-stage.hotspot-mode { height: 290px; }
 @media (max-width: 600px) { #screen-battle .battle-stage.hotspot-mode { height: 230px; } }
+/* セット */
+canvas.set-glow { filter: drop-shadow(0 0 2px var(--glow, #ffd23b)) drop-shadow(0 0 6px var(--glow, #ffd23b)); }
+html.fx-low canvas.set-glow { filter: drop-shadow(0 0 2px var(--glow, #ffd23b)); }
+.set-list { display: flex; flex-direction: column; gap: 0; }
+.set-row { margin: 4px 0; padding: 10px 14px; cursor: pointer; }
+.set-row:hover, .set-row:focus { border-color: var(--key); }
+.set-row.is-done { border-color: var(--accent); }
+.set-name { font-size: 15px; }
+.set-pieces { font-size: 12px; color: #9a9ac0; margin-top: 2px; }
+.ranking-avatar { image-rendering: pixelated; flex-shrink: 0; }
+.ranking-job { font-size: 12px; color: #7ab0f0; margin-top: 2px; }

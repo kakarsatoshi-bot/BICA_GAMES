@@ -189,3 +189,27 @@ function drawItemIcon(canvas, item, scale, silhouette) {
     }
   }
 }
+
+/* ---------- セット（同じシリーズの そうびを ぜんぶ そうびすると、アバターが光り、セットの効果がつく） ----------
+ * セットの効果も、ボスに必要な正解の数は変えない。もぎけんていでは効かない。解説は確認役が確かめている。 */
+var ITEM_SETS = [
+  { key: "cia", name: "CIA セット（情報セキュリティの3要素）", pieces: ["encrypt_armor", "hash_sword", "redundancy_pendant"],
+    glow: "#6ee7ff", perks: { heartGuard: 1 },
+    card: { key: "情報セキュリティの3要素（CIA）",
+      about: "情報セキュリティでは、機密性（Confidentiality：見てよい人だけが見られる）・完全性（Integrity：まちがいや改ざんが無い）・可用性（Availability：使いたいときに使える）の3つを守ることが大切とされる。頭文字をとって CIA という。暗号化は機密性、ハッシュによる改ざんの検出は完全性、冗長化は可用性を守る方法。",
+      why: "3つの要素が そろうと、守りが かたくなる（1回、まちがえても ♥が へらない）。" } },
+  { key: "excel", name: "エクセル マスター セット", pieces: ["autosum_axe", "absref_shield", "filter_ring"],
+    glow: "#6ef08c", perks: { gaugeCombo: 4 },
+    card: { key: "Excel の基本の わざ",
+      about: "オートSUM（すばやく合計する）・絶対参照（コピーしても参照がずれない）・フィルター（必要な行だけ表示する）は、表の計算とデータの整理で よく使う Excel の基本の機能。",
+      why: "計算・参照・整理の わざが そろうと、つぎつぎ れんけいできる（コンボ5以上で ひっさつゲージが たまりやすい）。" } },
+  { key: "word", name: "ワードの たつじん セット", pieces: ["style_cape", "track_book"],
+    glow: "#9fd2ff", perks: { reviewXp: 1.15 },
+    card: { key: "Word の文書づくりの わざ",
+      about: "スタイル（見出しなどの書式をまとめて ととのえる）と 変更履歴（だれが どこを直したかを記録する）は、長い文書を作ったり、ほかの人と いっしょに直したりするときに役立つ Word の機能。",
+      why: "書式を ととのえ、直したあとを ふりかえる（復習の EXP が ふえる）。" } }
+];
+function setDef(key) {
+  for (var i = 0; i < ITEM_SETS.length; i++) if (ITEM_SETS[i].key === key) return ITEM_SETS[i];
+  return null;
+}
