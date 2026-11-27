@@ -31,7 +31,7 @@ const SHOOT = new Set(["FE-2025A-03", "FE-2025A-06", "FE-2025A-14", "FE-2025A-19
   "FE-2026A-01", "FE-2026A-06", "FE-2026A-07", "FE-2026A-14", "FE-2026A-17",
   "FE-2024A-01", "FE-2024A-03", "FE-2024A-13", "FE-2024A-19",
   "FE-2023A-02", "FE-2023A-06", "FE-2023A-10", "FE-2023A-11", "FE-2023A-13",
-  "FE-2025B-01", "FE-2025B-03", "FE-2025B-05", "FE-2025B-06"]);   // 図・表・SQL・プログラムのある問題
+  "FE-2025B-01", "FE-2025B-03", "FE-2025B-05", "FE-2025B-06", "FE-2026B-02", "FE-2026B-04", "FE-2026B-05", "FE-2026B-06"]);   // 図・表・SQL・プログラムのある問題
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".svg": "image/svg+xml", ".json": "application/json", ".webp": "image/webp", ".ico": "image/x-icon" };
