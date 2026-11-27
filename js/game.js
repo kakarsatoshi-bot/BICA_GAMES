@@ -918,6 +918,70 @@ function setEnemyAnim(name) {
   c.className = name + (battle && battle.isShiny ? " shiny" : "") + (battle && battle.isRare ? " rare" : "");
   if (hid) c.classList.add("hidden");
 }
+/* 画面問題の番号を置く。番号で ボタンを かくさないように：
+ * ・ねらいの ボタンは点線の わくで かこむ（中は見える）
+ * ・番号は ボタンのまわりの候補（下・上・右・左・ななめ・もう1段はなれた所）から、
+ *   ほかのボタンや番号に いちばん重ならない場所をえらび、ボタンのふちと線で つなぐ */
+var HS_BADGE = 20;
+function placeHotspotBadges(box, markers) {
+  var bRect = box.getBoundingClientRect();
+  function rel(el) {
+    var r = el.getBoundingClientRect();
+    return { left: r.left - bRect.left, top: r.top - bRect.top, right: r.right - bRect.left, bottom: r.bottom - bRect.top };
+  }
+  var hard = Array.prototype.map.call(box.querySelectorAll(".ribbon-btn, .ribbon-mini, .ribbon-select, .ribbon-btn-wide"), rel);
+  var soft = Array.prototype.map.call(box.querySelectorAll(".ribbon-tabs span, .ribbon-caption, .ribbon-titlebar, .ribbon-formula-bar, .ribbon-doc-line"), rel);
+  var W = box.clientWidth, H = box.clientHeight, half = HS_BADGE / 2;
+  function overlap(a, b) {
+    var w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    return w > 0 && h > 0 ? w * h : 0;
+  }
+  var badges = [];
+  markers.forEach(function (m) {
+    var el = box.querySelector('[data-region="' + m.target + '"]');
+    if (!el) return;
+    var r = rel(el), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2, g = half + 5;
+    var cands = [[cx, r.bottom + g], [cx, r.top - g], [r.right + g, cy], [r.left - g, cy],
+      [r.right + g - 4, r.bottom + g - 4], [r.left - g + 4, r.bottom + g - 4], [r.right + g - 4, r.top - g + 4], [r.left - g + 4, r.top - g + 4],
+      [cx, r.bottom + g + 24], [cx, r.top - g - 24], [r.right + g + 24, cy], [r.left - g - 24, cy]];
+    var best = null;
+    cands.forEach(function (c, k) {
+      var br = { left: c[0] - half, top: c[1] - half, right: c[0] + half, bottom: c[1] + half };
+      var score = k * 0.5;   /* 近い候補ほど 少し よい */
+      if (br.left < 2 || br.top < 2 || br.right > W - 2 || br.bottom > H - 2) score += 100000;
+      hard.forEach(function (h) { score += overlap(br, h) * 20; });
+      badges.forEach(function (b) { score += overlap(br, b) * 40; });
+      soft.forEach(function (s2) { score += overlap(br, s2) * 2; });
+      if (!best || score < best.score) best = { score: score, x: c[0], y: c[1], rect: br };
+    });
+    badges.push(best.rect);
+    /* わく */
+    var frame = document.createElement("span");
+    frame.className = "hotspot-frame";
+    frame.style.left = (r.left - 2) + "px";
+    frame.style.top = (r.top - 2) + "px";
+    frame.style.width = (r.right - r.left + 4) + "px";
+    frame.style.height = (r.bottom - r.top + 4) + "px";
+    /* 線：ボタンのふちの いちばん近い点 から 番号の中心へ */
+    var px = Math.max(r.left, Math.min(best.x, r.right)), py = Math.max(r.top, Math.min(best.y, r.bottom));
+    var dx = best.x - px, dy = best.y - py, len = Math.sqrt(dx * dx + dy * dy) - half;
+    var line = document.createElement("span");
+    line.className = "hotspot-leader";
+    line.style.left = px + "px";
+    line.style.top = py + "px";
+    line.style.width = Math.max(0, len) + "px";
+    line.style.transform = "rotate(" + Math.atan2(dy, dx) + "rad)";
+    var badge = document.createElement("span");
+    badge.className = "hotspot-badge";
+    badge.textContent = m.n;
+    badge.style.left = best.x + "px";
+    badge.style.top = best.y + "px";
+    box.appendChild(frame);
+    if (len > 1) box.appendChild(line);
+    box.appendChild(badge);
+  });
+}
+
 /* 戦闘画面のアバター（こうげきで はねる・まちがいで ゆれる） */
 function avatarAnim(name) {
   var c = $("#battle-avatar");
@@ -1435,16 +1499,16 @@ function renderQuestionVisual(q) {
 
     var mockup = RIBBON_MOCKUPS[q.ui];
     mockup.render(hotspotBox);
-    q.markers.forEach(function (m) {
-      var pos = ribbonMarkerPosition(hotspotBox, m.target);
-      if (!pos) return;
-      var badge = document.createElement("span");
-      badge.className = "hotspot-badge";
-      badge.textContent = m.n;
-      badge.style.left = pos.x + "px";
-      badge.style.top = pos.y + "px";
-      hotspotBox.appendChild(badge);
-    });
+    /* せまい画面では、画面の絵が はみ出して ボタンが見えなくならないよう、はばに合わせて ちぢめる */
+    var mock = hotspotBox.querySelector(".ribbon-mock");
+    if (mock && mock.scrollWidth > hotspotBox.clientWidth + 1) {
+      var k = hotspotBox.clientWidth / mock.scrollWidth;
+      mock.style.width = mock.scrollWidth + "px";
+      mock.style.height = (hotspotBox.clientHeight / k) + "px";
+      mock.style.transform = "scale(" + k + ")";
+      mock.style.transformOrigin = "0 0";
+    }
+    placeHotspotBadges(hotspotBox, q.markers);
   } else {
     hotspotBox.classList.add("hidden");
     hotspotBox.innerHTML = "";
