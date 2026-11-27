@@ -679,7 +679,7 @@ textarea:focus { border-color: var(--key); outline: none; }
 .choice-label { display: inline-block; min-width: 2em; color: var(--accent); font-weight: bold; }
 .choice-label-block { display: inline; }
 .choice-label-block::after { content: "\A"; white-space: pre; }   /* 記号のあとで改行（「1. ア」は1行目のまま） */
-.battle-source { font-size: 11px; color: #9a9ac0; margin-bottom: 4px; }
+.battle-source { font-size: 11px; color: #9a9ac0; margin: 8px 2px 0; }
 .battle-timer { color: var(--white); font-size: 14px; white-space: nowrap; }
 .battle-timer.low { color: var(--danger); }
 .battle-stage.passage-mode { height: 130px; }
@@ -714,10 +714,14 @@ textarea:focus { border-color: var(--key); outline: none; }
   margin: 6px 0 0;
 }
 
-/* はんい（科目A／科目B／A＋B）の選択 */
-.scope-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 12px; color: #9a9ac0; }
-.scope-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
-.scope-btn.is-current { border-color: var(--key); color: var(--key); }
+/* はんい（科目A／科目B／A＋B）を えらぶ画面 */
+.scope-window { width: 100%; max-width: 440px; margin: 0; }
+.scope-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.scope-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; margin: 0; }
+.scope-btn.is-last { border-color: var(--key); }
+.scope-name { font-size: 16px; }
+.scope-status { font-size: 12px; color: #9a9ac0; }
+.scope-btn:disabled { opacity: .55; cursor: default; }
 /* 記号だけの選択肢（図や表の中から選ぶ問題）は横に並べる */
 .choices.fixed.label-only { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
 .choices.fixed.label-only .choice { min-height: 0; text-align: center; }
@@ -739,4 +743,96 @@ textarea:focus { border-color: var(--key); outline: none; }
   .choice { min-height: 0; }
   .battle-stage { height: 180px; }
   .mastery-label { width: 110px; }
+}
+
+/* ---------- 図の かくだい ---------- */
+.passage-figure { cursor: zoom-in; }
+.figure-window { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 96vw; max-height: 94vh; }
+#figure-img { display: block; max-width: 96vw; max-height: calc(94vh - 48px); width: auto; height: auto; background: #fff; border-radius: 4px; cursor: zoom-out; }
+.figure-window .btn { width: auto; margin: 0; }
+
+/* ---------- 戦闘画面の並び（モンスターが問題を出す形） ----------
+ * 1段目：「モンスター（とクイック・ひっさつ）｜問題文のふきだし」
+ * 2段目：PC は「図・表・プログラム｜解答群・選択肢・出典」（左右それぞれ スクロール）。
+ *        せまい画面は 図など → 解答群 → 選択肢 → 出典 を たてに並べる。
+ * juice.css（あとから読む）の .battle-meters などより強くするため、#screen-battle を付ける */
+#screen-battle .battle-hud { margin: 0 0 2px; }
+#screen-battle .battle-xp { margin: 0 0 4px; }
+#screen-battle .battle-xp .xpbar { height: 6px; }
+#screen-battle .battle-head {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 4px;
+}
+/* 画面問題（MOS のリボン）は、画面の絵が大きいので1段目を たてに並べる */
+#screen-battle .battle-head:has(.battle-stage.hotspot-mode) { grid-template-columns: minmax(0, 1fr); }
+#screen-battle .battle-monster { display: flex; flex-direction: column; min-width: 0; }
+#screen-battle .battle-stage,
+#screen-battle .battle-stage.passage-mode { height: 150px; }
+#screen-battle .battle-stage.hotspot-mode { height: 260px; }
+#screen-battle #enemy-canvas { height: 84px; width: auto; }
+#screen-battle .nametag { margin-top: 2px; font-size: 11px; padding: 0 8px; }
+#screen-battle .battle-meters { flex-direction: column; gap: 4px; margin-top: 4px; }
+#screen-battle .battle-meters > div { flex: none; }
+#screen-battle .msg-window { margin: 0; min-height: 0; padding: 10px 14px 28px; align-self: stretch; }
+#screen-battle .msg-window::before {   /* ふきだしの しっぽ（モンスターのほうを向く） */
+  content: "";
+  position: absolute;
+  left: -19px; top: 44px;
+  border: 9px solid transparent;
+  border-right: 12px solid var(--white);
+  border-left: 0;
+}
+#screen-battle .battle-head:has(.battle-stage.hotspot-mode) .msg-window::before { display: none; }
+#screen-battle .battle-body { margin-top: 12px; }
+#screen-battle .battle-passage { max-height: none; overflow: visible; margin: 0 0 8px; padding: 10px 12px; }
+#screen-battle .battle-ctable { margin: 0 0 8px; }
+#screen-battle .passage-figure { max-height: 38vh; width: auto; max-width: 100%; }
+#screen-battle .choice { min-height: 0; padding: 8px 10px; }
+#screen-battle .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr 1fr; }   /* 短い選択肢は2列 */
+
+@media (min-width: 900px) {
+  .in-battle.wide-battle #app { max-width: 1240px; }   /* 図・表・プログラムのある戦闘だけ（js の beginBattle） */
+  #screen-battle .battle-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+  #screen-battle .battle-body.no-side { grid-template-columns: minmax(0, 1fr); }
+  #screen-battle .battle-body.no-side .battle-side { display: none; }
+  #screen-battle .battle-side,
+  #screen-battle .battle-main {
+    /* 画面の高さが低いときも、選択肢が見えなくならないように 320px は残す（そのときは ページごと スクロール） */
+    max-height: max(320px, calc(100vh - var(--battle-top-h, 260px) - 36px));
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  #screen-battle .battle-side .battle-passage { margin: 0; }
+  #screen-battle .passage-figure { max-height: max(260px, calc(100vh - var(--battle-top-h, 260px) - 80px)); }
+}
+@media (max-width: 899px) {
+  #screen-battle .battle-body { display: flex; flex-direction: column; }
+}
+/* スマホ：小さいモンスター｜問題文 */
+@media (max-width: 600px) {
+  #screen-battle .battle-head { grid-template-columns: 100px minmax(0, 1fr); gap: 12px; }
+  #screen-battle .battle-stage,
+  #screen-battle .battle-stage.passage-mode { height: 96px; border-width: 3px; }
+  #screen-battle .battle-stage.hotspot-mode { height: 200px; }
+  #screen-battle #enemy-canvas { height: 52px; }
+  #screen-battle .nametag { font-size: 10px; padding: 0 4px; white-space: nowrap; max-width: 94px; overflow: hidden; text-overflow: ellipsis; }
+  #screen-battle .quick-bar, #screen-battle .special-gauge { height: 14px; }
+  #screen-battle .meter-label { font-size: 9px; }
+  #screen-battle .msg-window { padding: 8px 10px 24px; }
+  #screen-battle .msg-window::before { top: 30px; }
+  #screen-battle #battle-msg { font-size: 14px; }
+  #screen-battle .battle-passage { padding: 6px 8px; }
+  #screen-battle .passage-figure { max-height: 28vh; }
+}
+@media (max-width: 480px) {
+  #screen-battle .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr; }
+  #screen-battle .choices.fixed.tiny:not(.label-only) { grid-template-columns: 1fr 1fr; }
 }

@@ -8,7 +8,7 @@
  * このスクリプトの中でだけ <script> を差しこんで読み込ませる（リポジトリは変えない）。
  *
  *   1回目（PC の幅 1280px）: 科目A・科目B の各クエストを順に、すべて正解で進める（次のクエストが開く）
- *   はんい : 「科目A だけ」「科目B だけ」「A＋B」で、復習・まおうの城・もぎしけんの一覧が切りかわる
+ *   はんい : まおうの城・復習に入るときに「科目A だけ」「科目B だけ」「A＋B」を えらび、その科目の問題だけが出る
  *   2回目（スマホの幅 390px）: 各クエストを、すべて不正解で進める（noFail にして最後まで）
  *   最後  : 科目A もぎしけん・科目B もぎしけん（タイマーつき）を最後まで解く
  *
@@ -102,7 +102,8 @@ async function checkQuestionView(page, q) {
       })),
       code: (passage.querySelector("pre.passage-code") || {}).textContent || null,
       choiceTable: (() => {
-        const w = passage.querySelector(".passage-choice-table");
+        /* 解答群の表は、選択肢のすぐ上（#battle-ctable）に出る */
+        const w = document.querySelector("#battle-ctable .passage-choice-table");
         return w ? { caption: (w.querySelector(".passage-caption") || {}).textContent || "",
           rows: [...w.querySelector("table").rows].map((r) => [...r.cells].map((c) => c.textContent)) } : null;
       })(),
@@ -296,47 +297,57 @@ async function main() {
   await playAll("pc", false);
   check(notationChecked || !allIds.some((id) => /B-/.test(id)), "記述形式のモーダルを確かめられなかった");
 
-  /* はんい：両方の科目に問題があるときだけ、メニューに選択ボタンが出る */
+  /* はんい：両方の科目に問題があるときだけ、まおうの城などに入るときに えらぶ画面が出る（メニューには出さない） */
   const both = subjects.length >= 2;
+  const SCOPES = [{ key: "fe_a", re: /^FE-\d{4}A-/ }, { key: "fe_b", re: /^FE-\d{4}B-/ }, { key: "all", re: /^FE-\d{4}[AB]-/ }];
+  /* メニューのボタンを押して、はんいを えらんで入る。入った戦闘の問題 id を返す */
+  async function enterScoped(menuId, scopeKey) {
+    await toMenu();
+    await page.click(menuId);
+    await page.waitForSelector("#scope-modal:not(.hidden)");
+    const modal = await page.evaluate(() => ({
+      keys: [...document.querySelectorAll("#scope-list .scope-btn")].map((b) => b.dataset.scope),
+      last: (document.querySelector("#scope-list .is-last") || {}).dataset,
+    }));
+    check(modal.keys.join(",") === "all,fe_a,fe_b", `${menuId}: はんいの えらびかたが ${modal.keys.join(",")}`);
+    await page.click(`#scope-list [data-scope="${scopeKey}"]`);
+    await waitChoices(page);
+    return page.evaluate(() => ({ ids: battle.qs.map((q) => q.id), mode: battle.mode, saved: save.scopes.ipa_fe,
+      last: null }));
+  }
   await toMenu();
-  const bar = await page.evaluate(() => ({
-    shown: !document.querySelector("#menu-scope").classList.contains("hidden"),
-    labels: [...document.querySelectorAll("#menu-scope-buttons .scope-btn")].map((b) => b.textContent),
-  }));
-  check(bar.shown === both, `はんいの選択ボタンの表示が ${bar.shown}`);
+  check(!(await page.$("#menu-scope")), "メニューに はんいの選択ボタンが残っている");
   if (both) {
+    /* もぎしけんの一覧は、科目A・科目B の両方が出る（はんいは えらばない） */
+    await page.click("#menu-exam");
+    await page.waitForSelector("#screen-quests.active");
+    const exams = await page.evaluate(() => [...document.querySelectorAll("#quest-list .quest-name")].map((e) => e.textContent));
+    check(JSON.stringify(exams) === JSON.stringify(["科目A もぎしけん", "科目B もぎしけん"]), `もぎしけんの一覧が ${exams.join("・")}`);
+    await toMenu();
+    await page.click("#menu-final");
+    await page.waitForSelector("#scope-modal:not(.hidden)");
     await page.screenshot({ path: path.join(OUT, "menu_scope.png"), fullPage: true });
-    for (const sc of [{ key: "fe_a", re: /^FE-\d{4}A-/ }, { key: "fe_b", re: /^FE-\d{4}B-/ }, { key: "all", re: /^FE-\d{4}[AB]-/ }]) {
-      await page.click(`#menu-scope-buttons [data-scope="${sc.key}"]`);
-      await page.waitForSelector("#screen-menu.active");
-      const r = await page.evaluate(() => {
-        const ids = Object.keys(QUESTION_INDEX).filter(inScope);
-        return {
-          current: document.querySelector("#menu-scope-buttons .is-current").dataset.scope,
-          saved: save.scopes.ipa_fe,
-          subjects: [...new Set(ids.map((id) => QUESTION_INDEX[id].subject))].sort(),
-          ids,
-          finalOpen: finalUnlocked(),
-        };
-      });
-      check(r.current === sc.key && r.saved === sc.key, `はんい ${sc.key}: えらんだボタン・保存が ${r.current} / ${r.saved}`);
-      check(r.ids.length > 0 && r.ids.every((id) => sc.re.test(id)), `はんい ${sc.key}: 対象の問題に ほかの科目が混ざっている`);
-      check(r.finalOpen, `はんい ${sc.key}: 全クエストをクリアしたのに まおうの城が開かない`);
-      /* もぎしけんの一覧 */
-      await page.click("#menu-exam");
-      await page.waitForSelector("#screen-quests.active");
-      const exams = await page.evaluate(() => [...document.querySelectorAll("#quest-list .quest-name")].map((e) => e.textContent));
-      const wantExams = { fe_a: ["科目A もぎしけん"], fe_b: ["科目B もぎしけん"], all: ["科目A もぎしけん", "科目B もぎしけん"] }[sc.key];
-      check(JSON.stringify(exams) === JSON.stringify(wantExams), `はんい ${sc.key}: もぎしけんの一覧が ${exams.join("・")}`);
-      /* まおうの城の問題 */
-      await toMenu();
-      const fin = await page.evaluate(() => { startFinal(); return battle.qs.map((q) => q.id); });
-      await waitChoices(page);   /* 戦闘の画面に切りかわってから、マップにもどる */
-      check(fin.length > 0 && fin.every((id) => sc.re.test(id)), `はんい ${sc.key}: まおうの城の問題に ほかの科目が混ざっている`);
-      /* A＋B では、出題のもとになる問題に 科目A と科目B の両方が入っている（12問は その中から ランダムに えらぶ） */
-      if (sc.key === "all") check(r.subjects.join(",") === "fe_a,fe_b", `はんい A＋B: 対象の科目が ${r.subjects.join(",")}`);
-      await toMenu();
+    await page.keyboard.press("Escape");
+    check(await page.evaluate(() => document.querySelector("#scope-modal").classList.contains("hidden")), "はんいの画面が Esc で とじない");
+    for (const sc of SCOPES) {
+      const r = await enterScoped("#menu-final", sc.key);
+      check(r.mode === "final", `はんい ${sc.key}: まおうの城に入れない（${r.mode}）`);
+      check(r.saved === sc.key, `はんい ${sc.key}: えらんだ はんいが保存されない（${r.saved}）`);
+      check(r.ids.length > 0 && r.ids.every((id) => sc.re.test(id)), `はんい ${sc.key}: まおうの城の問題に ほかの科目が混ざっている`);
+      if (sc.key === "all") {
+        const subs = await page.evaluate(() => [...new Set(Object.keys(QUESTION_INDEX).filter(inScope).map((id) => QUESTION_INDEX[id].subject))].sort());
+        check(subs.join(",") === "fe_a,fe_b", `はんい A＋B: 対象の科目が ${subs.join(",")}`);
+      }
     }
+    /* メニューにもどると、はんいは A＋B（科目ぜんぶ）として数える。まえ回 えらんだ はんいに目印が付く */
+    await toMenu();
+    const back = await page.evaluate(() => ({ scope: currentScope().key, final: finalUnlockedAny() }));
+    check(back.scope === "all" && back.final, `メニューでの はんい・まおうの城が ${back.scope} / ${back.final}`);
+    await page.click("#menu-final");
+    await page.waitForSelector("#scope-modal:not(.hidden)");
+    const last = await page.evaluate(() => (document.querySelector("#scope-list .is-last") || {}).dataset.scope);
+    check(last === "all", `まえ回の目印が ${last}`);
+    await page.click("#scope-close");
   }
 
   /* 2回目：スマホの幅で、すべて不正解（noFail にして最後まで出す） */
@@ -344,18 +355,12 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
   await playAll("sp", true);
 
-  /* 復習（ふっかつのほこら）：2回目で全問まちがえたので、はんいの科目の問題だけが出る */
+  /* 復習（ふっかつのほこら）：2回目で全問まちがえたので、えらんだ はんいの科目の問題だけが出る */
   if (both) {
-    for (const sc of [{ key: "fe_a", re: /^FE-\d{4}A-/ }, { key: "fe_b", re: /^FE-\d{4}B-/ }]) {
-      await toMenu();
-      await page.click(`#menu-scope-buttons [data-scope="${sc.key}"]`);
-      await page.waitForSelector("#screen-menu.active");
-      const rv = await page.evaluate(() => { startReview(); return battle && battle.mode === "review" ? battle.qs.map((q) => q.id) : []; });
-      if (rv.length) await waitChoices(page);
-      check(rv.length > 0 && rv.every((id) => sc.re.test(id)), `はんい ${sc.key}: 復習の問題に ほかの科目が混ざっている（${rv.join(",")}）`);
+    for (const sc of SCOPES.slice(0, 2)) {
+      const rv = await enterScoped("#menu-review", sc.key);
+      check(rv.mode === "review" && rv.ids.length > 0 && rv.ids.every((id) => sc.re.test(id)), `はんい ${sc.key}: 復習の問題に ほかの科目が混ざっている（${rv.ids.join(",")}）`);
     }
-    await toMenu();
-    await page.click('#menu-scope-buttons [data-scope="all"]');
   }
 
   /* もぎしけん（タイマーつき）：メニューのボタンから、科目ごとに */
