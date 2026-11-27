@@ -331,7 +331,8 @@ async function main() {
       const fin = await page.evaluate(() => { startFinal(); return battle.qs.map((q) => q.id); });
       await waitChoices(page);   /* 戦闘の画面に切りかわってから、マップにもどる */
       check(fin.length > 0 && fin.every((id) => sc.re.test(id)), `はんい ${sc.key}: まおうの城の問題に ほかの科目が混ざっている`);
-      if (sc.key === "all") check(fin.some((id) => /A-/.test(id)) && fin.some((id) => /B-/.test(id)) || fin.length < 2, "はんい A＋B: まおうの城に 科目A と科目B が まざっていない");
+      /* A＋B では、出題のもとになる問題に 科目A と科目B の両方が入っている（12問は その中から ランダムに えらぶ） */
+      if (sc.key === "all") check(r.subjects.join(",") === "fe_a,fe_b", `はんい A＋B: 対象の科目が ${r.subjects.join(",")}`);
       await toMenu();
     }
   }
