@@ -1160,3 +1160,69 @@ kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px soli
   .in-battle.wide-battle #screen-battle #enemy-canvas { height: 68px; }
   .in-battle.wide-battle #screen-battle #battle-avatar { height: 46px; }
 }
+
+
+/* =========================================================
+ * UI の見なおし その2（v3.2.2）：メニュー・リザルト・右下のボタン
+ * ======================================================= */
+
+/* ---------- メニュー：あそぶ入口を上に大きく、そのほかは下に小さく ----------
+ * ボタンは「絵｜なまえ（と ひとこと）」の よこ並びにして、高さを へらす（PC の1画面に 入口が ぜんぶ見える） */
+.menu-grid { margin: 14px 0; }
+.menu-grid .menu-btn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: center;
+  align-content: center;
+  padding: 12px 14px;
+  min-height: 64px;
+  font-size: 17px;
+}
+.menu-grid .menu-btn.hidden { display: none; }
+.menu-grid .menu-icon { margin: 0; font-size: 28px; line-height: 1.2; }
+.menu-grid .menu-lock, .menu-grid .menu-record { grid-column: 2; margin-top: 0; line-height: 1.4; }
+/* 科目（クエストの入口）は いちばん目立たせる */
+.menu-grid .menu-subject { min-height: 76px; font-size: 19px; border-color: var(--key); background: #14143a; }
+.menu-grid .menu-subject .menu-icon { font-size: 34px; }
+.menu-sub { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
+.menu-sub .menu-btn { padding: 8px 6px; font-size: 13px; text-align: center; line-height: 1.4; border-width: 2px; border-color: #8a8ab0; }
+.menu-sub .menu-btn:hover, .menu-sub .menu-btn:focus { border-color: var(--key); }
+.menu-sub .menu-icon { font-size: 20px; margin-bottom: 2px; }
+.menu-sub .menu-btn:hover::before, .menu-sub .menu-btn:focus::before { content: none; }
+#screen-menu.active .menu-sub .menu-btn { animation-delay: .3s; }
+@media (max-width: 480px) {
+  .menu-grid .menu-btn { font-size: 15px; padding: 10px; column-gap: 8px; }
+  .menu-grid .menu-subject { font-size: 16px; }
+  .menu-grid .menu-icon { font-size: 24px; }
+  .menu-grid .menu-subject .menu-icon { font-size: 28px; }
+  .menu-sub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .menu-sub .menu-btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+  .menu-sub .menu-icon { display: inline; margin: 0; }
+}
+
+/* ---------- リザルト：PC の1画面に収める ---------- */
+@media (min-width: 600px) {
+  #screen-result .window.narrow { margin: 16px auto; max-width: 520px; padding: 10px 16px; }
+  #screen-result #result-title { margin-bottom: 2px; }
+  #screen-result .result-stars { font-size: 26px; }
+  #screen-result .levelup { padding: 4px 8px; margin: 6px 0; line-height: 1.5; }
+  /* たからばこ：絵｜ボタン・中身 の よこ並び */
+  #screen-result .chest-box { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; align-items: center; padding: 8px 14px; margin: 8px 0; }
+  #screen-result .chest-box #chest-canvas { grid-row: 1 / span 3; margin: 0; }
+  #screen-result .chest-box > :not(canvas) { grid-column: 2; margin: 2px 0; }
+  /* 「マップに もどる」「もういちど」を よこに並べる */
+  #screen-result #result-next, #screen-result #result-retry {
+    display: inline-block; width: calc(50% - 6px); margin: 6px 0 0; padding: 11px 6px; font-size: 16px; text-align: center; vertical-align: top;
+  }
+  #screen-result #result-next.hidden, #screen-result #result-retry.hidden { display: none; }
+  #screen-result #result-next:has(+ #result-retry.hidden) { width: 100%; }
+}
+
+/* ---------- 右下のボタン（📮・♪）：PC は たて、せまい画面は よこに並べる ---------- */
+#corner-btns { position: fixed; right: 10px; bottom: 10px; z-index: 50; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+#corner-btns #btn-feedback, #corner-btns #btn-mute { position: static; }
+@media (max-width: 600px) {
+  #corner-btns { flex-direction: row; align-items: center; gap: 6px; right: 6px; bottom: 6px; }
+  .in-battle #app { padding-bottom: 72px; }   /* いちばん下の選択肢を、ボタンの上まで送れるように */
+}

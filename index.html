@@ -6,8 +6,8 @@
 <title>STUDY QUEST - しかくたいさくぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=3.2.1">
-<link rel="stylesheet" href="css/juice.css?v=3.2.1">
+<link rel="stylesheet" href="css/style.css?v=3.2.2">
+<link rel="stylesheet" href="css/juice.css?v=3.2.2">
 </head>
 <body>
 
@@ -77,23 +77,6 @@
       <div class="xptext" id="menu-xptext"></div>
     </div>
 
-    <div class="window missions-box hidden" id="menu-missions">
-      <div class="window-title">📋 きょうの ミッション</div>
-      <div id="missions-list"></div>
-      <p class="menu-goal hidden" id="menu-goal"></p>
-    </div>
-
-    <div class="window messenger hidden" id="menu-messenger">
-      <div class="messenger-headline hidden" id="messenger-headline"></div>
-      <div class="messenger-row">
-        <canvas id="messenger-sprite"></canvas>
-        <div class="messenger-bubble">
-          <div class="messenger-name" id="messenger-name"></div>
-          <div class="messenger-text" id="messenger-text"></div>
-        </div>
-      </div>
-    </div>
-
     <div class="menu-grid" id="menu-grid">
       <!-- 科目のボタン（エクセルの とう・ワードの しろ 等）は js/courses.js の定義から game.js が作る -->
       <button class="btn menu-btn" id="menu-review">
@@ -131,6 +114,26 @@
         <span class="menu-icon">📜</span>ぼうけんの しょ
       </button>
     </div>
+
+    <div class="window missions-box hidden" id="menu-missions">
+      <div class="window-title">📋 きょうの ミッション</div>
+      <div id="missions-list"></div>
+      <p class="menu-goal hidden" id="menu-goal"></p>
+    </div>
+
+    <div class="window messenger hidden" id="menu-messenger">
+      <div class="messenger-headline hidden" id="messenger-headline"></div>
+      <div class="messenger-row">
+        <canvas id="messenger-sprite"></canvas>
+        <div class="messenger-bubble">
+          <div class="messenger-name" id="messenger-name"></div>
+          <div class="messenger-text" id="messenger-text"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- あそぶ場所ではないもの（アバター・ガチャ・ランキング・ぼうけんの しょ）。小さいボタンで下にまとめる（game.js の MENU_SUB） -->
+    <div class="menu-sub" id="menu-sub"></div>
     <p class="menu-hint">「ふっかつのほこら」では わすれかけた もんだいと まちがえた もんだいを 復習できるぞ！</p>
   </div>
 
@@ -426,40 +429,43 @@
   </div>
 </div>
 
-<button class="btn btn-small" id="btn-feedback" title="ご意見箱">📮</button>
-<button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
+<!-- 右下の ボタン。PC は たてに、せまい画面は よこに並べる（選択肢に かぶる高さを へらす） -->
+<div id="corner-btns">
+  <button class="btn btn-small" id="btn-feedback" title="ご意見箱">📮</button>
+  <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
+</div>
 <div id="toast"></div>
 
-<script src="js/config.js?v=3.2.1"></script>
-<script src="js/jptext.js?v=3.2.1"></script>
-<script src="js/sprites.js?v=3.2.1"></script>
-<script src="js/avatar.js?v=3.2.1"></script>
-<script src="js/items.js?v=3.2.1"></script>
-<script src="js/gacha.js?v=3.2.1"></script>
-<script src="js/gacha_fx.js?v=3.2.1"></script>
-<script src="js/sound.js?v=3.2.1"></script>
-<script src="js/juice.js?v=3.2.1"></script>
-<script src="js/fx.js?v=3.2.1"></script>
-<script src="js/backgrounds.js?v=3.2.1"></script>
-<script src="js/bestiary.js?v=3.2.1"></script>
-<script src="js/bestiary_notes.js?v=3.2.1"></script>
-<script src="js/countdown.js?v=3.2.1"></script>
-<script src="js/srs.js?v=3.2.1"></script>
-<script src="js/api.js?v=3.2.1"></script>
-<script src="js/questions_excel.js?v=3.2.1"></script>
-<script src="js/questions_word.js?v=3.2.1"></script>
-<script src="js/questions_excel_expert.js?v=3.2.1"></script>
-<script src="js/questions_excel_practical.js?v=3.2.1"></script>
+<script src="js/config.js?v=3.2.2"></script>
+<script src="js/jptext.js?v=3.2.2"></script>
+<script src="js/sprites.js?v=3.2.2"></script>
+<script src="js/avatar.js?v=3.2.2"></script>
+<script src="js/items.js?v=3.2.2"></script>
+<script src="js/gacha.js?v=3.2.2"></script>
+<script src="js/gacha_fx.js?v=3.2.2"></script>
+<script src="js/sound.js?v=3.2.2"></script>
+<script src="js/juice.js?v=3.2.2"></script>
+<script src="js/fx.js?v=3.2.2"></script>
+<script src="js/backgrounds.js?v=3.2.2"></script>
+<script src="js/bestiary.js?v=3.2.2"></script>
+<script src="js/bestiary_notes.js?v=3.2.2"></script>
+<script src="js/countdown.js?v=3.2.2"></script>
+<script src="js/srs.js?v=3.2.2"></script>
+<script src="js/api.js?v=3.2.2"></script>
+<script src="js/questions_excel.js?v=3.2.2"></script>
+<script src="js/questions_word.js?v=3.2.2"></script>
+<script src="js/questions_excel_expert.js?v=3.2.2"></script>
+<script src="js/questions_excel_practical.js?v=3.2.2"></script>
 <!-- IPA 基本情報の問題（科目A・科目B）。courses.js より前に読み込む -->
-<script src="js/questions_ipa_fe_a.js?v=3.2.1"></script>
-<script src="js/questions_ipa_fe_b.js?v=3.2.1"></script>
-<script src="js/courses.js?v=3.2.1"></script>
-<script src="js/ribbonMockups.js?v=3.2.1"></script>
-<script src="js/streak.js?v=3.2.1"></script>
-<script src="js/achievements.js?v=3.2.1"></script>
-<script src="js/missions.js?v=3.2.1"></script>
-<script src="js/treasure.js?v=3.2.1"></script>
-<script src="js/practical.js?v=3.2.1"></script>
-<script src="js/game.js?v=3.2.1"></script>
+<script src="js/questions_ipa_fe_a.js?v=3.2.2"></script>
+<script src="js/questions_ipa_fe_b.js?v=3.2.2"></script>
+<script src="js/courses.js?v=3.2.2"></script>
+<script src="js/ribbonMockups.js?v=3.2.2"></script>
+<script src="js/streak.js?v=3.2.2"></script>
+<script src="js/achievements.js?v=3.2.2"></script>
+<script src="js/missions.js?v=3.2.2"></script>
+<script src="js/treasure.js?v=3.2.2"></script>
+<script src="js/practical.js?v=3.2.2"></script>
+<script src="js/game.js?v=3.2.2"></script>
 </body>
 </html>
