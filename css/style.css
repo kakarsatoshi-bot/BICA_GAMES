@@ -894,3 +894,5 @@ html.fx-low #battle-avatar { animation: none !important; }
 .card-note { font-size: 11px; color: #9a9ac0; margin: -2px 0 2px; }
 .btn-primary:not(:disabled) { border-color: var(--key); color: var(--key); }
 #card-close { margin: 0; }
+.job-tier { grid-column: 1 / -1; font-size: 13px; color: var(--accent); margin: 10px 0 0; border-bottom: 1px dashed #3a3a6a; padding-bottom: 2px; }
+.job-tier.locked { color: #7a7aa0; }

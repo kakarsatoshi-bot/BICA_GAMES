@@ -540,19 +540,15 @@ var TUNE = {
   feverCombo: 5         // このコンボからフィーバー
 };
 
-/* しょくぎょうの特ちょう（js/avatar.js の JOBS）が、いまの戦闘で効くか。
- * もぎけんてい（本番と同じ条件）では効かない */
-function perkOn(jobKey) {
-  return !!battle && battle.mode !== "exam" && save.job === jobKey;
+/* しょくぎょうの特ちょう（js/avatar.js の JOBS の perks）の、いまの値。持っていなければ 0。
+ * もぎけんてい（本番と同じ条件）では、どれも効かない。強さは JOBS の数値で変える */
+function perkVal(name) {
+  if (!save || (battle && battle.mode === "exam")) return 0;
+  var v = jobDef(save.job).perks[name];
+  return v || 0;
 }
-var PERK = {
-  programmerGauge: 8,     // プログラマー：コンボ5以上の正解で、ひっさつゲージに上のせ
-  architectCrit: 0.04,    // システムアーキテクト：かいしんの確率に上のせ
-  databaseReview: 1.1,    // データベースエンジニア：復習の EXP の倍率
-  pmMission: 5            // プロジェクトマネージャ：ミッション たっせいの EXP に上のせ
-};
 function missionBonusXp() {
-  return MISSION_BONUS_XP + (save.job === "pm" && !(battle && battle.mode === "exam") ? PERK.pmMission : 0);
+  return MISSION_BONUS_XP + perkVal("missionXp");
 }
 
 /* こうげきは連続正解で進化する（上から順に、あてはまる最初のものを使う） */
@@ -663,7 +659,12 @@ function beginBattle() {
    * 1回の戦闘でためきれない人も、いつかは必殺技が出せる） */
   battle.gauge = battle.useGauge ? Math.min(100, save.gauge || 0) : 0;
   battle.fever = false;
-  battle.perkUsed = false;   // 1回の戦闘で1回だけ効く特ちょう（セキュリティ・ネットワーク）を使ったか
+  /* 1回の戦闘で決まった回数だけ効く特ちょうの、のこりの回数 */
+  battle.guardsLeft = perkVal("heartGuard");
+  battle.keepsLeft = perkVal("comboKeep");
+  battle.regenLeft = perkVal("regen");
+  /* クラウドエンジニア など：ひっさつゲージが たまった状態で はじまる */
+  if (battle.useGauge && perkVal("startGauge")) battle.gauge = Math.min(100, battle.gauge + perkVal("startGauge"));
   drawAvatar($("#battle-avatar"), save.avatar, save.job, 3);
   battle.maxCombo = 0;
   battle.crits = 0;
@@ -743,7 +744,8 @@ function currentMonster() {
     return pick(courseQuests()).mob;
   }
   /* クエスト・復習・めいきゅうでは、ごく低確率で激レアモンスターが出現する */
-  if (Math.random() < RARE_MONSTER_CHANCE) {
+  var luck = perkVal("shiny") || 1;   /* Webデザイナー：色ちがい・激レアに出会いやすい */
+  if (Math.random() < RARE_MONSTER_CHANCE * luck) {
     battle.isRare = true;
     battle.rare = pickRareMonster();
     return battle.rare.mob;
@@ -752,7 +754,7 @@ function currentMonster() {
         : battle.mode === "endless" ? pick(battle.quests).mob
         : battle.quest.mob;
   /* さらに低確率で、色ちがい。たおすと図鑑に色ちがいが登録される */
-  if (Math.random() < TUNE.shinyChance) {
+  if (Math.random() < TUNE.shinyChance * luck) {
     battle.isShiny = true;
     return { shape: m.shape, palette: Treasure.shinyPalette(m.palette), name: m.name };
   }
@@ -1355,7 +1357,7 @@ function answer(isCorrect, btn) {
     var special = battle.useGauge && battle.gauge >= 100;
     var crit = !special && Math.random() <
       TUNE.critBase + TUNE.critPerCombo * Math.min(battle.combo, TUNE.critComboCap) + (quick ? TUNE.critQuick : 0) +
-      (perkOn("architect") ? PERK.architectCrit : 0);
+      perkVal("crit");
     var tier = attackTier(battle.combo);
 
     var gained = battle.mode === "review" ? 6 : (battle.mode === "exam" || battle.mode === "endless") ? 8 : 10;
@@ -1366,8 +1368,9 @@ function answer(isCorrect, btn) {
     if (battle.isShiny) gained += TUNE.shinyXp;
     if (crit) gained = Math.round(gained * TUNE.critMul);
     if (quick) gained += TUNE.quickXp;
-    if (special) gained = Math.round(gained * TUNE.specialMul);
-    if (battle.mode === "review" && perkOn("database")) gained = Math.round(gained * PERK.databaseReview);
+    if (special) gained = Math.round(gained * (TUNE.specialMul + perkVal("specialMul")));
+    if (isBoss) gained += perkVal("bossXp");
+    if (battle.mode === "review" && perkVal("reviewXp")) gained = Math.round(gained * perkVal("reviewXp"));
     battle.xp += gained;
     save.xp += gained;
 
@@ -1380,11 +1383,17 @@ function answer(isCorrect, btn) {
     } else if (battle.useGauge) {
       battle.gauge = Math.min(100, battle.gauge + TUNE.gaugeCorrect +
         (quick ? TUNE.gaugeQuick : 0) + (crit ? TUNE.gaugeCrit : 0) +
-        (perkOn("programmer") && battle.combo >= 5 ? PERK.programmerGauge : 0));
+        (battle.combo >= 5 ? perkVal("gaugeCombo") : 0));
       save.gauge = battle.gauge;
       if (battle.gauge >= 100) setTimeout(function () { if (battleLive(b, turn)) Sound.gaugeMax(); }, 600);
     }
     if (crit) { battle.crits++; save.stats.crits++; missionHits.push(Missions.record(save, "crit", 1)); }
+    /* ITサポート：3問つづけて正解すると ♥が1つ回復（1回の戦闘で決まった回数まで） */
+    if (battle.regenLeft > 0 && battle.combo >= 3 && battle.hearts < battle.maxHearts && !battle.noFail) {
+      battle.regenLeft--;
+      battle.hearts++;
+      setTimeout(function () { if (battleLive(b, turn)) { Sound.heal(); Fx.floatText("ふっきゅうの て！ ♥ かいふく", "#7ab0f0", ""); } }, 700);
+    }
     if (quick) { battle.quicks++; save.stats.quicks++; missionHits.push(Missions.record(save, "quick", 1)); }
 
     var died = true;
@@ -1512,19 +1521,23 @@ function answer(isCorrect, btn) {
   } else {
     var hadCombo = battle.combo;
     battle.combo = 0;
-    /* セキュリティエンジニア：1回の戦闘で1回だけ、♥が へらない */
-    var guarded = !battle.noFail && perkOn("security") && !battle.perkUsed;
-    /* ネットワークエンジニア：1回の戦闘で1回だけ、コンボが半分 のこる */
-    var kept = perkOn("network") && !battle.perkUsed && hadCombo >= 2;
-    if (guarded || kept) battle.perkUsed = true;
-    if (kept) battle.combo = Math.floor(hadCombo / 2);
+    /* ♥が へらない（セキュリティ など）・コンボが半分 のこる（ネットワーク など）は、1回の戦闘で決まった回数まで */
+    var guarded = !battle.noFail && battle.guardsLeft > 0;
+    var kept = battle.keepsLeft > 0 && hadCombo >= 2;
+    if (guarded) battle.guardsLeft--;
+    if (kept) { battle.keepsLeft--; battle.combo = Math.floor(hadCombo / 2); }
+    /* テストエンジニア：まちがえても ひっさつゲージが すこし たまる */
+    if (battle.useGauge && perkVal("gaugeOnMiss") && battle.gauge < 100) {
+      battle.gauge = Math.min(100, battle.gauge + perkVal("gaugeOnMiss"));
+      save.gauge = battle.gauge;
+    }
     if (!battle.noFail && !guarded) battle.hearts--;
     Sound.wrong();
     if (hadCombo >= 3 && !kept) setTimeout(function () { Sound.comboBreak(); }, 200);
     setEnemyAnim("lunge");
     avatarAnim("hurt");
     Fx.claw();
-    Fx.floatText(guarded ? "まもりの かまえ！ ♥は へらない" : kept ? "つうしんの あんてい！ コンボ " + battle.combo + " のこった" :
+    Fx.floatText(guarded ? jobDef(save.job).perkName + "！ ♥は へらない" : kept ? jobDef(save.job).perkName + "！ コンボ " + battle.combo + " のこった" :
       battle.noFail ? "ミス…" : "－♥ ダメージ！", guarded || kept ? "#7ab0f0" : "#ff5d7a", "bad");
     if (!battle.noFail && !guarded) flashHearts("hurt");
     setFever(false);
@@ -1994,7 +2007,7 @@ function endBattle(cleared) {
     var miss = battle.idx - battle.correct;   /* 実際に解いた数から計算（最終決戦の早期勝利にも対応） */
     stars = miss === 0 ? 3 : (miss <= 2 ? 2 : 1);
     bonus = battle.mode === "review" ? 15 : 30;
-    if (battle.mode === "review" && perkOn("database")) bonus = Math.round(bonus * PERK.databaseReview);
+    if (battle.mode === "review" && perkVal("reviewXp")) bonus = Math.round(bonus * perkVal("reviewXp"));
     if (stars === 3) bonus += 20;
 
     if (battle.mode === "quest") {
@@ -2007,7 +2020,7 @@ function endBattle(cleared) {
       missionHits.push(Missions.record(save, "questClear", 1));
       if (battle.bossCorrect >= 3) missionHits.push(Missions.record(save, "bossWin", 1));
 
-      chestReward = Treasure.grant(save, battle.quest, { stars: stars });
+      chestReward = Treasure.grant(save, battle.quest, { stars: stars, luck: perkVal("chestLuck") });
       if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; }
     }
     if (battle.mode === "final") {
@@ -2357,7 +2370,16 @@ function jobUnlocked(job) {
 function renderJobList() {
   var box = $("#job-list");
   box.innerHTML = "";
+  var lastLevel = null;
   JOBS.forEach(function (job) {
+    /* 解放されるレベルごとに見出しを入れる */
+    if (job.level !== lastLevel) {
+      lastLevel = job.level;
+      var hd = document.createElement("div");
+      hd.className = "job-tier" + (jobUnlocked(job) ? "" : " locked");
+      hd.textContent = job.level === 1 ? "さいしょから" : "Lv " + job.level + (jobUnlocked(job) ? " で かいほう ✔" : " で かいほう 🔒");
+      box.appendChild(hd);
+    }
     var open = jobUnlocked(job);
     var cur = save.job === job.key;
     var div = document.createElement("div");

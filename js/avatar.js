@@ -76,22 +76,64 @@ var AVATAR_PART_ORDER = [
   ["hair", "かみがた"], ["hairColor", "かみの いろ"], ["skin", "はだの いろ"], ["eyes", "め"]
 ];
 
+/* 服とかぶりものの形（しょくぎょうで使い回す） */
+var OUTFIT_HOODIE = {
+      12: "....BOOAAOOB....", 13: "...BOOOAAOOOB...", 14: "..BOBOOOOOOBOB..", 15: "..BSBOOOOOOBSB..",
+      16: "..BBBoOOOOoBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
+    };
+var OUTFIT_JACKET = {
+      12: "....BOOOOOOB....", 13: "...BOOOOOAOOB...", 14: "..BOBOOOOAAOBOB.", 15: "..BSBOOOOOOBSB..",
+      16: "..BBBoOOOOoBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
+    };
+var OUTFIT_VEST = {
+      12: "....BAOOOOAB....", 13: "...BAAOOOOAAB...", 14: "..BOBAAOOAABOB..", 15: "..BSBAAOOAABSB..",
+      16: "..BBBAAOOAABBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
+    };
+var OUTFIT_COAT = {
+      12: "....BOOooOOB....", 13: "...BOOOooOAOB...", 14: "..BOBOOooOOBOB..", 15: "..BSBOOooOOBSB..",
+      16: "..BOBOOooOOBOB..", 17: "....BOOPPOOB....", 18: "....BPPBBPPB...."
+    };
+var OUTFIT_SUIT = {
+      12: "....BOOWWOOB....", 13: "...BOOOAAOOOB...", 14: "..BOBOOOAOOBOB..", 15: "..BSBOOOAOOBSB..",
+      16: "..BBBOOOOOOBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
+    };
+var OUTFIT_CAPE = {
+      11: "...BAABSSBAAB...", 12: "..BOOBWWWWBOOB..", 13: "..BOOBWAAWBOOB..", 14: "..BOOBWWWWBOOB..",
+      15: "..BOOSWWWWSOOB..", 16: "..BOOBWWWWBOOB..", 17: "..BoOBPPPPBOoB..", 18: "..BBBBPBBPBBBB.."
+    };
+var OUTFIT_STRIPE = {
+      12: "....BOOOOOOB....", 13: "...BOAAAAAAOB...", 14: "..BOBOOOOOOBOB..", 15: "..BSBAAAAAABSB..",
+      16: "..BBBOOOOOOBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
+    };
+var HEADGEAR_PHONES = {
+      1: ".....GGGGGG.....", 2: "....G......G....", 3: "...G........G...", 4: "...G........G...",
+      5: "..GGg......gGG..", 6: "..GGg......gGG..", 7: "..GG........GG.."
+    };
+var HEADGEAR_HEADSET = {
+      1: ".....GGGGGG.....", 2: "....G......G....", 3: "...G........G...", 4: "...G........G...",
+      5: "..GGg......gGG..", 6: "..GGg......gGG..", 7: "..GG........GG..", 8: "..G.............", 9: "..GGg..........."
+    };
+
 /* ---------- ITの しょくぎょう ----------
- * 特ちょう（perk）は、ボスを倒すのに必要な正解の数を変えない（正解の数＝勉強の量を守る）。
- * もぎけんてい（本番と同じ条件）では、どの特ちょうも効かない。
- * fields は、解説カードの「ちょうせん」で出す IPA 基本情報の分野（問題の field）。 */
+ * 特ちょう（perks）は、ボスを倒すのに必要な正解の数を変えない（正解の数＝勉強の量を守る）。
+ * もぎけんてい（本番と同じ条件）では、どの特ちょうも効かない。上のレベルの しょくぎょうほど、特ちょうを いくつも持つ。
+ * perks の種類（数値は js/game.js が使う）:
+ *   gaugeCombo  コンボ5以上の正解で、ひっさつゲージに上のせ    heartGuard  1回の戦闘で N回、まちがえても ♥が へらない
+ *   comboKeep   1回の戦闘で N回、まちがえても コンボが半分のこる  reviewXp    復習の EXP の倍率
+ *   missionXp   ミッション たっせいの EXP に上のせ              crit        かいしんの確率に上のせ
+ *   shiny       色ちがい・激レアの出やすさ（倍率）                gaugeOnMiss まちがえたときも ひっさつゲージが たまる
+ *   regen       1回の戦闘で N回、3問つづけて正解すると ♥が1つ回復  startGauge  たたかいの はじめに ひっさつゲージ
+ *   chestLuck   たからばこで しょうごう・色ちがいが出やすい        specialMul  ひっさつわざの EXP 倍率に上のせ
+ *   bossXp      ボスに正解したときの EXP に上のせ
+ * fields は、解説カードの「しれん」で出す IPA 基本情報の分野（問題の field）。
+ * headColors は、かぶりもの（G・g）の色。無ければ ヘッドホンの色。 */
 var JOBS = [
+  /* ===== Lv 1 ===== */
   {
     key: "programmer", name: "プログラマー", level: 1,
     colors: ["#5a6a8a", "#3a4660", "#f0f0f8", "#2a2a40"],
-    outfit: {
-      12: "....BOOAAOOB....", 13: "...BOOOAAOOOB...", 14: "..BOBOOOOOOBOB..", 15: "..BSBOOOOOOBSB..",
-      16: "..BBBoOOOOoBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
-    },
-    headgear: {
-      1: ".....GGGGGG.....", 2: "....G......G....", 3: "...G........G...", 4: "...G........G...",
-      5: "..GGg......gGG..", 6: "..GGg......gGG..", 7: "..GG........GG.."
-    },
+    outfit: OUTFIT_HOODIE, headgear: HEADGEAR_PHONES,
+    perks: { gaugeCombo: 8 },
     perkName: "じどうかの ちから",
     perk: "コンボ 5いじょうで せいかいすると、ひっさつゲージが いつもより たまる。",
     perkWhy: "同じ作業をくり返すときは、プログラムで自動化すると速い。くり返し（コンボ）に強い しょくぎょう。",
@@ -102,10 +144,8 @@ var JOBS = [
   {
     key: "security", name: "セキュリティエンジニア", level: 1,
     colors: ["#2a3a72", "#1a2450", "#f0c040", "#2a2a40"],
-    outfit: {
-      12: "....BOOOOOOB....", 13: "...BOOOOOAOOB...", 14: "..BOBOOOOAAOBOB.", 15: "..BSBOOOOOOBSB..",
-      16: "..BBBoOOOOoBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
-    },
+    outfit: OUTFIT_JACKET,
+    perks: { heartGuard: 1 },
     perkName: "まもりの かまえ",
     perk: "1回の たたかいで 1回だけ、まちがえても ♥が へらない。",
     perkWhy: "不正アクセスやウイルスから、システムと情報を守るのが仕事。攻撃を1回ふせぐ。",
@@ -116,10 +156,8 @@ var JOBS = [
   {
     key: "network", name: "ネットワークエンジニア", level: 1,
     colors: ["#eef0f6", "#c8ccd8", "#f08c3a", "#3a3a5a"],
-    outfit: {
-      12: "....BAOOOOAB....", 13: "...BAAOOOOAAB...", 14: "..BOBAAOOAABOB..", 15: "..BSBAAOOAABSB..",
-      16: "..BBBAAOOAABBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
-    },
+    outfit: OUTFIT_VEST,
+    perks: { comboKeep: 1 },
     perkName: "つうしんの あんてい",
     perk: "1回の たたかいで 1回だけ、まちがえても コンボが ぜんぶは きれず、半分 のこる。",
     perkWhy: "ネットワークは、一部がこわれても通信が止まらないように、予備の道（冗長化）を用意しておく。",
@@ -130,10 +168,8 @@ var JOBS = [
   {
     key: "database", name: "データベースエンジニア", level: 1,
     colors: ["#eef2fa", "#b8c4d8", "#4a8ae0", "#3a3a5a"],
-    outfit: {
-      12: "....BOOooOOB....", 13: "...BOOOooOAOB...", 14: "..BOBOOooOOBOB..", 15: "..BSBOOooOOBSB..",
-      16: "..BOBOOooOOBOB..", 17: "....BOOPPOOB....", 18: "....BPPBBPPB...."
-    },
+    outfit: OUTFIT_COAT,
+    perks: { reviewXp: 1.1 },
     perkName: "データの せいり",
     perk: "ふっかつのほこら（復習）で もらえる EXP が 1わり ふえる。",
     perkWhy: "たくさんのデータを整理しなおして、必要なときにすぐ取り出せるようにするのが仕事。おぼえたことの整理（復習）に強い。",
@@ -141,33 +177,195 @@ var JOBS = [
     exam: "「データベース」（関係データベース・正規化・SQL・トランザクションなど）。",
     fields: ["データベース"]
   },
+  /* ===== Lv 10 ===== */
+  {
+    key: "web", name: "Webデザイナー", level: 10,
+    colors: ["#3ab8a8", "#24857a", "#f078a8", "#3a3a5a"],
+    outfit: OUTFIT_STRIPE,
+    headgear: { 1: ".....GGGGGG.....", 2: "....GGGGGGGGG...", 3: "...GGgGGGGGGGG.." },
+    headColors: ["#d04a6a", "#a02a4a"],
+    perks: { shiny: 2 },
+    perkName: "いろの センス",
+    perk: "色ちがい・激レアの モンスターに 2ばい 出会いやすい。",
+    perkWhy: "色やレイアウトなど、見た目と使いやすさを考えるのが仕事。めずらしい色に すぐ気づく。",
+    about: "Web サイトの見た目（色・文字・レイアウト）と、使いやすさを考えて作る仕事。だれにでも分かりやすく使える画面（ユーザビリティ・アクセシビリティ）も大切にする。",
+    exam: "「ヒューマンインタフェース」「マルチメディア」（画面の作り方・使いやすさ・画像や音のデータ）。",
+    fields: ["マルチメディア", "ソフトウェア"]
+  },
+  {
+    key: "tester", name: "テストエンジニア", level: 10,
+    colors: ["#f2f4f8", "#c8ccd8", "#4cb050", "#3a3a5a"],
+    outfit: OUTFIT_VEST,
+    headgear: { 2: "....BBBBBBB.....", 3: "...BGGGGGGGB....", 4: "...BGGGGGGGGGG.." },
+    headColors: ["#4cb050", "#2c7c34"],
+    perks: { gaugeOnMiss: 6 },
+    perkName: "バグは たからもの",
+    perk: "まちがえたときも、ひっさつゲージが すこし たまる。",
+    perkWhy: "テストで見つかったまちがい（バグ）は、品質を良くするための大切な手がかり。まちがいも力に変える。",
+    about: "できあがったソフトウェアが、決められたとおりに正しく動くかを確かめる（テストする）仕事。テストの計画を立て、まちがい（バグ）を見つけて報告する。",
+    exam: "「システム開発技術」（単体テスト・結合テスト・ブラックボックステスト・ホワイトボックステストなど）と「ソフトウェア開発管理技術」。",
+    fields: ["システム開発技術", "ソフトウェア開発管理技術"]
+  },
+  {
+    key: "support", name: "ITサポート", level: 10,
+    colors: ["#4a8ae0", "#2b569e", "#f8f8f8", "#3a3a5a"],
+    outfit: OUTFIT_JACKET, headgear: HEADGEAR_HEADSET,
+    perks: { regen: 1 },
+    perkName: "ふっきゅうの て",
+    perk: "1回の たたかいで 1回だけ、3もん つづけて せいかいすると ♥が 1つ かいふくする。",
+    perkWhy: "パソコンやシステムで困った人を助け、元どおり使えるように直す（復旧する）のが仕事。",
+    about: "社内や お客さんの「パソコンが動かない」「使い方が分からない」といった問い合わせに答えて、困りごとを解決する仕事（ヘルプデスク・サービスデスク）。",
+    exam: "「サービスマネジメント」（サービスデスク・インシデント管理・問題管理など）。",
+    fields: ["サービスマネジメント"]
+  },
+  /* ===== Lv 20 ===== */
   {
     key: "pm", name: "プロジェクトマネージャ", level: 20,
     colors: ["#343a52", "#222638", "#d04a4a", "#262a3c"],
-    outfit: {
-      12: "....BOOWWOOB....", 13: "...BOOOAAOOOB...", 14: "..BOBOOOAOOBOB..", 15: "..BSBOOOAOOBSB..",
-      16: "..BBBOOOOOOBBB..", 17: "....BPPPPPPB....", 18: "....BPPBBPPB...."
-    },
+    outfit: OUTFIT_SUIT,
+    perks: { missionXp: 5 },
     perkName: "けいかくの ちから",
     perk: "きょうの ミッションを たっせいしたときの ボーナス EXP が ふえる。",
     perkWhy: "計画を立てて、予定どおりに進めるのが仕事。決めた目標（ミッション）を達成するのが得意。",
     about: "システムを作るプロジェクトの計画を立て、予定・費用・品質・メンバーを管理して、完成までみちびく仕事。国家試験「プロジェクトマネージャ試験」もある。",
-    exam: "「プロジェクトマネジメント」（WBS・アローダイアグラム・クリティカルパス・見積りなど）と、サービスマネジメント・システム監査。",
-    fields: ["プロジェクトマネジメント", "サービスマネジメント", "システム監査"]
+    exam: "「プロジェクトマネジメント」（WBS・アローダイアグラム・クリティカルパス・見積りなど）。",
+    fields: ["プロジェクトマネジメント"]
   },
+  {
+    key: "cloud", name: "クラウドエンジニア", level: 20,
+    colors: ["#5ab0f0", "#3a80c0", "#f8f8f8", "#2a3a5a"],
+    outfit: OUTFIT_HOODIE,
+    perks: { startGauge: 20 },
+    perkName: "すぐに きどう",
+    perk: "たたかいの はじめに、ひっさつゲージが 20 たまった じょうたいで はじまる。",
+    perkWhy: "クラウドでは、必要なときに すぐサーバを用意して使いはじめられる。",
+    about: "インターネットの向こうにあるサーバやサービス（クラウド）を組み合わせて、システムの土台（インフラ）を作り、動かしつづける仕事。",
+    exam: "「システム構成要素」（クラウドコンピューティング・仮想化・システムの構成）と「ネットワーク」。",
+    fields: ["システム構成要素", "ネットワーク"]
+  },
+  {
+    key: "datasci", name: "データサイエンティスト", level: 20,
+    colors: ["#eef2fa", "#b8c4d8", "#4cbc6c", "#3a3a5a"],
+    outfit: OUTFIT_COAT,
+    perks: { chestLuck: 0.08 },
+    perkName: "かくりつを よむ",
+    perk: "たからばこで、しょうごうや 色ちがいが 出やすくなる。",
+    perkWhy: "たくさんのデータを統計の考え方で分析し、どうなりやすいか（確率・傾向）を読みとくのが仕事。",
+    about: "たくさんのデータを集めて、統計や機械学習を使って分析し、仕事に役立つ発見をする仕事。分析の結果を、グラフなどで分かりやすく伝える。",
+    exam: "「基礎理論」（確率・統計・データの表し方）と「データベース」。",
+    fields: ["基礎理論", "データベース"]
+  },
+  /* ===== Lv 30 ===== */
   {
     key: "architect", name: "システムアーキテクト", level: 30,
     colors: ["#6a4ab0", "#47307a", "#f0c040", "#2a2a40"],
-    outfit: {
-      11: "...BAABSSBAAB...", 12: "..BOOBWWWWBOOB..", 13: "..BOOBWAAWBOOB..", 14: "..BOOBWWWWBOOB..",
-      15: "..BOOSWWWWSOOB..", 16: "..BOOBWWWWBOOB..", 17: "..BoOBPPPPBOoB..", 18: "..BBBBPBBPBBBB.."
-    },
+    outfit: OUTFIT_CAPE,
+    perks: { crit: 0.04 },
     perkName: "ぜんたいを みる目",
     perk: "かいしんの いちげきが 出やすくなる。",
     perkWhy: "システム全体を見わたして、どこをどう組み合わせるかを決めるのが仕事。急所（かいしん）を見ぬく。",
     about: "仕事の目的に合わせて、システム全体の組み立て（どんな部品を、どう組み合わせるか）を考える仕事。国家試験「システムアーキテクト試験」もある。",
-    exam: "「システム構成要素」（信頼性・稼働率など）と、システム戦略・経営戦略・企業活動。",
-    fields: ["システム構成要素", "システム戦略", "経営戦略マネジメント", "企業活動", "ビジネスインダストリ"]
+    exam: "「システム構成要素」（信頼性・稼働率など）と、システム開発技術・システム戦略。",
+    fields: ["システム構成要素", "システム開発技術", "システム戦略"]
+  },
+  {
+    key: "ai", name: "AIエンジニア", level: 30,
+    colors: ["#46466e", "#2e2e4c", "#4ae0e0", "#22223a"],
+    outfit: OUTFIT_HOODIE,
+    headgear: { 6: "...B........B...", 7: "...BggggggggB..." },
+    headColors: ["#2a2a3a", "#4ae0e0"],
+    perks: { specialMul: 0.15 },
+    perkName: "がくしゅうの せいか",
+    perk: "ひっさつわざで もらえる EXP が ふえる。",
+    perkWhy: "AI は、たくさんのデータから学習をくり返して かしこくなる。ためた力（ゲージ）を大きな成果に変える。",
+    about: "AI（人工知能）のしくみを使って、画像の見分け・言葉の理解・予測などをするシステムを作る仕事。AI に学ばせるデータを用意し、学習させて、正しく働くか確かめる。",
+    exam: "「基礎理論」（AI・機械学習・ディープラーニングなど）。AI を使うときの決まりごと（法務）も出る。",
+    fields: ["基礎理論", "法務"]
+  },
+  /* ===== Lv 40 ===== */
+  {
+    key: "strategist", name: "ITストラテジスト", level: 40,
+    colors: ["#22305a", "#141e3c", "#f0c040", "#1c2440"],
+    outfit: OUTFIT_SUIT,
+    perks: { bossXp: 3, missionXp: 5 },
+    perkName: "せんりゃくの 目",
+    perk: "ボスに せいかいしたときの EXP と、ミッション たっせいの EXP が ふえる。",
+    perkWhy: "会社の大きな目標（ボス）に向けて、IT をどう使うかの戦略を立て、計画（ミッション）を進めるのが仕事。",
+    about: "会社の経営の目標に合わせて、IT をどう使えば もうかるか・便利になるかという戦略を考える仕事。国家試験「ITストラテジスト試験」もある。",
+    exam: "「経営戦略マネジメント」「システム戦略」「企業活動」「ビジネスインダストリ」。",
+    fields: ["経営戦略マネジメント", "システム戦略", "企業活動", "ビジネスインダストリ"]
+  },
+  {
+    key: "auditor", name: "システム監査人", level: 40,
+    colors: ["#5c6270", "#3c4250", "#4a8ae0", "#2a2a40"],
+    outfit: OUTFIT_SUIT,
+    perks: { comboKeep: 1, reviewXp: 1.1 },
+    perkName: "ていねいな かくにん",
+    perk: "1回の たたかいで 1回だけ、まちがえても コンボが半分 のこる。復習の EXP も 1わり ふえる。",
+    perkWhy: "システムが正しく安全に使われているかを、外から公平に、ていねいに確かめる（監査する）のが仕事。",
+    about: "会社のシステムが、正しく・安全に・役に立つように使われているかを、独立した立場から調べて評価し、改善を提案する仕事。国家試験「システム監査技術者試験」もある。",
+    exam: "「システム監査」（監査人の独立性・監査の手順・内部統制など）と「法務」。",
+    fields: ["システム監査", "法務"]
+  },
+  /* ===== Lv 50 ===== */
+  {
+    key: "whitehacker", name: "ホワイトハッカー", level: 50,
+    colors: ["#e8ecf4", "#b0b8c8", "#141423", "#2a2a40"],
+    outfit: OUTFIT_HOODIE,
+    headgear: {
+      2: "....GGGGGGGG....", 3: "...GGGGGGGGGG...", 4: "..GGG......GGG..", 5: "..GG........GG..",
+      6: "..GG........GG..", 7: "..GG........GG..", 8: "..gG........Gg..", 9: "...gG......Gg...", 10: "....gg....gg...."
+    },
+    headColors: ["#e8ecf4", "#b0b8c8"],
+    perks: { crit: 0.04, heartGuard: 1 },
+    perkName: "こうげきを しる まもり",
+    perk: "かいしんの いちげきが 出やすくなる。1回の たたかいで 1回だけ、まちがえても ♥が へらない。",
+    perkWhy: "攻撃する人と同じ知識と技術を、守るために使う。弱点を見ぬき（かいしん）、攻撃をふせぐ。",
+    about: "攻撃者と同じ知識と技術を、正しいことのために使う人。システムの持ち主の許可を得て、実際に攻撃を試し（ペネトレーションテスト）、見つけた弱点を報告して直してもらう。許可なく試すのは犯罪になる。",
+    exam: "「情報セキュリティ」（攻撃の手口・脆弱性・ペネトレーションテストなど）。不正アクセス禁止法などの法律も出る。",
+    fields: ["セキュリティ", "法務"]
+  },
+  /* ===== Lv 60 ===== */
+  {
+    key: "blueteam", name: "ブルーチーム", level: 60,
+    colors: ["#2a6ad8", "#1a48a0", "#f8f8f8", "#22305a"],
+    outfit: OUTFIT_JACKET, headgear: HEADGEAR_HEADSET,
+    headColors: ["#2a2a3a", "#4ae0e0"],
+    perks: { heartGuard: 2 },
+    perkName: "てっぺきの かんし",
+    perk: "1回の たたかいで 2回まで、まちがえても ♥が へらない。",
+    perkWhy: "ログを見張って攻撃を早く見つけ、被害を広げずに食い止めるのが仕事。守りの専門家。",
+    about: "サイバー攻撃の演習で、守る側を受けもつチーム（攻める側はレッドチーム）。ふだんも、SOC（セキュリティの監視センター）などで記録（ログ）を見張り、攻撃に気づいて対応する。",
+    exam: "「情報セキュリティ」（ログの監視・SOC・CSIRT・インシデントへの対応など）。",
+    fields: ["セキュリティ"]
+  },
+  /* ===== Lv 70 ===== */
+  {
+    key: "ciso", name: "CISO", level: 70,
+    colors: ["#9a2a3e", "#621a28", "#f0c040", "#2a1c24"],
+    outfit: OUTFIT_CAPE,
+    perks: { heartGuard: 1, comboKeep: 1 },
+    perkName: "そしきの まもり",
+    perk: "1回の たたかいで 1回だけ、まちがえても ♥が へらない。コンボも 1回だけ 半分 のこる。",
+    perkWhy: "会社全体の守りのルールを決めて、事故が起きても被害を小さく、すぐ立ち直れるようにするのが仕事。",
+    about: "最高情報セキュリティ責任者（Chief Information Security Officer）。会社の情報セキュリティの方針（ポリシー）を決め、守りの体制をつくる責任者。事故が起きたときは、経営者として対応をみちびく。",
+    exam: "「情報セキュリティ管理」（情報セキュリティポリシー・リスクマネジメント・ISMS・CSIRT など）と「法務」。",
+    fields: ["セキュリティ", "法務", "企業活動"]
+  },
+  /* ===== Lv 80 ===== */
+  {
+    key: "cto", name: "CTO", level: 80,
+    colors: ["#c8ccd8", "#8c92a4", "#4ae0e0", "#2a2a40"],
+    outfit: OUTFIT_CAPE,
+    headgear: { 0: "....g.g..g.g....", 1: "....gggggggg...." },
+    headColors: ["#f0c040", "#f0c040"],
+    perks: { startGauge: 20, crit: 0.04, gaugeCombo: 8 },
+    perkName: "ぎじゅつの かじとり",
+    perk: "ひっさつゲージ 20 で はじまる。かいしんが 出やすい。コンボ5いじょうの せいかいで ゲージが たまりやすい。",
+    perkWhy: "会社の技術ぜんぶを見わたし、どの技術に力を入れるかを決める、技術の最高責任者。",
+    about: "最高技術責任者（Chief Technology Officer）。会社がどんな技術を使い、どう育てていくかを決める責任者。技術の方向を決め、エンジニアのチームをひきいる。",
+    exam: "テクノロジ系の全分野と、技術の戦略（技術開発戦略・技術のロードマップなど）。",
+    fields: ["アルゴリズムとプログラミング", "システム構成要素", "ネットワーク", "データベース", "セキュリティ", "経営戦略マネジメント"]
   }
 ];
 
@@ -213,7 +411,7 @@ function drawAvatar(canvas, avatar, jobKey, scale) {
   var col = {
     B: SPRITE_BLACK, S: skin[0], s: skin[1], W: SPRITE_WHITE, K: SPRITE_BLACK, H: hair[0], h: hair[1],
     O: job.colors[0], o: job.colors[1], A: job.colors[2], P: job.colors[3], X: "#4a3020",
-    G: "#2a2a3a", g: "#e05252", L: "#7ab0f0"
+    G: job.headColors ? job.headColors[0] : "#2a2a3a", g: job.headColors ? job.headColors[1] : "#e05252", L: "#7ab0f0"
   };
   canvas.width = AVATAR_W * scale;
   canvas.height = AVATAR_H * scale;

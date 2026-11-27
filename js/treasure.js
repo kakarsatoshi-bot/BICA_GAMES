@@ -23,7 +23,7 @@ var Treasure = (function () {
    * ctx.stars が 3（ノーミス）だと、しょうごうが少し出やすい。 */
   function grant(save, quest, ctx) {
     var roll = Math.random();
-    var luck = ctx && ctx.stars === 3 ? 0.08 : 0;
+    var luck = (ctx && ctx.stars === 3 ? 0.08 : 0) + (ctx && ctx.luck || 0);   // luck：しょくぎょうの特ちょう（データサイエンティスト）
     var titlesLeft = TREASURE_TITLES.filter(function (t) { return save.titles.indexOf(t) < 0; });
     if (roll < 0.25 + luck && titlesLeft.length) {
       var next = titlesLeft[0];
