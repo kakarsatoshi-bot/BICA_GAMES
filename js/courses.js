@@ -30,7 +30,7 @@ var COURSES = [
     subjects: [QUEST_DATA_EXCEL, QUEST_DATA_WORD],
     exams: [ { key: "excel", label: "Excel もぎけんてい", subject: "excel", count: 20, pass: 700, shape: "wizard", palette: "green" },
              { key: "word",  label: "Word もぎけんてい",  subject: "word",  count: 20, pass: 700, shape: "wizard", palette: "blue" } ],
-    menu: ["subject:excel", "subject:word", "review", "final", "expert", "endless", "exam", "practical", "ranking", "status"],
+    menu: ["subject:excel", "subject:word", "review", "final", "expert", "endless", "exam", "practical", "avatar", "ranking", "status"],
     finalText: "MOSの ちしきが せかいを すくった！\nきみこそ しんの MOSマスターだ！",
     vocabLink: true,
     countdown: true
@@ -45,7 +45,7 @@ var COURSES = [
              /* 本試験の科目B は 20問100分。6問なら 30分が同じペース */
              { key: "fe_b", label: "科目B もぎしけん", subject: "fe_b", count: 6, pass: 600, minutes: 30, shape: "wizard", palette: "dark",
                note: "本試験は IRT 方式で採点されるため、この点数は 正答率からの めやす です" } ],
-    menu: ["subject:fe_a", "subject:fe_b", "review", "final", "endless", "exam", "ranking", "status"],
+    menu: ["subject:fe_a", "subject:fe_b", "review", "final", "endless", "exam", "avatar", "ranking", "status"],
     scopes: [ { key: "all", label: "A＋B（まぜる）", subjects: ["fe_a", "fe_b"] },
               { key: "fe_a", label: "科目A だけ", subjects: ["fe_a"] },
               { key: "fe_b", label: "科目B だけ", subjects: ["fe_b"] } ],

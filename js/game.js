@@ -237,6 +237,12 @@ function ensureSaveShape(s) {
   s.course = s.course || null;             // 前回えらんだ対策項目（"mos" / "ipa_fe"）。無ければ選択画面を出す
   s.finalClears = s.finalClears || {};     // MOS 以外の対策項目の まおうの城 討伐（MOS は finalClear のまま）
   s.scopes = s.scopes || {};               // 対策項目ごとの はんい（IPA："all" / "fe_a" / "fe_b"）
+  /* v2.5 で足したもの（アバター・しょくぎょう。js/avatar.js） */
+  s.avatar = s.avatar || null;             // {hair, hairColor, skin, eyes}。null なら まだ作っていない（作る画面を出す）
+  s.job = s.job || "programmer";           // いまの しょくぎょう（JOBS の key）
+  s.jobXp = s.jobXp || {};                 // しょくぎょう -> その しょくぎょうで ためた EXP（しょくぎょうレベル）
+  s.jobStyle = s.jobStyle || {};           // しょくぎょう -> 1 なら いろちがいの服（しょくぎょうLv5〜）
+  s.subJob = s.subJob || null;             // サブ特ちょう（マスターした しょくぎょうの key）
   return s;
 }
 function newSave(name, klass) {
@@ -410,6 +416,7 @@ function startReview() {
 /* もぎけんてい: 科目えらび */
 function openExamSelect() {
   $("#quests-title").textContent = "もぎ けんてい";
+  $("#quests-title").dataset.subject = "";
   var box = $("#quest-list");
   box.innerHTML = "";
   currentCourseDef().exams.filter(function (ex) { return scopeHasSubject(ex.subject); }).forEach(function (ex) {
@@ -537,6 +544,83 @@ var TUNE = {
   feverCombo: 5         // このコンボからフィーバー
 };
 
+/* ---------- しょくぎょうレベル ----------
+ * その しょくぎょうで いるあいだに手に入れた EXP で上がる（ふつうのレベルとは別。ふつうのレベルは そのまま）。
+ * Lv5：いろちがいの服 ／ Lv10：特ちょうが強くなる ／ Lv20（マスター）：★・しょうごう・サブ特ちょうに できる */
+var JOB_MAX_LEVEL = 20;
+var JOB_LV_STYLE = 5, JOB_LV_BOOST = 10;
+function jobXpNeed(level) { return 20 + (level - 1) * 10; }
+function jobLevelInfo(jobKey) {
+  var level = 1, rest = (save.jobXp && save.jobXp[jobKey]) || 0;
+  while (level < JOB_MAX_LEVEL && rest >= jobXpNeed(level)) { rest -= jobXpNeed(level); level++; }
+  return { level: level, cur: rest, need: jobXpNeed(level), max: level >= JOB_MAX_LEVEL };
+}
+function jobLevel(jobKey) { return jobLevelInfo(jobKey).level; }
+function jobMastered(jobKey) { return jobLevel(jobKey) >= JOB_MAX_LEVEL; }
+function masterTitle(jobKey) { return jobDef(jobKey).name + "マスター"; }
+/* EXP を手に入れたら、いまの しょくぎょうにも入れる。レベルが上がったら知らせる */
+function addJobXp(n) {
+  if (!save || !n || n <= 0) return;
+  var key = save.job;
+  var before = jobLevel(key);
+  save.jobXp[key] = (save.jobXp[key] || 0) + n;
+  var after = jobLevel(key);
+  if (after <= before) return;
+  var job = jobDef(key);
+  var reward = after >= JOB_MAX_LEVEL ? "マスター！ しょうごう「" + masterTitle(key) + "」・サブ特ちょうに できる"
+    : after >= JOB_LV_BOOST && before < JOB_LV_BOOST ? "特ちょう「" + job.perkName + "」が つよくなった！"
+    : after >= JOB_LV_STYLE && before < JOB_LV_STYLE ? "いろちがいの服が きられるように なった！"
+    : job.name + " Lv " + after;
+  if (after >= JOB_MAX_LEVEL && save.titles.indexOf(masterTitle(key)) < 0) save.titles.push(masterTitle(key));
+  setTimeout(function () {
+    Sound.levelup();
+    Juice.banner("🧑‍💻", "しょくぎょう レベルアップ！ " + job.name + " Lv " + after, reward, "levelup");
+  }, 900);
+}
+/* じぶんの アバターを描く（いろちがいの服も） */
+function drawMyAvatar(canvas, jobKey, scale) {
+  drawAvatar(canvas, save.avatar, jobKey, scale, !!(save.jobStyle[jobKey] && jobLevel(jobKey) >= JOB_LV_STYLE));
+}
+
+/* しょくぎょうの特ちょう（js/avatar.js の JOBS の perks）の、いまの値。持っていなければ 0。
+ * しょくぎょうLv10 で強くなり、マスターした しょくぎょうを「サブ特ちょう」に すると、その特ちょうも足される。
+ * もぎけんてい（本番と同じ条件）では、どれも効かない。強さは JOBS の数値で変える */
+var PERK_BOOST = {   // しょくぎょうLv10 で どう強くなるか
+  heartGuard: ["add", 1], comboKeep: ["add", 1], regen: ["add", 1],
+  gaugeCombo: ["mul", 1.5], gaugeOnMiss: ["mul", 1.5], startGauge: ["mul", 1.5], crit: ["mul", 1.5],
+  chestLuck: ["mul", 1.5], specialMul: ["mul", 1.5], bossXp: ["mul", 1.5], missionXp: ["mul", 1.6],
+  reviewXp: ["set", 1.15], shiny: ["set", 3]
+};
+var PERK_INT = { heartGuard: 1, comboKeep: 1, regen: 1, gaugeCombo: 1, gaugeOnMiss: 1, startGauge: 1, bossXp: 1, missionXp: 1 };
+function jobPerkValue(jobKey, name, boosted) {
+  var v = jobDef(jobKey).perks[name] || 0;
+  if (!v || !boosted || !PERK_BOOST[name]) return v;
+  var b = PERK_BOOST[name];
+  v = b[0] === "add" ? v + b[1] : b[0] === "mul" ? v * b[1] : b[1];
+  return PERK_INT[name] ? Math.round(v) : v;
+}
+function perkVal(name) {
+  if (!save || (battle && battle.mode === "exam")) return 0;
+  var main = jobPerkValue(save.job, name, jobLevel(save.job) >= JOB_LV_BOOST);
+  var sub = save.subJob && save.subJob !== save.job && jobMastered(save.subJob) ? jobPerkValue(save.subJob, name, false) : 0;
+  if (name === "reviewXp" || name === "shiny") return Math.max(main, sub);   /* 倍率は 大きいほう */
+  return main + sub;
+}
+/* とくい分野：いまの しょくぎょうが、この問題を とくいとするか（IPA は分野、MOS は科目で決める） */
+var LIKE_XP = 1.2, LIKE_GAUGE = 10;
+function jobLikes(jobKey, q) {
+  if (!q || !q.id || !QUESTION_INDEX[q.id]) return false;
+  var job = jobDef(jobKey);
+  if (q.field) return job.fields.indexOf(q.field) >= 0;
+  return job.mosSubjects.indexOf(QUESTION_INDEX[q.id].subject) >= 0;
+}
+function likedNow(q) {
+  return !!battle && battle.mode !== "exam" && jobLikes(save.job, q);
+}
+function missionBonusXp() {
+  return MISSION_BONUS_XP + perkVal("missionXp");
+}
+
 /* こうげきは連続正解で進化する（上から順に、あてはまる最初のものを使う） */
 var ATTACK_TIERS = [
   { min: 10, kind: "meteor", se: "meteor",   text: "りゅうせいの まほうが ふりそそぐ！" },
@@ -645,6 +729,13 @@ function beginBattle() {
    * 1回の戦闘でためきれない人も、いつかは必殺技が出せる） */
   battle.gauge = battle.useGauge ? Math.min(100, save.gauge || 0) : 0;
   battle.fever = false;
+  /* 1回の戦闘で決まった回数だけ効く特ちょうの、のこりの回数 */
+  battle.guardsLeft = perkVal("heartGuard");
+  battle.keepsLeft = perkVal("comboKeep");
+  battle.regenLeft = perkVal("regen");
+  /* クラウドエンジニア など：ひっさつゲージが たまった状態で はじまる */
+  if (battle.useGauge && perkVal("startGauge")) battle.gauge = Math.min(100, battle.gauge + perkVal("startGauge"));
+  drawMyAvatar($("#battle-avatar"), save.job, 3);
   battle.maxCombo = 0;
   battle.crits = 0;
   battle.quicks = 0;
@@ -723,7 +814,8 @@ function currentMonster() {
     return pick(courseQuests()).mob;
   }
   /* クエスト・復習・めいきゅうでは、ごく低確率で激レアモンスターが出現する */
-  if (Math.random() < RARE_MONSTER_CHANCE) {
+  var luck = perkVal("shiny") || 1;   /* Webデザイナー：色ちがい・激レアに出会いやすい */
+  if (Math.random() < RARE_MONSTER_CHANCE * luck) {
     battle.isRare = true;
     battle.rare = pickRareMonster();
     return battle.rare.mob;
@@ -732,7 +824,7 @@ function currentMonster() {
         : battle.mode === "endless" ? pick(battle.quests).mob
         : battle.quest.mob;
   /* さらに低確率で、色ちがい。たおすと図鑑に色ちがいが登録される */
-  if (Math.random() < TUNE.shinyChance) {
+  if (Math.random() < TUNE.shinyChance * luck) {
     battle.isShiny = true;
     return { shape: m.shape, palette: Treasure.shinyPalette(m.palette), name: m.name };
   }
@@ -746,6 +838,13 @@ function setEnemyAnim(name) {
   var hid = c.classList.contains("hidden");
   c.className = name + (battle && battle.isShiny ? " shiny" : "") + (battle && battle.isRare ? " rare" : "");
   if (hid) c.classList.add("hidden");
+}
+/* 戦闘画面のアバター（こうげきで はねる・まちがいで ゆれる） */
+function avatarAnim(name) {
+  var c = $("#battle-avatar");
+  c.classList.remove("hop", "hurt");
+  void c.offsetWidth;   /* 同じ動きを つづけて出すため、いったん もどす */
+  c.classList.add(name);
 }
 /* 出現・ひるみ・とびかかりのうごきが終わったら、ふわふわ待機にもどす */
 var ENEMY_ANIM_CLASS = { spawn: "spawn", spawnBoss: "spawn-boss", hit: "hit", enemyLunge: "lunge" };
@@ -1021,6 +1120,7 @@ function showQuestion() {
   if (q.instant) finishType();
   renderQuestionVisual(q);
   renderSource(q);
+  $("#battle-liked").classList.toggle("hidden", !likedNow(q));
   var box = $("#battle-choices");
   box.innerHTML = "";
   battle.rightBtn = null;
@@ -1327,7 +1427,8 @@ function answer(isCorrect, btn) {
     var quick = isQuickAnswer(elapsed);
     var special = battle.useGauge && battle.gauge >= 100;
     var crit = !special && Math.random() <
-      TUNE.critBase + TUNE.critPerCombo * Math.min(battle.combo, TUNE.critComboCap) + (quick ? TUNE.critQuick : 0);
+      TUNE.critBase + TUNE.critPerCombo * Math.min(battle.combo, TUNE.critComboCap) + (quick ? TUNE.critQuick : 0) +
+      perkVal("crit");
     var tier = attackTier(battle.combo);
 
     var gained = battle.mode === "review" ? 6 : (battle.mode === "exam" || battle.mode === "endless") ? 8 : 10;
@@ -1338,8 +1439,12 @@ function answer(isCorrect, btn) {
     if (battle.isShiny) gained += TUNE.shinyXp;
     if (crit) gained = Math.round(gained * TUNE.critMul);
     if (quick) gained += TUNE.quickXp;
-    if (special) gained = Math.round(gained * TUNE.specialMul);
-    battle.xp += gained;
+    if (special) gained = Math.round(gained * (TUNE.specialMul + perkVal("specialMul")));
+    if (isBoss) gained += perkVal("bossXp");
+    if (battle.mode === "review" && perkVal("reviewXp")) gained = Math.round(gained * perkVal("reviewXp"));
+    var liked = likedNow(q);   /* とくい分野の問題：EXP 1.2倍・ゲージ多め */
+    if (liked) gained = Math.round(gained * LIKE_XP);
+    battle.xp += gained; addJobXp(gained);
     save.xp += gained;
 
     if (special) {
@@ -1350,11 +1455,18 @@ function answer(isCorrect, btn) {
       missionHits.push(Missions.record(save, "special", 1));
     } else if (battle.useGauge) {
       battle.gauge = Math.min(100, battle.gauge + TUNE.gaugeCorrect +
-        (quick ? TUNE.gaugeQuick : 0) + (crit ? TUNE.gaugeCrit : 0));
+        (quick ? TUNE.gaugeQuick : 0) + (crit ? TUNE.gaugeCrit : 0) +
+        (battle.combo >= 5 ? perkVal("gaugeCombo") : 0) + (liked ? LIKE_GAUGE : 0));
       save.gauge = battle.gauge;
       if (battle.gauge >= 100) setTimeout(function () { if (battleLive(b, turn)) Sound.gaugeMax(); }, 600);
     }
     if (crit) { battle.crits++; save.stats.crits++; missionHits.push(Missions.record(save, "crit", 1)); }
+    /* ITサポート：3問つづけて正解すると ♥が1つ回復（1回の戦闘で決まった回数まで） */
+    if (battle.regenLeft > 0 && battle.combo >= 3 && battle.hearts < battle.maxHearts && !battle.noFail) {
+      battle.regenLeft--;
+      battle.hearts++;
+      setTimeout(function () { if (battleLive(b, turn)) { Sound.heal(); Fx.floatText("ふっきゅうの て！ ♥ かいふく", "#7ab0f0", ""); } }, 700);
+    }
     if (quick) { battle.quicks++; save.stats.quicks++; missionHits.push(Missions.record(save, "quick", 1)); }
 
     var died = true;
@@ -1419,6 +1531,7 @@ function answer(isCorrect, btn) {
       if (!battleLive(b, turn)) return;
       updateHud();   // ボスのHP・ハートは、こうげきが当たった瞬間に動かす
       if (!special) Sound.correct();
+      avatarAnim("hop");
       if (died) {
         Fx.defeat(battle.mob.palette, isBoss);
         setEnemyAnim("gone");
@@ -1426,7 +1539,7 @@ function answer(isCorrect, btn) {
       } else {
         setEnemyAnim("hit");
       }
-      Fx.floatText("＋" + gained + " EXP", null, (crit || special) ? "crit" : "");
+      Fx.floatText((liked ? "とくい！ " : "") + "＋" + gained + " EXP", liked ? "#7ab0f0" : null, (crit || special) ? "crit" : "");
       Juice.orbs(Juice.enemyPoint(), $("#battle-xpfill").parentNode, { n: 6, onDone: renderBattleXp });
       setTimeout(renderBattleXp, 1000);   // 玉が届かなかったときの保険
       if (healed) { Sound.heal(); flashHearts("heal"); }
@@ -1481,13 +1594,25 @@ function answer(isCorrect, btn) {
   } else {
     var hadCombo = battle.combo;
     battle.combo = 0;
-    if (!battle.noFail) battle.hearts--;
+    /* ♥が へらない（セキュリティ など）・コンボが半分 のこる（ネットワーク など）は、1回の戦闘で決まった回数まで */
+    var guarded = !battle.noFail && battle.guardsLeft > 0;
+    var kept = battle.keepsLeft > 0 && hadCombo >= 2;
+    if (guarded) battle.guardsLeft--;
+    if (kept) { battle.keepsLeft--; battle.combo = Math.floor(hadCombo / 2); }
+    /* テストエンジニア：まちがえても ひっさつゲージが すこし たまる */
+    if (battle.useGauge && perkVal("gaugeOnMiss") && battle.gauge < 100) {
+      battle.gauge = Math.min(100, battle.gauge + perkVal("gaugeOnMiss"));
+      save.gauge = battle.gauge;
+    }
+    if (!battle.noFail && !guarded) battle.hearts--;
     Sound.wrong();
-    if (hadCombo >= 3) setTimeout(function () { Sound.comboBreak(); }, 200);
+    if (hadCombo >= 3 && !kept) setTimeout(function () { Sound.comboBreak(); }, 200);
     setEnemyAnim("lunge");
+    avatarAnim("hurt");
     Fx.claw();
-    Fx.floatText(battle.noFail ? "ミス…" : "－♥ ダメージ！", "#ff5d7a", "bad");
-    if (!battle.noFail) flashHearts("hurt");
+    Fx.floatText(guarded ? jobDef(save.job).perkName + "！ ♥は へらない" : kept ? jobDef(save.job).perkName + "！ コンボ " + battle.combo + " のこった" :
+      battle.noFail ? "ミス…" : "－♥ ダメージ！", guarded || kept ? "#7ab0f0" : "#ff5d7a", "bad");
+    if (!battle.noFail && !guarded) flashHearts("hurt");
     setFever(false);
     renderCombo();
     msg = "ミス！ こうげきを うけた…\nせいかいは 「" + choiceText(q, q.a) + "」\n【かいせつ】" + q.exp;
@@ -1500,8 +1625,8 @@ function answer(isCorrect, btn) {
     if (battle.mode === "review") missionHits.push(Missions.record(save, "reviewCorrect", 1));
   }
   missionHits.filter(Boolean).forEach(function (m) {
-    save.xp += MISSION_BONUS_XP;
-    battle.xp += MISSION_BONUS_XP;
+    save.xp += missionBonusXp();
+    battle.xp += missionBonusXp(); addJobXp(missionBonusXp());
     banners.push(missionBanner(m));
   });
 
@@ -1539,7 +1664,7 @@ function answer(isCorrect, btn) {
 }
 
 function missionBanner(m) {
-  return ["📋", "ミッション たっせい！ ＋" + MISSION_BONUS_XP + "EXP", m.label, "mission"];
+  return ["📋", "ミッション たっせい！ ＋" + missionBonusXp() + "EXP", m.label, "mission"];
 }
 
 /* たおした数のメダル（ちょうどその数になったときだけ返す） */
@@ -1657,7 +1782,7 @@ function endEndless() {
   var reached = battle.correct + 1;
   var bonus = Math.min(battle.correct * 2, 60);
   save.xp += bonus;
-  battle.xp += bonus;
+  battle.xp += bonus; addJobXp(bonus);
 
   var prevBest = battle.startBest;
   var isRecord = battle.correct > 0 && reached > prevBest;
@@ -1902,7 +2027,7 @@ function endExam() {
   var pass = score >= passLine;
   var bonus = pass ? 50 : 10;
   save.xp += bonus;
-  battle.xp += bonus;
+  battle.xp += bonus; addJobXp(bonus);
 
   save.exams = save.exams || {};
   var ex = save.exams[battle.subjectKey] || { best: 0, tries: 0 };
@@ -1955,6 +2080,7 @@ function endBattle(cleared) {
     var miss = battle.idx - battle.correct;   /* 実際に解いた数から計算（最終決戦の早期勝利にも対応） */
     stars = miss === 0 ? 3 : (miss <= 2 ? 2 : 1);
     bonus = battle.mode === "review" ? 15 : 30;
+    if (battle.mode === "review" && perkVal("reviewXp")) bonus = Math.round(bonus * perkVal("reviewXp"));
     if (stars === 3) bonus += 20;
 
     if (battle.mode === "quest") {
@@ -1967,8 +2093,8 @@ function endBattle(cleared) {
       missionHits.push(Missions.record(save, "questClear", 1));
       if (battle.bossCorrect >= 3) missionHits.push(Missions.record(save, "bossWin", 1));
 
-      chestReward = Treasure.grant(save, battle.quest, { stars: stars });
-      if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; }
+      chestReward = Treasure.grant(save, battle.quest, { stars: stars, luck: perkVal("chestLuck") });
+      if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; addJobXp(chestReward.xp); }
     }
     if (battle.mode === "final") {
       /* MOS は今までどおり finalClear（エキスパートの解放条件）。ほかの項目は finalClears に分ける */
@@ -1983,11 +2109,11 @@ function endBattle(cleared) {
       bonus = 150;
     }
     save.xp += bonus;
-    battle.xp += bonus;
+    battle.xp += bonus; addJobXp(bonus);
 
     missionHits.filter(Boolean).forEach(function (m) {
       save.xp += MISSION_BONUS_XP;
-      battle.xp += MISSION_BONUS_XP;
+      battle.xp += MISSION_BONUS_XP; addJobXp(MISSION_BONUS_XP);
     });
   }
 
@@ -2005,6 +2131,9 @@ function endBattle(cleared) {
     } else if (battle.mode === "expert") {
       title = "しんおうデリートを たおした！！";
       sub = "エキスパートの おくぎを てにいれた！\nきみは まことの MOSエキスパートだ！";
+    } else if (battle.practiceJob) {
+      title = jobDef(battle.practiceJob).name + "の しれん クリア！";
+      sub = "この分野の ちしきが ふかまった！";
     } else if (battle.mode === "review") {
       title = "ふくしゅう かんりょう！";
       sub = "きおくが しっかり ていちゃくした！";
@@ -2024,7 +2153,7 @@ function endBattle(cleared) {
     stars: cleared && battle.mode !== "review" ? stars : null,
     rows: battleRows(battle.idx),
     xp: battle.xp,
-    hideRetry: battle.mode === "review" && cleared,
+    hideRetry: battle.mode === "review" && cleared && !battle.practiceJob,
     chest: chestReward,
     jingle: cleared ? (grand ? "fanfare" : "clear") : "fail",
     confetti: cleared ? (grand ? 140 : 40) : 0,
@@ -2035,7 +2164,8 @@ function endBattle(cleared) {
 
 function retryBattle() {
   Sound.select();
-  if (battle.mode === "quest") startQuest(battle.quest);
+  if (battle.practiceJob) startJobPractice(battle.practiceJob);
+  else if (battle.mode === "quest") startQuest(battle.quest);
   else if (battle.mode === "review") startReview();
   else if (battle.mode === "exam") startExam(battle.subjectKey);
   else if (battle.mode === "expert") startExpert();
@@ -2066,6 +2196,11 @@ function renderPlayerHeader(prefix) {
   if (fill) fill.style.width = Math.floor(li.cur / li.need * 100) + "%";
   var xptext = $("#" + prefix + "-xptext");
   if (xptext) xptext.textContent = "EXP " + li.cur + " / " + li.need;
+  var img = $("#" + prefix + "-avatar-img");
+  if (img) drawMyAvatar(img, save.job, 3);
+  var job = $("#" + prefix + "-job");
+  if (job) job.textContent = "🧑‍💻 " + jobDef(save.job).name + " Lv " + jobLevel(save.job) + (jobMastered(save.job) ? " ★" : "") +
+    (save.subJob && save.subJob !== save.job && jobMastered(save.subJob) ? "（サブ：" + jobDef(save.subJob).perkName + "）" : "");
 }
 
 function openMenu() {
@@ -2147,6 +2282,7 @@ function finalUnlockedAny() {
 var SCOPE_ENTRIES = {
   review: {
     title: "⛩️ ふっかつの ほこら",
+    roles: ["database", "auditor"],
     open: function () { return true; },
     status: function () {
       var n = specialistDueList().length;
@@ -2157,12 +2293,14 @@ var SCOPE_ENTRIES = {
   },
   final: {
     title: "🌋 まおうの しろ",
+    roles: ["architect", "whitehacker", "strategist", "ai", "cto"],
     open: function () { return finalUnlocked(); },
     status: function () { return finalUnlocked() ? "ちょうせんできる" : "この はんいの クエストを ぜんぶ クリアすると かいほう"; },
     start: function () { startFinal(); }
   },
   endless: {
     title: "🌀 むげんの めいきゅう",
+    roles: ["support", "security", "blueteam", "ciso"],
     open: function () { return scopeClearedCount() >= ENDLESS_UNLOCK; },
     status: function () {
       var n = scopeClearedCount();
@@ -2179,6 +2317,10 @@ function enterWithScope(kind) {
   var box = $("#scope-list");
   box.innerHTML = "";
   $("#scope-title").textContent = entry.title;
+  var roles = (entry.roles || []).map(jobDef).filter(jobUnlocked);
+  var good = roles.some(function (j) { return j.key === save.job; });
+  $("#scope-reco").textContent = !roles.length ? "" : good ? "🎯 いまの しょくぎょう（" + jobDef(save.job).name + "）は ここに むいている！"
+    : "🎯 むいている しょくぎょう：" + roles.map(function (j) { return j.name; }).join("・");
   list.forEach(function (sc) {
     var open = withScope(sc.key, entry.open);
     var btn = document.createElement("button");
@@ -2217,7 +2359,7 @@ function closeScopeSelect() {
 
 /* メニューのボタンを、選択中の対策項目の定義（js/courses.js の menu）の順に並べ、ほかは隠す。
  * 科目ボタン（"subject:<科目キー>"）だけは JS で作る（id は menu-<科目キー>）。 */
-var MENU_BUTTON_IDS = ["review", "final", "expert", "endless", "exam", "practical", "ranking", "status"];
+var MENU_BUTTON_IDS = ["review", "final", "expert", "endless", "exam", "practical", "avatar", "ranking", "status"];
 function subjectMenuButton(subjectKey) {
   var btn = $("#menu-" + subjectKey);
   if (btn) return btn;
@@ -2250,6 +2392,303 @@ function renderCourseMenu() {
   $("#menu-course-icon").textContent = def.icon;
   $("#menu-course-name").textContent = def.label + "（" + def.sub + "）";
   $("#menu-course-change").classList.toggle("hidden", availableCourses().length < 2);
+}
+
+/* =========================================================
+ * アバター・しょくぎょう（js/avatar.js）
+ * かえたら すぐ保存する。はじめて作るとき（first）は「◀ マップ」を出さず、けっていで対策項目を えらぶ画面へ。
+ * ======================================================= */
+var avatarFirst = false;
+function openAvatar(first) {
+  avatarFirst = !!first;
+  if (!save.avatar) { save.avatar = randomAvatar(); persist(); }
+  $("#avatar-back").classList.toggle("hidden", avatarFirst);
+  $("#avatar-lead").textContent = avatarFirst
+    ? "ぼうけんに でる まえに、じぶんの アバターと しょくぎょうを きめよう！（あとから いつでも かえられるよ）"
+    : "アバターの みためと、しょくぎょうを かえられるよ。";
+  $("#avatar-done").textContent = avatarFirst ? "これで ぼうけんに でる！" : "これで けってい！";
+  renderAvatarScreen();
+  show("screen-avatar");
+}
+function renderAvatarScreen() {
+  drawMyAvatar($("#avatar-preview"), save.job, 8);
+  var box = $("#avatar-parts");
+  box.innerHTML = "";
+  AVATAR_PART_ORDER.forEach(function (p) {
+    var kind = p[0], list = AVATAR_PARTS[kind];
+    var row = document.createElement("div");
+    row.className = "avatar-part";
+    var lab = document.createElement("span");
+    lab.className = "avatar-part-label";
+    lab.textContent = p[1];
+    var prev = document.createElement("button");
+    prev.type = "button"; prev.className = "btn btn-small avatar-arrow"; prev.textContent = "◀";
+    prev.setAttribute("aria-label", p[1] + "を まえに");
+    var val = document.createElement("span");
+    val.className = "avatar-part-value";
+    val.textContent = avatarPart(kind, save.avatar[kind]).label;
+    var next = document.createElement("button");
+    next.type = "button"; next.className = "btn btn-small avatar-arrow"; next.textContent = "▶";
+    next.setAttribute("aria-label", p[1] + "を つぎに");
+    function step(d) {
+      var i = 0;
+      list.forEach(function (x, k) { if (x.key === save.avatar[kind]) i = k; });
+      save.avatar[kind] = list[(i + d + list.length) % list.length].key;
+      persist();
+      Sound.select();
+      renderAvatarScreen();
+    }
+    prev.onclick = function () { step(-1); };
+    next.onclick = function () { step(1); };
+    row.appendChild(lab); row.appendChild(prev); row.appendChild(val); row.appendChild(next);
+    box.appendChild(row);
+  });
+  renderJobList();
+}
+function jobUnlocked(job) {
+  return levelInfo(save.xp).level >= job.level;
+}
+function renderJobList() {
+  var box = $("#job-list");
+  box.innerHTML = "";
+  var lastLevel = null;
+  JOBS.forEach(function (job) {
+    /* 解放されるレベルごとに見出しを入れる */
+    if (job.level !== lastLevel) {
+      lastLevel = job.level;
+      var hd = document.createElement("div");
+      hd.className = "job-tier" + (jobUnlocked(job) ? "" : " locked");
+      hd.textContent = job.level === 1 ? "さいしょから" : "Lv " + job.level + (jobUnlocked(job) ? " で かいほう ✔" : " で かいほう 🔒");
+      box.appendChild(hd);
+    }
+    var open = jobUnlocked(job);
+    var cur = save.job === job.key;
+    var div = document.createElement("div");
+    div.className = "quest-card window job-card" + (cur ? " is-current" : "") + (open ? "" : " locked");
+    div.tabIndex = 0;
+    div.setAttribute("role", "button");
+    div.dataset.job = job.key;
+    var cv = document.createElement("canvas");
+    drawMyAvatar(cv, job.key, 3);
+    var info = document.createElement("div");
+    info.className = "quest-info";
+    var nm = document.createElement("div");
+    nm.className = "quest-name";
+    nm.textContent = job.name;
+    var ds = document.createElement("div");
+    ds.className = "quest-desc";
+    ds.textContent = open ? "とくちょう「" + job.perkName + "」" : "🔒 Lv " + job.level + " で かいほう";
+    info.appendChild(nm); info.appendChild(ds);
+    if (open) {
+      var jl = jobLevelInfo(job.key);
+      var lvl = document.createElement("div");
+      lvl.className = "job-level";
+      lvl.textContent = jl.max ? "★ マスター" + (save.subJob === job.key ? "（サブ特ちょう）" : "")
+        : "しょくぎょう Lv " + jl.level + "（つぎまで " + (jl.need - jl.cur) + " EXP）";
+      info.appendChild(lvl);
+    }
+    if (cur) {
+      var mark = document.createElement("div");
+      mark.className = "quest-stars";
+      mark.textContent = "▶ いまの しょくぎょう";
+      info.appendChild(mark);
+    }
+    div.appendChild(cv); div.appendChild(info);
+    div.onclick = function () { Sound.select(); openJobCard(job.key); };
+    box.appendChild(div);
+  });
+}
+
+/* 解説カード（しょくぎょう・のちに 装備・モンスター など）。読むことが そのまま勉強になるように、
+ * 「ひとことで」「しけんでは」などの欄と、関係する問題に すぐ ちょうせんできるボタンを出す。
+ * card = { kind, title, sub, draw(canvas), sections: [{ h, text }], actions: [{ label, onClick, disabled, note }] } */
+function openCard(card) {
+  $("#card-kind").textContent = card.kind || "";
+  $("#card-title").textContent = card.title || "";
+  $("#card-sub").textContent = card.sub || "";
+  var img = $("#card-img");
+  img.classList.toggle("hidden", !card.draw);
+  if (card.draw) card.draw(img);
+  var body = $("#card-body");
+  body.innerHTML = "";
+  (card.sections || []).forEach(function (sec) {
+    var h = document.createElement("h3");
+    h.className = "card-h";
+    h.textContent = sec.h;
+    var t = document.createElement("p");
+    t.className = "card-text";
+    t.textContent = sec.text;
+    body.appendChild(h); body.appendChild(t);
+  });
+  var acts = $("#card-actions");
+  acts.innerHTML = "";
+  (card.actions || []).forEach(function (a) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn" + (a.primary ? " btn-primary" : "");
+    btn.textContent = a.label;
+    btn.disabled = !!a.disabled;
+    btn.onclick = function () { a.onClick(); };
+    acts.appendChild(btn);
+    if (a.note) {
+      var n = document.createElement("div");
+      n.className = "card-note";
+      n.textContent = a.note;
+      acts.appendChild(n);
+    }
+  });
+  $("#card-modal").classList.remove("hidden");
+  body.scrollTop = 0;
+  $("#card-close").focus();
+}
+function closeCard() {
+  $("#card-modal").classList.add("hidden");
+}
+
+/* しょくぎょうの 関係する問題（いまの対策項目の問題のうち、分野が合うもの） */
+function jobPracticePool(jobKey) {
+  var job = jobDef(jobKey);
+  return Object.keys(QUESTION_INDEX).filter(function (id) {
+    return inCourse(id) && job.fields.indexOf(QUESTION_INDEX[id].q.field) >= 0;
+  });
+}
+function openJobCard(jobKey) {
+  var job = jobDef(jobKey);
+  var open = jobUnlocked(job);
+  var cur = save.job === job.key;
+  var pool = jobPracticePool(job.key);
+  var jl = jobLevelInfo(job.key);
+  var actions = [{
+    label: cur ? "いまの しょくぎょう" : open ? "この しょくぎょうに なる" : "🔒 Lv " + job.level + " で かいほう",
+    primary: true,
+    disabled: cur || !open,
+    onClick: function () {
+      save.job = job.key;
+      persist();
+      syncNow();
+      Sound.heal();
+      closeCard();
+      renderAvatarScreen();
+      toast(job.name + "に なった！");
+    }
+  }];
+  if (open && jl.level >= JOB_LV_STYLE) {
+    actions.push({
+      label: save.jobStyle[job.key] ? "ふつうの服に もどす" : "🎨 いろちがいの服を きる",
+      onClick: function () {
+        save.jobStyle[job.key] = save.jobStyle[job.key] ? 0 : 1;
+        persist(); Sound.select(); closeCard(); renderAvatarScreen(); openJobCard(job.key);
+      }
+    });
+  }
+  if (jl.max && !cur) {
+    actions.push({
+      label: save.subJob === job.key ? "サブ特ちょうを はずす" : "⭐ サブ特ちょうに する（「" + job.perkName + "」）",
+      onClick: function () {
+        save.subJob = save.subJob === job.key ? null : job.key;
+        persist(); Sound.heal(); closeCard(); renderAvatarScreen();
+        toast(save.subJob ? "サブ特ちょう「" + job.perkName + "」を つけた！" : "サブ特ちょうを はずした");
+      },
+      note: "マスターした しょくぎょうの特ちょうを、ほかの しょくぎょうでも 1つ つけられる"
+    });
+  }
+  if (pool.length) {
+    actions.push({
+      label: "⚔️ " + job.name + "の しれん（" + Math.min(5, pool.length) + "もん）",
+      onClick: function () { closeCard(); startJobPractice(job.key); },
+      note: "この しごとに かかわる 分野の もんだいに ちょうせん（" + pool.length + "もんから）"
+    });
+  }
+  openCard({
+    kind: "しょくぎょう カード",
+    title: job.name,
+    sub: open ? "しょくぎょう Lv " + jl.level + (jl.max ? " ★マスター" : "") + " ／ とくちょう「" + job.perkName + "」" : "Lv " + job.level + " で かいほう",
+    draw: function (cv) { drawMyAvatar(cv, job.key, 5); },
+    sections: [
+      { h: "💼 どんな しごと？", text: job.about },
+      { h: "📝 しけんでは", text: job.exam },
+      { h: "✨ とくちょう「" + job.perkName + "」", text: job.perk + "（もぎしけんでは きかない）" },
+      { h: "💡 とくちょうの わけ", text: job.perkWhy },
+      { h: "🎯 とくい分野", text: jobLikesText(job) + "\nとくい分野の問題に せいかいすると、EXP が 1.2ばい・ひっさつゲージも 多めに たまる。" },
+      { h: "🏰 むいている ばしょ", text: job.bestFor },
+      { h: "⭐ しょくぎょうレベル", text: jobLevelText(job.key) }
+    ],
+    actions: actions
+  });
+}
+function jobLikesText(job) {
+  var parts = [];
+  if (job.fields.length) parts.push("IPA 基本情報：" + job.fields.join("・"));
+  if (job.mosSubjects.length) parts.push("MOS：" + job.mosSubjects.map(function (k) { return k === "excel" ? "エクセル" : "ワード"; }).join("・"));
+  return parts.join("\n");
+}
+function jobLevelText(jobKey) {
+  var jl = jobLevelInfo(jobKey);
+  var head = jl.max ? "Lv " + JOB_MAX_LEVEL + "（マスター）" : "Lv " + jl.level + "（つぎの レベルまで " + (jl.need - jl.cur) + " EXP）";
+  return head + "\nこの しょくぎょうで いるあいだに 手に入れた EXP で 上がる。\n" +
+    (jl.level >= JOB_LV_STYLE ? "✔" : "・") + " Lv " + JOB_LV_STYLE + "：いろちがいの服\n" +
+    (jl.level >= JOB_LV_BOOST ? "✔" : "・") + " Lv " + JOB_LV_BOOST + "：特ちょうが つよくなる\n" +
+    (jl.max ? "✔" : "・") + " Lv " + JOB_MAX_LEVEL + "：マスター（★・しょうごう「" + masterTitle(jobKey) + "」・サブ特ちょうに できる）";
+}
+/* クエストの おすすめ しょくぎょう：解放ずみの しょくぎょうのうち、とくいな問題が いちばん多いもの */
+function recommendJob(questions) {
+  var best = null, bestN = 0;
+  JOBS.forEach(function (job) {
+    if (!jobUnlocked(job)) return;
+    var n = questions.filter(function (q) { return jobLikes(job.key, q); }).length;
+    /* 同じ数なら、いまの しょくぎょうを優先 */
+    if (n > bestN || (n === bestN && n > 0 && job.key === save.job)) { best = job; bestN = n; }
+  });
+  return best ? { job: best, n: bestN } : null;
+}
+function questRecoEl(quest) {
+  var reco = recommendJob(quest.questions);
+  if (!reco) return null;
+  var wrap = document.createElement("div");
+  wrap.className = "quest-reco";
+  var curN = quest.questions.filter(function (q) { return jobLikes(save.job, q); }).length;
+  var txt = document.createElement("span");
+  if (reco.job.key === save.job || curN >= reco.n) {
+    txt.textContent = "🎯 いまの しょくぎょうが とくい（" + curN + "/" + quest.questions.length + "もん）";
+    wrap.appendChild(txt);
+    return wrap;
+  }
+  txt.textContent = "🎯 おすすめ：" + reco.job.name + "（とくい " + reco.n + "/" + quest.questions.length + "もん）";
+  var btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-small quest-reco-btn";
+  btn.textContent = "かえる";
+  btn.onclick = function (e) {
+    e.stopPropagation();
+    save.job = reco.job.key;
+    persist(); syncNow(); Sound.heal();
+    toast(reco.job.name + "に なった！");
+    var again = $("#quests-title").dataset.subject;
+    if (again) openQuestList(again);
+  };
+  wrap.appendChild(txt); wrap.appendChild(btn);
+  return wrap;
+}
+
+/* しょくぎょうの しれん：関係する分野の問題 5問（にがてな問題を先に） */
+function startJobPractice(jobKey) {
+  var pool = jobPracticePool(jobKey);
+  if (!pool.length) { toast("この たいさく こうもくには、まだ もんだいが ないよ"); return; }
+  var weak = specialistWeakList().filter(function (id) { return pool.indexOf(id) >= 0; });
+  var rest = shuffle(pool.filter(function (id) { return weak.indexOf(id) < 0; }));
+  var ids = weak.concat(rest).slice(0, 5);
+  battle = {
+    mode: "review",
+    practiceJob: jobKey,
+    quest: null,
+    label: jobDef(jobKey).name + "の しれん",
+    qs: shuffle(ids.map(function (id) { return QUESTION_INDEX[id].q; })),
+    bossFrom: 9999, bossHp: 0, bossMax: 0,
+    idx: 0, hearts: 3, maxHearts: 3,
+    correct: 0, combo: 0, xp: 0,
+    bossPhase: false, bossCorrect: 0
+  };
+  beginBattle();
 }
 
 /* ---------- 対策項目を えらぶ ---------- */
@@ -2527,6 +2966,7 @@ function questMasteryEl(quest) {
 function openQuestList(subjectKey) {
   var sub = SUBJECTS.filter(function (s) { return s.subject === subjectKey; })[0];
   $("#quests-title").textContent = sub.label;
+  $("#quests-title").dataset.subject = subjectKey;
   var box = $("#quest-list");
   box.innerHTML = "";
 
@@ -2554,6 +2994,7 @@ function openQuestList(subjectKey) {
     st.textContent = "★".repeat(rec.stars) + "☆".repeat(3 - rec.stars);
     info.appendChild(nm); info.appendChild(ds); info.appendChild(st);
     if (unlocked) info.appendChild(questMasteryEl(quest));
+    if (unlocked) { var reco = questRecoEl(quest); if (reco) info.appendChild(reco); }
 
     div.appendChild(cv);
     div.appendChild(info);
@@ -2569,6 +3010,7 @@ function openQuestList(subjectKey) {
 /* エキスパートのかくしダンジョン：クエスト一覧＋末尾の裏ボスカード */
 function openExpertQuests() {
   $("#quests-title").textContent = EXPERT_QUEST_DATA_EXCEL.label;
+  $("#quests-title").dataset.subject = "";
   var box = $("#quest-list");
   box.innerHTML = "";
 
@@ -2846,7 +3288,8 @@ function populateClassSelect(selected) {
 
 function startAdventure() {
   Sound.select();
-  if (save) { openCourseSelect(); return; }
+  /* まだ アバターを作っていない人（v2.5 より前から遊んでいる人も）は、さきに作る */
+  if (save) { if (!save.avatar) openAvatar(true); else openCourseSelect(); return; }
   populateClassSelect(null);
   $("#register-title").textContent = "ぼうけんしゃ とうろく";
   $("#register-submit").textContent = "ぼうけんに でる！";
@@ -2889,7 +3332,7 @@ function submitRegister() {
   persist();
   Sound.levelup();
   syncNow();
-  openCourseSelect();
+  openAvatar(true);   /* はじめに アバターを作ってから、対策項目を えらぶ */
 }
 
 /* =========================================================
@@ -3002,6 +3445,11 @@ window.addEventListener("DOMContentLoaded", function () {
     if (isGo && e.target.classList && e.target.classList.contains("quest-card") && !e.repeat) {
       e.preventDefault(); e.target.click(); return;
     }
+    /* 解説カードは、Esc でも とじられる（開いている間は、うしろの選択肢を キーで えらばない） */
+    if (!$("#card-modal").classList.contains("hidden")) {
+      if (e.key === "Escape") { e.preventDefault(); closeCard(); }
+      return;
+    }
     /* 図の かくだいは、Esc・Enter でも とじられる */
     if (!$("#figure-modal").classList.contains("hidden")) {
       if (e.key === "Escape" || isGo) { e.preventDefault(); closeFigure(); }
@@ -3069,6 +3517,16 @@ window.addEventListener("DOMContentLoaded", function () {
   /* 科目ボタン（エクセルの とう 等）は renderCourseMenu() が作って結線する */
   $("#menu-course-change").onclick = function () { Sound.select(); openCourseSelect(); };
   $("#figure-close").onclick = function () { closeFigure(); };
+  $("#card-close").onclick = function () { Sound.select(); closeCard(); };
+  $("#card-modal").onclick = function (e) { if (e.target === this) closeCard(); };
+  $("#menu-avatar").onclick = function () { Sound.select(); openAvatar(false); };
+  $("#menu-avatar-img").onclick = function () { Sound.select(); openAvatar(false); };
+  $("#status-avatar-img").onclick = function () { Sound.select(); openAvatar(false); };
+  $("#avatar-random").onclick = function () { Sound.select(); save.avatar = randomAvatar(); persist(); renderAvatarScreen(); };
+  $("#avatar-done").onclick = function () {
+    Sound.select();
+    if (avatarFirst) { avatarFirst = false; openCourseSelect(); } else openMenu();
+  };
   $("#figure-modal").onclick = function (e) { if (e.target === this || e.target.id === "figure-img") closeFigure(); };
   $("#scope-close").onclick = function () { Sound.select(); closeScopeSelect(); };
   $("#scope-modal").onclick = function (e) { if (e.target === this) closeScopeSelect(); };
