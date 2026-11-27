@@ -122,6 +122,11 @@ function ribbonMarkerPosition(container, targetKey) {
   var eRect = el.getBoundingClientRect();
   return {
     x: eRect.right - cRect.left,
-    y: eRect.top - cRect.top
+    y: eRect.top - cRect.top,
+    /* ボタンの四すみ（番号を ボタンの下に置き、ボタンを わくで かこむのに使う） */
+    left: eRect.left - cRect.left,
+    top: eRect.top - cRect.top,
+    width: eRect.width,
+    height: eRect.height
   };
 }
