@@ -519,6 +519,13 @@ var Juice = (function () {
 
   /* 上からスッと降りてくるお知らせの帯（実績・ミッション）。順番に1本ずつ出す */
   var bannerQueue = [], bannerBusy = false;
+  /* 問題を読んでいる間は、新しいお知らせを出さずに待たせる（こたえたあとに まとめて出す）。
+   * いま出ている1本は、そのまま最後まで出す */
+  var bannerHeld = false;
+  function holdBanners(on) {
+    bannerHeld = !!on;
+    if (!bannerHeld && !bannerBusy) nextBanner();
+  }
   /* key を付けると、まだ出ていない同じ key のお知らせを上書きする
    * （レベルが続けて上がったとき、古い数字の帯を何本も待たせない） */
   function banner(icon, head, body, cls, key) {
@@ -529,13 +536,14 @@ var Juice = (function () {
       }
     }
     bannerQueue.push(item);
-    if (!bannerBusy) nextBanner();
+    if (!bannerBusy && !bannerHeld) nextBanner();
   }
   /* まだ出ていないお知らせのうち、key が同じものを取りさげる */
   function dropBanners(key) {
     bannerQueue = bannerQueue.filter(function (b) { return b.key !== key; });
   }
   function nextBanner() {
+    if (bannerHeld) { bannerBusy = false; return; }
     var b = bannerQueue.shift();
     if (!b) { bannerBusy = false; return; }
     bannerBusy = true;
@@ -614,7 +622,7 @@ var Juice = (function () {
     overlay: overlay, flash: flash, confetti: confetti, fountain: fountain,
     sparkle: sparkle, orbs: orbs, dissolve: dissolve,
     shake: shake, hitStop: hitStop, buzz: buzz,
-    pop: pop, announce: announce, banner: banner, dropBanners: dropBanners, textLayer: textLayer,
+    pop: pop, announce: announce, banner: banner, dropBanners: dropBanners, holdBanners: holdBanners, textLayer: textLayer,
     countUp: countUp, transition: transition,
     clear: clear,
     size: function () { return { w: W, h: H }; },
