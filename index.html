@@ -6,8 +6,8 @@
 <title>STUDY QUEST - しかくたいさくぼうけんの書</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2.5.0">
-<link rel="stylesheet" href="css/juice.css?v=2.5.0">
+<link rel="stylesheet" href="css/style.css?v=2.6.0">
+<link rel="stylesheet" href="css/juice.css?v=2.6.0">
 </head>
 <body>
 
@@ -61,9 +61,11 @@
       <button class="btn btn-small" id="menu-course-change" type="button">たいさく こうもくを かえる</button>
     </div>
     <div class="window player-header">
+      <canvas class="ph-avatar" id="menu-avatar-img" title="アバター・しょくぎょう"></canvas>
       <div class="ph-left">
         <span class="ph-name" id="menu-name"></span>
         <span class="ph-class" id="menu-class"></span>
+        <span class="ph-job" id="menu-job"></span>
       </div>
       <div class="ph-right">
         <span class="ph-level" id="menu-level"></span>
@@ -115,6 +117,9 @@
       <button class="btn menu-btn" id="menu-practical">
         <span class="menu-icon">🛠️</span>じっせん どうじょう
       </button>
+      <button class="btn menu-btn" id="menu-avatar">
+        <span class="menu-icon">🧑‍💻</span>アバター・しょくぎょう
+      </button>
       <button class="btn menu-btn" id="menu-ranking">
         <span class="menu-icon">👑</span>ランキング
       </button>
@@ -157,6 +162,7 @@
           <canvas id="stage-bg"></canvas>
           <div class="bosshp hidden" id="boss-hpbar"><div id="boss-hpghost"></div><div id="boss-hpfill"></div></div>
           <canvas id="enemy-canvas"></canvas>
+          <canvas class="battle-avatar" id="battle-avatar"></canvas>
           <div class="nametag" id="enemy-name"></div>
           <div id="hotspot-stage" class="hidden"></div>
           <div id="fx-layer"></div>
@@ -215,6 +221,25 @@
   </div>
 
   <!-- ============ ランキング ============ -->
+  <!-- ============ アバター・しょくぎょう ============ -->
+  <div class="screen" id="screen-avatar">
+    <div class="screen-header">
+      <button class="btn btn-back" id="avatar-back">◀ マップ</button>
+      <h2>🧑‍💻 アバター・しょくぎょう</h2>
+    </div>
+    <p class="avatar-lead" id="avatar-lead"></p>
+    <div class="window avatar-maker">
+      <div class="avatar-stage"><canvas id="avatar-preview"></canvas></div>
+      <div class="avatar-parts">
+        <div id="avatar-parts"></div>
+        <button class="btn btn-small" id="avatar-random" type="button">🎲 おまかせ</button>
+      </div>
+    </div>
+    <h3 class="avatar-h">しょくぎょう <span class="avatar-h-note">（えらぶと 解説カードが でるよ）</span></h3>
+    <div class="job-list" id="job-list"></div>
+    <button class="btn btn-big" id="avatar-done" type="button">これで けってい！</button>
+  </div>
+
   <div class="screen" id="screen-ranking">
     <div class="screen-header">
       <button class="btn btn-back">◀ マップ</button>
@@ -231,9 +256,11 @@
       <h2>📜 ぼうけんの しょ</h2>
     </div>
     <div class="window player-header">
+      <canvas class="ph-avatar" id="status-avatar-img" title="アバター・しょくぎょう"></canvas>
       <div class="ph-left">
         <span class="ph-name" id="status-name"></span>
         <span class="ph-class" id="status-class"></span>
+        <span class="ph-job" id="status-job"></span>
       </div>
       <div class="ph-right">
         <span class="ph-level" id="status-level"></span>
@@ -311,6 +338,23 @@
   </div>
 </div>
 
+<!-- ============ 解説カード（しょくぎょう など。読むと勉強になる） ============ -->
+<div class="modal hidden" id="card-modal" role="dialog" aria-modal="true" aria-labelledby="card-title">
+  <div class="window card-window">
+    <div class="card-top">
+      <canvas id="card-img"></canvas>
+      <div>
+        <div class="card-kind" id="card-kind"></div>
+        <h2 class="card-title" id="card-title"></h2>
+        <div class="card-sub" id="card-sub"></div>
+      </div>
+    </div>
+    <div class="card-body" id="card-body"></div>
+    <div class="card-actions" id="card-actions"></div>
+    <button class="btn" id="card-close" type="button">とじる</button>
+  </div>
+</div>
+
 <!-- ============ 図の かくだい（図をクリック／タップ） ============ -->
 <div class="modal hidden" id="figure-modal" role="dialog" aria-modal="true" aria-label="図の かくだい">
   <div class="figure-window">
@@ -354,30 +398,31 @@
 <button class="btn btn-small" id="btn-mute" title="おとの きりかえ（おとだけ → おんがくも → けす）">♪ おとだけ</button>
 <div id="toast"></div>
 
-<script src="js/config.js?v=2.5.0"></script>
-<script src="js/sprites.js?v=2.5.0"></script>
-<script src="js/sound.js?v=2.5.0"></script>
-<script src="js/juice.js?v=2.5.0"></script>
-<script src="js/fx.js?v=2.5.0"></script>
-<script src="js/backgrounds.js?v=2.5.0"></script>
-<script src="js/bestiary.js?v=2.5.0"></script>
-<script src="js/countdown.js?v=2.5.0"></script>
-<script src="js/srs.js?v=2.5.0"></script>
-<script src="js/api.js?v=2.5.0"></script>
-<script src="js/questions_excel.js?v=2.5.0"></script>
-<script src="js/questions_word.js?v=2.5.0"></script>
-<script src="js/questions_excel_expert.js?v=2.5.0"></script>
-<script src="js/questions_excel_practical.js?v=2.5.0"></script>
+<script src="js/config.js?v=2.6.0"></script>
+<script src="js/sprites.js?v=2.6.0"></script>
+<script src="js/avatar.js?v=2.6.0"></script>
+<script src="js/sound.js?v=2.6.0"></script>
+<script src="js/juice.js?v=2.6.0"></script>
+<script src="js/fx.js?v=2.6.0"></script>
+<script src="js/backgrounds.js?v=2.6.0"></script>
+<script src="js/bestiary.js?v=2.6.0"></script>
+<script src="js/countdown.js?v=2.6.0"></script>
+<script src="js/srs.js?v=2.6.0"></script>
+<script src="js/api.js?v=2.6.0"></script>
+<script src="js/questions_excel.js?v=2.6.0"></script>
+<script src="js/questions_word.js?v=2.6.0"></script>
+<script src="js/questions_excel_expert.js?v=2.6.0"></script>
+<script src="js/questions_excel_practical.js?v=2.6.0"></script>
 <!-- IPA 基本情報の問題（科目A・科目B）。courses.js より前に読み込む -->
-<script src="js/questions_ipa_fe_a.js?v=2.5.0"></script>
-<script src="js/questions_ipa_fe_b.js?v=2.5.0"></script>
-<script src="js/courses.js?v=2.5.0"></script>
-<script src="js/ribbonMockups.js?v=2.5.0"></script>
-<script src="js/streak.js?v=2.5.0"></script>
-<script src="js/achievements.js?v=2.5.0"></script>
-<script src="js/missions.js?v=2.5.0"></script>
-<script src="js/treasure.js?v=2.5.0"></script>
-<script src="js/practical.js?v=2.5.0"></script>
-<script src="js/game.js?v=2.5.0"></script>
+<script src="js/questions_ipa_fe_a.js?v=2.6.0"></script>
+<script src="js/questions_ipa_fe_b.js?v=2.6.0"></script>
+<script src="js/courses.js?v=2.6.0"></script>
+<script src="js/ribbonMockups.js?v=2.6.0"></script>
+<script src="js/streak.js?v=2.6.0"></script>
+<script src="js/achievements.js?v=2.6.0"></script>
+<script src="js/missions.js?v=2.6.0"></script>
+<script src="js/treasure.js?v=2.6.0"></script>
+<script src="js/practical.js?v=2.6.0"></script>
+<script src="js/game.js?v=2.6.0"></script>
 </body>
 </html>

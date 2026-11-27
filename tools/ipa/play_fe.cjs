@@ -252,6 +252,9 @@ async function main() {
   await page.click("#title-start");
   await page.fill("#register-name", "テスト");
   await page.click("#register-submit");
+  /* はじめての人は、さきに アバター・しょくぎょうを きめる */
+  await page.waitForSelector("#screen-avatar.active");
+  await page.click("#avatar-done");
   await page.waitForSelector("#screen-course.active");
   await page.click("#course-ipa_fe");
   await page.waitForSelector("#screen-menu.active");

@@ -836,3 +836,61 @@ textarea:focus { border-color: var(--key); outline: none; }
   #screen-battle .choices.fixed.short:not(.label-only) { grid-template-columns: 1fr; }
   #screen-battle .choices.fixed.tiny:not(.label-only) { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- アバター・しょくぎょう（js/avatar.js） ---------- */
+canvas.ph-avatar, #battle-avatar, #avatar-preview, .job-card canvas, #card-img { image-rendering: pixelated; }
+.window.player-header { grid-template-columns: 52px minmax(0, 1fr) auto; }
+.player-header .ph-avatar { grid-row: 1 / span 3; align-self: center; cursor: pointer; margin-right: 4px; }
+.player-header .xpbar, .player-header .xptext { grid-column: 2 / -1; }
+.ph-job { display: block; font-size: 12px; color: #7ab0f0; margin-top: 2px; }
+@media (max-width: 480px) {
+  .window.player-header { grid-template-columns: 52px minmax(0, 1fr); }
+  .player-header > :not(.ph-avatar) { grid-column: 2 / -1; }
+  .player-header .ph-avatar { grid-row: 1 / span 4; }
+}
+.avatar-lead { font-size: 14px; color: var(--accent); margin: 4px 0 0; }
+.avatar-maker { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.avatar-stage { background: #050518; border: 3px solid #3a3a6a; border-radius: 6px; padding: 10px 18px; }
+.avatar-parts { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 8px; }
+.avatar-part { display: grid; grid-template-columns: 6.5em 2.6em minmax(0, 1fr) 2.6em; align-items: center; gap: 6px; }
+.avatar-part-label { font-size: 13px; color: #9a9ac0; }
+.avatar-part-value { text-align: center; font-size: 15px; }
+.avatar-arrow { width: auto; margin: 0; padding: 4px 0; text-align: center; }
+.avatar-arrow::before, .avatar-arrow:hover::before, .avatar-arrow:focus::before { content: none !important; }
+#avatar-random { width: auto; align-self: flex-start; margin: 4px 0 0; }
+.avatar-h { font-size: 16px; color: var(--key); margin: 18px 0 4px; }
+.avatar-h-note { font-size: 12px; color: #9a9ac0; }
+.job-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0 10px; }
+.job-card { margin: 6px 0; }
+.job-card.locked { cursor: pointer; }
+.job-card.is-current { border-color: var(--key); }
+#avatar-done { margin-top: 14px; }
+/* 戦闘画面：モンスターと向かい合う（せまい画面では出さない） */
+#battle-avatar { position: absolute; left: 8px; bottom: 6px; z-index: 1; height: 54px; width: auto; }
+/* PC は モンスターの箱を少し広げて、モンスターと名札を右へずらす（アバターと重ならないように） */
+@media (min-width: 601px) {
+  #screen-battle .battle-head { grid-template-columns: 240px minmax(0, 1fr); }
+  #screen-battle .battle-stage:not(.hotspot-mode) { padding-left: 50px; }
+}
+.battle-stage.hotspot-mode #battle-avatar { display: none; }
+#battle-avatar.hop { animation: avHop .35s steps(4); }
+#battle-avatar.hurt { animation: avHurt .4s steps(4); }
+@keyframes avHop { 50% { transform: translateY(-10px); } }
+@keyframes avHurt { 25% { transform: translateX(-4px); filter: brightness(2); } 75% { transform: translateX(4px); } }
+@media (max-width: 600px) { #battle-avatar { display: none; } }
+html.fx-low #battle-avatar { animation: none !important; }
+/* 解説カード */
+.card-window { width: 100%; max-width: 560px; max-height: 92vh; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.card-top { display: flex; gap: 14px; align-items: center; }
+#card-img { background: #050518; border: 3px solid #3a3a6a; border-radius: 6px; padding: 6px 10px; flex-shrink: 0; }
+.card-kind { font-size: 11px; color: #9a9ac0; letter-spacing: 1px; }
+.card-title { font-size: 20px; color: var(--key); margin: 2px 0; }
+.card-sub { font-size: 13px; color: var(--accent); }
+.card-body { overflow-y: auto; font-size: 14px; line-height: 1.7; padding-right: 4px; }
+.card-h { font-size: 14px; color: var(--accent); margin: 10px 0 2px; }
+.card-text { margin: 0; white-space: pre-wrap; }
+.card-actions { display: flex; flex-direction: column; gap: 6px; }
+.card-actions .btn { margin: 0; }
+.card-note { font-size: 11px; color: #9a9ac0; margin: -2px 0 2px; }
+.btn-primary:not(:disabled) { border-color: var(--key); color: var(--key); }
+#card-close { margin: 0; }
