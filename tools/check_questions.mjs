@@ -32,6 +32,8 @@ const args = process.argv.slice(2);
 const baseIdx = args.indexOf("--base");
 const BASE = baseIdx >= 0 ? args[baseIdx + 1] : "HEAD";
 
+const NOTATIONS = {};   // 擬似言語の記述形式など（FE_NOTATIONS）
+const LABEL_SETS = { aiue: "アイウエオカキクケコ" };
 const errors = [];
 const warnings = [];
 const err = (where, msg) => errors.push(`${where}: ${msg}`);
@@ -42,6 +44,7 @@ function loadQuestData(code, filename) {
   const ctx = vm.createContext({});
   ctx.window = ctx;
   vm.runInContext(code, ctx, { filename, timeout: 5000 });
+  if (ctx.FE_NOTATIONS) Object.assign(NOTATIONS, ctx.FE_NOTATIONS);
   return Object.keys(ctx)
     .filter((k) => ctx[k] && typeof ctx[k] === "object" && Array.isArray(ctx[k].quests))
     .map((k) => ({ name: k, data: ctx[k] }));
@@ -100,6 +103,20 @@ function checkQuestion(q, where, file) {
       q.tables.every((t) => t && tableOk(t.rows) && (t.caption === undefined || typeof t.caption === "string"));
     if (!ok) err(at, "tables は [{ caption, rows }] の配列にしてください（rows は table と同じ形）");
   }
+  /* 解答群が表の問題：表の行数（見出しをのぞく）と選択肢の数が同じで、c は記号だけ、各行の先頭も同じ記号 */
+  if (q.choiceTable !== undefined) {
+    const t = q.choiceTable;
+    if (!t || !tableOk(t.rows)) err(at, "choiceTable は { caption, rows } にしてください（rows は table と同じ形）");
+    else if (Array.isArray(q.c)) {
+      const labels = LABEL_SETS[q.labels] || "";
+      if (t.rows.length - 1 !== q.c.length) err(at, `choiceTable の行数（${t.rows.length - 1}）と選択肢の数（${q.c.length}）が違います`);
+      q.c.forEach((c, i) => {
+        if (c !== labels.charAt(i)) err(at, `choiceTable の問題の c は記号だけにしてください（${i + 1}番目が「${c}」）`);
+        if (t.rows[i + 1] && t.rows[i + 1][0] !== labels.charAt(i)) err(at, `choiceTable の ${i + 1}行目の先頭が「${labels.charAt(i)}」ではありません`);
+      });
+    }
+  }
+  if (q.notation !== undefined && !NOTATIONS[q.notation]) err(at, `notation「${q.notation}」の内容（FE_NOTATIONS）がありません`);
   for (const k of ["passage", "code", "source"]) {
     if (q[k] !== undefined && typeof q[k] !== "string") err(at, `${k} は文字列にしてください`);
   }

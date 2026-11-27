@@ -10,6 +10,11 @@ PDF と下書きは work/ipa/ に置き、リポジトリには入れない（.g
   python3 -I tools/ipa/extract_fe.py figures 2025    # 図を img/fe/ に切り出す（FIGURES の範囲）
   python3 -I tools/ipa/extract_fe.py check 2025      # js/questions_ipa_fe_a.js の a を解答 PDF と突き合わせる
 
+科目B は --subject b を付ける（例 python3 -I tools/ipa/extract_fe.py check 2025 --subject b）。
+  fetch / figures / check は科目A と同じ。draft は問題ごとの文字（ページの見た目どおり）と正解を
+  work/ipa/fe_b_draft.json に書き出すだけ（科目B は長文・プログラム・解答群の表があり、手で組み直すため）。
+  check は js/questions_ipa_fe_b.js の a を解答 PDF と突き合わせる（文字の比較はしない）。
+
 check は「解答 PDF の正解」と「収録した a」が1問でも違う・足りないと exit 1。
 あわせて、問題文・選択肢が PDF の文字と違う問題を一覧にする（空白と全角半角の差は無視）。
 違いがあるのに source に「(一部改変)」が無いものは要確認として出す（exit コードには影響しない）。
@@ -27,6 +32,10 @@ ROOT = Path(__file__).resolve().parents[2]
 WORK = ROOT / "work" / "ipa"
 DRAFT = WORK / "fe_a_draft.json"
 QUESTIONS_JS = ROOT / "js" / "questions_ipa_fe_a.js"
+QUESTIONS_JS_B = ROOT / "js" / "questions_ipa_fe_b.js"
+DRAFT_B = WORK / "fe_b_draft.json"
+LABELS_B = "アイウエオカキクケコ"   # 科目B の解答群は ア〜コ まである
+COUNT = {"a": 20, "b": 6}           # 公開問題の問題数
 
 BASE = "https://www.ipa.go.jp/shiken/mondai-kaiotu/sg_fe/koukai/"
 # 年度ごとの PDF のフォルダ（IPA の公開問題ページから）
@@ -60,11 +69,20 @@ FIGURES = {
     },
 }
 
+# 科目B の図の切り出し範囲（FIGURES と同じ形）
+FIGURES_B = {
+    2025: {
+        3: (8, 375, 785, 702, 312),    # スタックの初期状態
+        5: (12, 242, 727, 950, 649),   # 表1 集計結果の例・表2 理論度数（網掛けがあるので画像に）
+    },
+}
+
 LABELS = "アイウエ"
 FULLWIDTH_DIGITS = str.maketrans("０１２３４５６７８９", "0123456789")
 HEADER_RE = re.compile(r"^\s*問\s*([0-9０-９]{1,2})(?=[\s　]|$)(.*)$")
 FOOTER_RE = re.compile(r"^\s*－\s*\d+\s*－\s*$")
 MEMO_RE = re.compile(r"〔\s*メ\s*モ\s*用\s*紙\s*〕")
+TRADEMARK_RE = re.compile(r"試験問題に記載されている会社名")
 CHOICE_START_RE = re.compile(r"^\s*([アイウエ])\s+\S")
 # ルビ：漢字の真上に置かれた短いひらがなだけの行。折り返しの続き（「ること」など、字下げが小さい）と区別するため、字下げ10文字以上に限る
 RUBY_RE = re.compile(r"^\s{10,}[ぁ-ゖ]{1,4}\s*$")
@@ -79,8 +97,8 @@ def prefix(year):
     return "%dr%02d" % (year, reiwa(year))
 
 
-def pdf_path(year, kind):
-    return WORK / ("%s_fe_kamoku_a_%s.pdf" % (prefix(year), kind))
+def pdf_path(year, kind, subject="a"):
+    return WORK / ("%s_fe_kamoku_%s_%s.pdf" % (prefix(year), subject, kind))
 
 
 def pdftotext(path, layout=True):
@@ -96,40 +114,47 @@ def norm(s):
 
 
 # ---------------------------------------------------------------- fetch
-def cmd_fetch(year):
+def cmd_fetch(year, subject="a"):
     WORK.mkdir(parents=True, exist_ok=True)
     for kind in ("qs", "ans"):
-        dest = pdf_path(year, kind)
+        dest = pdf_path(year, kind, subject)
         url = BASE + FOLDERS[year] + "/" + dest.name
         subprocess.run(["curl", "-sSfL", "--retry", "3", "-o", str(dest), url], check=True)
         print("取得:", dest.relative_to(ROOT))
 
 
 # ---------------------------------------------------------------- 解答
-def read_answers(year):
-    """解答 PDF の「問番号 / 正解」の表を読む。{問番号: 0..3}"""
-    text = pdftotext(pdf_path(year, "ans"))
-    if "科目 A" not in text and "科目A" not in text:
-        sys.exit("解答 PDF に「科目A」が見つかりません")
+def read_answers(year, subject="a"):
+    """解答 PDF の「問番号 / 正解」の表を読む。{問番号: 0..}（ア＝0）"""
+    text = pdftotext(pdf_path(year, "ans", subject))
+    name = subject.upper()
+    if ("科目 %s" % name) not in text and ("科目%s" % name) not in text:
+        sys.exit("解答 PDF に「科目%s」が見つかりません" % name)
+    labels = LABELS if subject == "a" else LABELS_B
     answers = {}
-    for m in re.finditer(r"問\s*([0-9０-９]{1,2})\s+([アイウエ])", text):
+    for m in re.finditer(r"問\s*([0-9０-９]{1,2})\s+([%s])" % labels, text):
         no = int(m.group(1).translate(FULLWIDTH_DIGITS))
         if no in answers:
             sys.exit("解答 PDF に問%d が2回あります" % no)
-        answers[no] = LABELS.index(m.group(2))
-    if sorted(answers) != list(range(1, 21)):
-        sys.exit("解答 PDF から問1〜問20 を読めませんでした: %s" % sorted(answers))
+        answers[no] = labels.index(m.group(2))
+    if sorted(answers) != list(range(1, COUNT[subject] + 1)):
+        sys.exit("解答 PDF から問1〜問%d を読めませんでした: %s" % (COUNT[subject], sorted(answers)))
     return answers
 
 
 # ---------------------------------------------------------------- 下書き
-def split_questions(text):
-    """問N の見出しで分ける。{問番号: [行...]}（見出し行の「問N」は取り除く）"""
+def split_questions(text, stop_at_memo=True):
+    """問N の見出しで分ける。{問番号: [行...]}（見出し行の「問N」は取り除く）
+    科目A はメモ用紙のページで終わり。科目B は問題のあいだにもメモ用紙があるので、とばして最後の商標の注記で終わる"""
     lines = text.splitlines()
     blocks, cur, no = {}, None, None
     for i, line in enumerate(lines):
-        if MEMO_RE.search(line):
+        if TRADEMARK_RE.search(line):
             break
+        if MEMO_RE.search(line):
+            if stop_at_memo:
+                break
+            continue
         if FOOTER_RE.match(line):
             continue
         m = HEADER_RE.match(line)
@@ -283,14 +308,15 @@ def cmd_draft(year):
 
 
 # ---------------------------------------------------------------- 図
-def cmd_figures(year):
+def cmd_figures(year, subject="a"):
     out_dir = ROOT / "img" / "fe"
     out_dir.mkdir(parents=True, exist_ok=True)
-    for no, (page, x, y, w, h) in sorted(FIGURES.get(year, {}).items()):
-        stem = out_dir / ("%s_a%02d" % (prefix(year), no))
+    table = FIGURES if subject == "a" else FIGURES_B
+    for no, (page, x, y, w, h) in sorted(table.get(year, {}).items()):
+        stem = out_dir / ("%s_%s%02d" % (prefix(year), subject, no))
         subprocess.run(["pdftoppm", "-r", str(FIGURE_DPI), "-png", "-f", str(page), "-l", str(page),
                         "-x", str(x), "-y", str(y), "-W", str(w), "-H", str(h), "-singlefile",
-                        str(pdf_path(year, "qs")), str(stem)], check=True)
+                        str(pdf_path(year, "qs", subject)), str(stem)], check=True)
         print("切り出し:", stem.with_suffix(".png").relative_to(ROOT))
 
 
@@ -298,10 +324,10 @@ def cmd_figures(year):
 JS_STR = r'"(?:[^"\\\n]|\\.)*"'
 
 
-def read_js_questions(path, year):
-    """questions_ipa_fe_a.js から、その年度の問題の id / q / c / a / source を読む（JSON 互換の文字列だけを想定）"""
+def read_js_questions(path, year, subject="a"):
+    """questions_ipa_fe_*.js から、その年度の問題の id / q / c / a / source を読む（JSON 互換の文字列だけを想定）"""
     src = path.read_text(encoding="utf-8")
-    starts = [m for m in re.finditer(r'\bid:\s*"(FE-(\d{4})A-(\d{2}))"', src)]
+    starts = [m for m in re.finditer(r'\bid:\s*"(FE-(\d{4})%s-(\d{2}))"' % subject.upper(), src)]
     found = {}
     for i, m in enumerate(starts):
         end = starts[i + 1].start() if i + 1 < len(starts) else len(src)
@@ -376,20 +402,74 @@ def cmd_check(year, path):
     print("\nOK: %d年度 科目A 20問の a はすべて解答 PDF と一致" % year)
 
 
+# ---------------------------------------------------------------- 科目B
+def cmd_draft_b(year):
+    """科目B：問題ごとの文字（ページの見た目どおり）と正解を書き出す。選択肢の切り出しはしない"""
+    text = pdftotext(pdf_path(year, "qs", "b"))
+    blocks = split_questions(text, stop_at_memo=False)
+    if sorted(blocks) != list(range(1, COUNT["b"] + 1)):
+        sys.exit("問題 PDF から問1〜問%d を切り分けられませんでした: %s" % (COUNT["b"], sorted(blocks)))
+    answers = read_answers(year, "b")
+    items = [{"id": "FE-%dB-%02d" % (year, no), "no": no, "a": answers[no], "answerLabel": LABELS_B[answers[no]],
+              "source": "令和%d年度 基本情報技術者試験 科目B 公開問題 問%d" % (reiwa(year), no),
+              "raw": "\n".join(l.rstrip() for l in blocks[no]["lines"] if l.strip())}
+             for no in range(1, COUNT["b"] + 1)]
+    data = json.loads(DRAFT_B.read_text(encoding="utf-8")) if DRAFT_B.exists() else {}
+    data[str(year)] = items
+    DRAFT_B.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print("書き出し:", DRAFT_B.relative_to(ROOT), "（%d年度 科目B %d問）" % (year, len(items)))
+    for q in items:
+        print("  問%d 正解 %s" % (q["no"], q["answerLabel"]))
+
+
+def cmd_check_b(year, path):
+    answers = read_answers(year, "b")
+    got = read_js_questions(path, year, "b")
+    errors = []
+    for no in range(1, COUNT["b"] + 1):
+        if no not in got:
+            errors.append("問%d が %s にありません" % (no, path.name))
+            continue
+        q = got[no]
+        ok = q["a"] == answers[no]
+        if not ok:
+            errors.append("問%d: a=%s だが、解答 PDF の正解は %s" % (no, q["a"], LABELS_B[answers[no]]))
+        elif q["c"] is None or not (0 <= q["a"] < len(q["c"])):
+            errors.append("問%d: a が選択肢の範囲外です" % no)
+        else:
+            print("  問%d a=%d（%s）解答 PDF と一致" % (no, q["a"], LABELS_B[q["a"]]))
+        want = "令和%d年度 基本情報技術者試験 科目B 公開問題 問%d" % (reiwa(year), no)
+        if not (q["source"] or "").startswith(want):
+            errors.append("問%d: source が「%s」ではありません: %s" % (no, want, q["source"]))
+    extra = sorted(set(got) - set(range(1, COUNT["b"] + 1)))
+    if extra:
+        errors.append("問1〜問%d 以外の番号があります: %s" % (COUNT["b"], extra))
+    if errors:
+        print("\nNG:")
+        for e in errors:
+            print("  " + e)
+        sys.exit(1)
+    print("\nOK: %d年度 科目B %d問の a はすべて解答 PDF と一致" % (year, COUNT["b"]))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["fetch", "draft", "figures", "check"])
     ap.add_argument("year", type=int, choices=sorted(FOLDERS))
-    ap.add_argument("questions", nargs="?", default=str(QUESTIONS_JS), help="check で調べる問題ファイル")
+    ap.add_argument("questions", nargs="?", default=None, help="check で調べる問題ファイル（省略時は科目に合わせて決まる）")
+    ap.add_argument("--subject", choices=["a", "b"], default="a", help="科目（a：科目A、b：科目B）")
     args = ap.parse_args()
+    b = args.subject == "b"
     if args.command == "fetch":
-        cmd_fetch(args.year)
+        cmd_fetch(args.year, args.subject)
     elif args.command == "draft":
-        cmd_draft(args.year)
+        cmd_draft_b(args.year) if b else cmd_draft(args.year)
     elif args.command == "figures":
-        cmd_figures(args.year)
+        cmd_figures(args.year, args.subject)
+    elif b:
+        cmd_check_b(args.year, Path(args.questions or QUESTIONS_JS_B))
     else:
-        cmd_check(args.year, Path(args.questions))
+        cmd_check(args.year, Path(args.questions or QUESTIONS_JS))
 
 
 if __name__ == "__main__":

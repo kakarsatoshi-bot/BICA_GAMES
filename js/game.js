@@ -73,6 +73,41 @@ function courseQuests() {
 function inCourse(qid) {
   return !!QUESTION_INDEX[qid] && QUESTION_INDEX[qid].course === currentCourse();
 }
+/* ---------- はんい（科目A だけ／科目B だけ／A＋B） ----------
+ * 対策項目の定義に scopes があり、問題の入っている科目が2つ以上あるときだけ選べる。
+ * 復習・まおうの城・むげんの めいきゅう・もぎけんていの一覧は、この はんいの科目の問題だけを使う。
+ * クエスト（科目ボタンから入るもの）は、はんいに関係なく その科目のまま。 */
+function scopeChoices() {
+  var def = currentCourseDef();
+  if (!def.scopes) return [];
+  var filled = courseSubjects().filter(function (sub) {
+    return sub.quests.some(function (q) { return q.questions.length > 0; });
+  }).map(function (sub) { return sub.subject; });
+  if (filled.length < 2) return [];
+  return def.scopes;
+}
+function currentScope() {
+  var list = scopeChoices();
+  if (!list.length) return null;
+  var key = save.scopes && save.scopes[currentCourse()];
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+  return list[0];
+}
+function scopeHasSubject(subjectKey) {
+  var sc = currentScope();
+  return !sc || sc.subjects.indexOf(subjectKey) >= 0;
+}
+function scopeQuests() {
+  return courseQuests().filter(function (q) { return scopeHasSubject(q.subject); });
+}
+function inScope(qid) {
+  return inCourse(qid) && scopeHasSubject(QUESTION_INDEX[qid].subject);
+}
+function scopeClearedCount() {
+  var n = 0;
+  scopeQuests().forEach(function (q) { if (save.quests[q.id] && save.quests[q.id].stars > 0) n++; });
+  return n;
+}
 function courseClearedCount() {
   var n = 0;
   courseQuests().forEach(function (q) { if (save.quests[q.id] && save.quests[q.id].stars > 0) n++; });
@@ -91,11 +126,12 @@ function isFinalCleared(key) {
  * qs.map(...).q が undefined になってクラッシュする）。エキスパート側は
  * EXPERT_QUESTION_INDEX で同様にフィルターする（startExpert() 参照）。 */
 /* さらに、選択中の対策項目の問題だけにしぼる（MOS の復習に IPA の問題が混ざらないように。逆も同じ） */
+/* さらに、はんい（科目A だけ／科目B だけ など）の科目の問題だけにしぼる */
 function specialistDueList() {
-  return SRS.dueList(save.records).filter(inCourse);
+  return SRS.dueList(save.records).filter(inScope);
 }
 function specialistWeakList() {
-  return SRS.weakList(save.records).filter(inCourse);
+  return SRS.weakList(save.records).filter(inScope);
 }
 
 /* ---------- レベル・ランク ---------- */
@@ -187,6 +223,7 @@ function ensureSaveShape(s) {
   /* v2.1 で足したもの（対策項目） */
   s.course = s.course || null;             // 前回えらんだ対策項目（"mos" / "ipa_fe"）。無ければ選択画面を出す
   s.finalClears = s.finalClears || {};     // MOS 以外の対策項目の まおうの城 討伐（MOS は finalClear のまま）
+  s.scopes = s.scopes || {};               // 対策項目ごとの はんい（IPA："all" / "fe_a" / "fe_b"）
   return s;
 }
 function newSave(name, klass) {
@@ -320,7 +357,8 @@ function startQuest(quest) {
     qs: qs,
     bossFrom: qs.length - 3,  // 最後の3問はボス戦
     bossHp: 3, bossMax: 3,
-    idx: 0, hearts: 3, maxHearts: 3,
+    /* クエストに hearts があれば、その数（科目B の道場は1問が長いので ♥5） */
+    idx: 0, hearts: quest.hearts || 3, maxHearts: quest.hearts || 3,
     correct: 0, combo: 0, xp: 0,
     bossPhase: false, bossCorrect: 0
   };
@@ -359,7 +397,7 @@ function openExamSelect() {
   $("#quests-title").textContent = "もぎ けんてい";
   var box = $("#quest-list");
   box.innerHTML = "";
-  currentCourseDef().exams.forEach(function (ex) {
+  currentCourseDef().exams.filter(function (ex) { return scopeHasSubject(ex.subject); }).forEach(function (ex) {
     var div = document.createElement("div");
     div.className = "quest-card window";
     var cv = document.createElement("canvas");
@@ -420,7 +458,7 @@ function startExam(examKey) {
 
 /* まおうの城（最終決戦）開始 */
 function startFinal() {
-  var pool = Object.keys(QUESTION_INDEX).filter(inCourse);
+  var pool = Object.keys(QUESTION_INDEX).filter(inScope);
   var weak = specialistWeakList().slice(0, 6);
   var rest = shuffle(pool.filter(function (id) { return weak.indexOf(id) < 0; }));
   var ids = weak.concat(rest).slice(0, 12);
@@ -955,7 +993,7 @@ function labelOnlyChoice(q, ci) {
 }
 /* 問題文のほかに、長文・プログラム・表・図をもつ問題か（クイック判定を出さない） */
 function hasHeavyVisual(q) {
-  return !!(q.passage || q.code || q.table || q.tables || q.figure);
+  return !!(q.passage || q.code || q.table || q.tables || q.figure || q.choiceTable);
 }
 
 function showQuestion() {
@@ -974,6 +1012,9 @@ function showQuestion() {
   var idxs = q.c.map(function (_, i) { return i; });
   var order = q.fixedOrder ? idxs : shuffle(idxs);
   box.classList.toggle("fixed", !!q.fixedOrder);
+  /* 選択肢が ぜんぶ記号だけ（ア、イ…）のときは、ボタンを横に並べる */
+  box.classList.toggle("label-only", idxs.every(function (ci) { return labelOnlyChoice(q, ci); }));
+  renderNotationButton(q);
   order.forEach(function (ci) {
     var btn = document.createElement("button");
     btn.className = "choice";
@@ -998,6 +1039,50 @@ function showQuestion() {
   if (battle.mode === "exam" || hasHeavyVisual(q)) resetQuickBar(); else startQuickTimer(q);
 }
 
+/* 擬似言語の記述形式（科目B）。問題に notation（例 "fe_pseudo"）があるとき、
+ * 戦闘画面に「きじゅつ けいしきを みる」ボタンを出し、押すと FE_NOTATIONS の内容をモーダルで出す */
+function renderNotationButton(q) {
+  var btn = $("#battle-notation");
+  var has = !!(q && q.notation && window.FE_NOTATIONS && FE_NOTATIONS[q.notation]);
+  btn.classList.toggle("hidden", !has);
+  btn.dataset.notation = has ? q.notation : "";
+}
+function openNotation(key) {
+  var n = window.FE_NOTATIONS && FE_NOTATIONS[key];
+  if (!n) return;
+  var body = $("#notation-body");
+  body.innerHTML = "";
+  $("#notation-title").textContent = n.title;
+  n.sections.forEach(function (sec) {
+    if (sec.heading) {
+      var h = document.createElement("h3");
+      h.className = "notation-heading";
+      h.textContent = sec.heading;
+      body.appendChild(h);
+    }
+    if (sec.text) {
+      var p = document.createElement("div");
+      p.className = "passage-text";
+      p.textContent = sec.text;
+      body.appendChild(p);
+    }
+    if (sec.rows) body.appendChild(passageTable(sec.rows, true, ""));
+    if (sec.note) {
+      var note = document.createElement("div");
+      note.className = "passage-text notation-note";
+      note.textContent = sec.note;
+      body.appendChild(note);
+    }
+  });
+  $("#notation-source").textContent = "出典:" + n.source;
+  $("#notation-modal").classList.remove("hidden");
+  body.scrollTop = 0;
+  $("#notation-close").focus();
+}
+function closeNotation() {
+  $("#notation-modal").classList.add("hidden");
+}
+
 /* 出典（IPA の問題は、問題を出している間も解説の間もずっと出す） */
 function renderSource(q) {
   var el = $("#battle-source");
@@ -1017,7 +1102,9 @@ function passageTable(rows, header, caption) {
     wrap.appendChild(cap);
   }
   var table = document.createElement("table");
-  table.className = "passage-table";
+  /* 改行や長い文のあるセルがある表は、セルの中で折り返す（短い表は折り返さず、横にスクロール） */
+  var longCells = rows.some(function (row) { return row.some(function (cell) { return cell.indexOf("\n") >= 0 || cell.length > 24; }); });
+  table.className = "passage-table" + (longCells ? " wrap" : "");
   rows.forEach(function (row, ri) {
     var tr = document.createElement("tr");
     row.forEach(function (cell) {
@@ -1065,6 +1152,13 @@ function renderPassage(q) {
     pre.textContent = q.code;
     box.appendChild(pre);
   }
+  /* 解答群が表になっている問題（科目B の「a と b の組合せ」など）。プログラムのあとに出し、
+   * 選択肢のボタンには記号（ア、イ…）だけを出す（c に記号だけを入れる） */
+  if (q.choiceTable) {
+    var ct = passageTable(q.choiceTable.rows, true, q.choiceTable.caption || "");
+    ct.classList.add("passage-choice-table");
+    box.appendChild(ct);
+  }
   box.scrollTop = 0;
   box.classList.remove("hidden");
   $("#battle-stage").classList.add("passage-mode");
@@ -1074,7 +1168,7 @@ function renderPassage(q) {
  * ＋番号バッジを表示する。通常の問題ではモンスター表示に戻す。 */
 function renderQuestionVisual(q) {
   renderPassage(q);
-  if (!q.id) renderSource(q);   /* 次の問題へ行くとき（renderQuestionVisual({})）は出典も片づける */
+  if (!q.id) { renderSource(q); renderNotationButton(null); }   /* 次の問題へ行くとき（renderQuestionVisual({})）は出典・記述形式のボタンも片づける */
   var hotspotBox = $("#hotspot-stage");
   var stage = $("#battle-stage");
   if (q.type === "hotspot") {
@@ -1430,7 +1524,7 @@ var ENDLESS_TITLES = [
 function endlessQuests() {
   /* 選択中の対策項目のクエストだけ。エキスパートのクエストは MOS のときだけ入れる */
   var expert = currentCourse() === "mos" && typeof EXPERT_QUEST_DATA_EXCEL !== "undefined" ? EXPERT_QUEST_DATA_EXCEL.quests : [];
-  var all = courseQuests().concat(expert);
+  var all = scopeQuests().concat(expert);
   return all.filter(function (q) { return save.quests[q.id] && save.quests[q.id].stars > 0; });
 }
 
@@ -1929,7 +2023,7 @@ function openMenu() {
     ? (save.expertClear ? "とうばつずみ！ なんども ちょうせんできる" : "かくされた みちが あらわれた…！")
     : "まおうの城を クリアすると かいほう";
 
-  var endlessOpen = courseClearedCount() >= ENDLESS_UNLOCK;
+  var endlessOpen = scopeClearedCount() >= ENDLESS_UNLOCK;
   $("#menu-endless").classList.toggle("locked", !endlessOpen);
   $("#menu-endless").classList.toggle("is-new", endlessOpen && save.endless.runs === 0);
   $("#menu-endless-lock").textContent = endlessOpen
@@ -1961,10 +2055,10 @@ function openMenu() {
   if (newAchievements.length) showAchievementToasts(newAchievements);
 }
 
-/* 選択中の対策項目の まおうの城が解放されているか（その項目のクエストを ぜんぶ クリア） */
+/* 選択中の対策項目の まおうの城が解放されているか（その項目の、はんいの中のクエストを ぜんぶ クリア） */
 function finalUnlocked() {
-  var qs = courseQuests();
-  return qs.length > 0 && courseClearedCount() >= qs.length;
+  var qs = scopeQuests();
+  return qs.length > 0 && scopeClearedCount() >= qs.length;
 }
 
 /* メニューのボタンを、選択中の対策項目の定義（js/courses.js の menu）の順に並べ、ほかは隠す。
@@ -2002,6 +2096,33 @@ function renderCourseMenu() {
   $("#menu-course-icon").textContent = def.icon;
   $("#menu-course-name").textContent = def.label + "（" + def.sub + "）";
   $("#menu-course-change").classList.toggle("hidden", availableCourses().length < 2);
+  renderScopeBar();
+}
+
+/* はんいの選択ボタン（IPA 基本情報で、科目A と科目B の両方に問題があるときだけ出る） */
+function renderScopeBar() {
+  var bar = $("#menu-scope");
+  var box = $("#menu-scope-buttons");
+  var list = scopeChoices();
+  box.innerHTML = "";
+  bar.classList.toggle("hidden", !list.length);
+  if (!list.length) return;
+  var cur = currentScope();
+  list.forEach(function (sc) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-small scope-btn" + (sc.key === cur.key ? " is-current" : "");
+    btn.setAttribute("aria-pressed", sc.key === cur.key ? "true" : "false");
+    btn.dataset.scope = sc.key;
+    btn.textContent = sc.label;
+    btn.onclick = function () {
+      Sound.select();
+      save.scopes[currentCourse()] = sc.key;
+      persist();
+      openMenu();   /* 復習の件数・まおうの城の解放などを はんいに合わせて出しなおす */
+    };
+    box.appendChild(btn);
+  });
 }
 
 /* ---------- 対策項目を えらぶ ---------- */
@@ -2760,6 +2881,11 @@ window.addEventListener("DOMContentLoaded", function () {
     if (isGo && e.target.classList && e.target.classList.contains("quest-card") && !e.repeat) {
       e.preventDefault(); e.target.click(); return;
     }
+    /* 擬似言語の記述形式は、Esc でも とじられる（開いている間は、うしろの選択肢を キーで えらばない） */
+    if (!$("#notation-modal").classList.contains("hidden")) {
+      if (e.key === "Escape") { e.preventDefault(); closeNotation(); }
+      return;
+    }
     if (!$("#screen-battle").classList.contains("active")) return;
     if (!$("#feedback-modal").classList.contains("hidden")) return;
     /* Enter を押しっぱなしにしても、解説を読まないまま次へ進まない */
@@ -2802,6 +2928,8 @@ window.addEventListener("DOMContentLoaded", function () {
   /* ご意見箱 */
   $("#btn-feedback").onclick = openFeedback;
   $("#feedback-close").onclick = closeFeedback;
+  $("#battle-notation").onclick = function () { Sound.select(); openNotation(this.dataset.notation); };
+  $("#notation-close").onclick = closeNotation;
   $("#feedback-send").onclick = submitFeedback;
   $("#feedback-modal").onclick = function (e) {
     if (e.target === this) closeFeedback();   /* 外側クリックで閉じる */
@@ -2825,7 +2953,7 @@ window.addEventListener("DOMContentLoaded", function () {
     Sound.select(); openExpertQuests();
   };
   $("#menu-endless").onclick = function () {
-    if (courseClearedCount() < ENDLESS_UNLOCK) {
+    if (scopeClearedCount() < ENDLESS_UNLOCK) {
       toast("まだ とびらが ひらかない… クエストを " + ENDLESS_UNLOCK + "つ クリアせよ！");
       return;
     }

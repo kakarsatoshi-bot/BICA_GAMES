@@ -714,6 +714,23 @@ textarea:focus { border-color: var(--key); outline: none; }
   margin: 6px 0 0;
 }
 
+/* はんい（科目A／科目B／A＋B）の選択 */
+.scope-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 12px; color: #9a9ac0; }
+.scope-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.scope-btn.is-current { border-color: var(--key); color: var(--key); }
+/* 記号だけの選択肢（図や表の中から選ぶ問題）は横に並べる */
+.choices.fixed.label-only { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
+.choices.fixed.label-only .choice { min-height: 0; text-align: center; }
+/* 科目B の解答群（表） */
+.passage-choice-table .passage-table td:first-child { color: var(--accent); font-weight: bold; }
+.passage-table.wrap td, .passage-table.wrap th { white-space: pre-wrap; min-width: 3em; }   /* 改行や長い文のあるセル（解答群・記述形式など） */
+/* 擬似言語の記述形式 */
+.notation-btn { margin: 0 0 6px; }
+.notation-window { max-width: 760px; width: calc(100% - 32px); max-height: 90vh; display: flex; flex-direction: column; gap: 8px; }
+.notation-body { overflow-y: auto; font-size: 13px; line-height: 1.6; }
+.notation-heading { font-size: 14px; margin: 12px 0 4px; color: var(--key); }
+.notation-note { margin-top: 4px; font-size: 12px; }
+
 /* ---------- スマホ対応 ---------- */
 @media (max-width: 480px) {
   .game-logo { font-size: 46px; }

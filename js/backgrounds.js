@@ -219,7 +219,8 @@ var StageBg = (function () {
   var QUEST_BG = {
     XL1: "forest", XL2: "cave", XL3: "castle", XL4: "wild", XL5: "tower", XL6: "library",
     WD1: "grass", WD2: "valley", WD3: "lake", WD4: "fort", WD5: "temple", WD6: "vault",
-    FEA1: "forest", FEA2: "cave", FEA3: "castle", FEA5: "tower", FEA6: "valley", FEA7: "fort", FEA8: "vault"
+    FEA1: "forest", FEA2: "cave", FEA3: "castle", FEA5: "tower", FEA6: "valley", FEA7: "fort", FEA8: "vault",
+    FEB1: "library"
   };
 
   function draw(canvas, theme) {

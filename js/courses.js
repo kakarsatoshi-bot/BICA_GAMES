@@ -8,6 +8,9 @@
  * - menu     : メニューに出すボタンの順番。"subject:<科目キー>" は科目ボタン（JS で作る）
  * - vocabLink: タイトルに MOS単語帳のリンクを出すか
  * - countdown: GAME_CONFIG.EXAM_DATES の試験日カウントダウンを出すか（MOS だけ）
+ * - scopes   : （任意）復習・まおうの城・めいきゅう・もぎけんていの「はんい」の選択肢。
+ *              subjects は科目キーの配列。問題の入っている科目が2つ以上のときだけ、メニューに選択ボタンが出る。
+ *              えらんだ はんいは save.scopes[項目のキー] に保存する（key は変えない）
  *
  * 経験値・レベル・称号・実績・図鑑・ミッションは項目をまたいで共通（1人1セーブ）。
  * ⚠️ key（"mos" / "ipa_fe"）は save.course に保存されるので変えない。
@@ -17,6 +20,7 @@
 /* IPA 基本情報の問題ファイル（フェーズ3の js/questions_ipa_fe_a.js）がまだ無いときは、空の科目にしておく。
  * 問題が1問も無い対策項目は、選択画面に出さない（availableCourses() 参照）。 */
 window.QUEST_DATA_FE_A = window.QUEST_DATA_FE_A || { subject: "fe_a", label: "科目A の まち", quests: [] };
+window.QUEST_DATA_FE_B = window.QUEST_DATA_FE_B || { subject: "fe_b", label: "科目B の 道場", quests: [] };
 
 var COURSES = [
   {
@@ -34,11 +38,17 @@ var COURSES = [
   {
     key: "ipa_fe", label: "IPA 基本情報", sub: "基本情報技術者試験", icon: "💻",
     logo: "IPA", subtitle: "〜 基本情報技術者 ぼうけんの書 〜", copy: "BICA 基本情報技術者試験 対策クエスト",
-    desc: "IPA 基本情報技術者試験（科目A）の 対策",
-    subjects: [QUEST_DATA_FE_A],   // フェーズ4で QUEST_DATA_FE_B を追加
+    desc: "IPA 基本情報技術者試験（科目A・科目B）の 対策",
+    subjects: [QUEST_DATA_FE_A, QUEST_DATA_FE_B],
     exams: [ { key: "fe_a", label: "科目A もぎしけん", subject: "fe_a", count: 20, pass: 600, minutes: 30, shape: "wizard", palette: "purple",
+               note: "本試験は IRT 方式で採点されるため、この点数は 正答率からの めやす です" },
+             /* 本試験の科目B は 20問100分。6問なら 30分が同じペース */
+             { key: "fe_b", label: "科目B もぎしけん", subject: "fe_b", count: 6, pass: 600, minutes: 30, shape: "wizard", palette: "dark",
                note: "本試験は IRT 方式で採点されるため、この点数は 正答率からの めやす です" } ],
-    menu: ["subject:fe_a", "review", "final", "endless", "exam", "ranking", "status"],
+    menu: ["subject:fe_a", "subject:fe_b", "review", "final", "endless", "exam", "ranking", "status"],
+    scopes: [ { key: "all", label: "A＋B（まぜる）", subjects: ["fe_a", "fe_b"] },
+              { key: "fe_a", label: "科目A だけ", subjects: ["fe_a"] },
+              { key: "fe_b", label: "科目B だけ", subjects: ["fe_b"] } ],
     finalText: "IT の ちしきが せかいを すくった！\nきみこそ しんの じょうほう マスターだ！",
     vocabLink: false,
     countdown: false
@@ -49,5 +59,6 @@ var COURSES = [
 var SUBJECT_BUTTONS = {
   excel: { icon: "🗼", label: "エクセルの とう" },
   word:  { icon: "🏰", label: "ワードの しろ" },
-  fe_a:  { icon: "💻", label: "科目A の まち" }
+  fe_a:  { icon: "💻", label: "科目A の まち" },
+  fe_b:  { icon: "📜", label: "科目B の 道場" }
 };
