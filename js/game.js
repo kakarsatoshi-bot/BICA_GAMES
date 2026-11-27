@@ -2131,8 +2131,8 @@ function endBattle(cleared) {
     } else if (battle.mode === "expert") {
       title = "しんおうデリートを たおした！！";
       sub = "エキスパートの おくぎを てにいれた！\nきみは まことの MOSエキスパートだ！";
-    } else if (battle.practiceJob) {
-      title = jobDef(battle.practiceJob).name + "の しれん クリア！";
+    } else if (battle.practice) {
+      title = battle.practice.name + "の しれん クリア！";
       sub = "この分野の ちしきが ふかまった！";
     } else if (battle.mode === "review") {
       title = "ふくしゅう かんりょう！";
@@ -2153,7 +2153,7 @@ function endBattle(cleared) {
     stars: cleared && battle.mode !== "review" ? stars : null,
     rows: battleRows(battle.idx),
     xp: battle.xp,
-    hideRetry: battle.mode === "review" && cleared && !battle.practiceJob,
+    hideRetry: battle.mode === "review" && cleared && !battle.practice,
     chest: chestReward,
     jingle: cleared ? (grand ? "fanfare" : "clear") : "fail",
     confetti: cleared ? (grand ? 140 : 40) : 0,
@@ -2164,7 +2164,8 @@ function endBattle(cleared) {
 
 function retryBattle() {
   Sound.select();
-  if (battle.practiceJob) startJobPractice(battle.practiceJob);
+  if (battle.practice && battle.practice.kind === "job") startJobPractice(battle.practice.key);
+  else if (battle.practice) startPractice(monsterPracticePool(battle.practice.key), battle.practice);
   else if (battle.mode === "quest") startQuest(battle.quest);
   else if (battle.mode === "review") startReview();
   else if (battle.mode === "exam") startExam(battle.subjectKey);
@@ -2670,18 +2671,18 @@ function questRecoEl(quest) {
   return wrap;
 }
 
-/* しょくぎょうの しれん：関係する分野の問題 5問（にがてな問題を先に） */
-function startJobPractice(jobKey) {
-  var pool = jobPracticePool(jobKey);
+/* しれん：解説カードから入る、関係する問題 5問の短い戦い（にがてな問題を先に）。
+ * practice = { kind: "job" | "monster", key, name }（リザルトの題名・「もういちど」に使う） */
+function startPractice(pool, practice) {
   if (!pool.length) { toast("この たいさく こうもくには、まだ もんだいが ないよ"); return; }
   var weak = specialistWeakList().filter(function (id) { return pool.indexOf(id) >= 0; });
   var rest = shuffle(pool.filter(function (id) { return weak.indexOf(id) < 0; }));
   var ids = weak.concat(rest).slice(0, 5);
   battle = {
     mode: "review",
-    practiceJob: jobKey,
+    practice: practice,
     quest: null,
-    label: jobDef(jobKey).name + "の しれん",
+    label: practice.name + "の しれん",
     qs: shuffle(ids.map(function (id) { return QUESTION_INDEX[id].q; })),
     bossFrom: 9999, bossHp: 0, bossMax: 0,
     idx: 0, hearts: 3, maxHearts: 3,
@@ -2689,6 +2690,61 @@ function startJobPractice(jobKey) {
     bossPhase: false, bossCorrect: 0
   };
   beginBattle();
+}
+function startJobPractice(jobKey) {
+  startPractice(jobPracticePool(jobKey), { kind: "job", key: jobKey, name: jobDef(jobKey).name });
+}
+
+/* =========================================================
+ * モンスター図鑑の解説カード（js/bestiary_notes.js）
+ * ======================================================= */
+/* モンスターの「しれん」に使うクエスト（解説に quest があれば それ、無ければ そのモンスターが出るクエスト） */
+function monsterQuest(name) {
+  var note = window.BESTIARY_NOTES && BESTIARY_NOTES[name];
+  var id = note && note.quest;
+  for (var i = 0; i < ALL_QUESTS.length; i++) {
+    var q = ALL_QUESTS[i];
+    if (id ? q.id === id : (q.mob && q.mob.name === name) || (q.boss && q.boss.name === name)) return q;
+  }
+  return null;
+}
+function monsterPracticePool(name) {
+  var quest = monsterQuest(name);
+  if (!quest || quest.course !== currentCourse()) return [];
+  return quest.questions.map(function (q) { return q.id; }).filter(function (id) { return !!QUESTION_INDEX[id]; });
+}
+function openMonsterCard(m) {
+  var note = (window.BESTIARY_NOTES && BESTIARY_NOTES[m.name]) || null;
+  var quest = monsterQuest(m.name);
+  var pool = monsterPracticePool(m.name);
+  var shinyPal = save.shinyMonsters[m.name];
+  var sections = [{ h: "🐾 ひとこと", text: BESTIARY[m.name] || "" }];
+  if (note) {
+    sections.push({ h: "📖 キーワード「" + note.key + "」", text: note.about });
+    sections.push({ h: "📝 しけんでは", text: note.exam });
+  }
+  sections.push({ h: "🗺️ であえる ばしょ", text: m.rare ? "どこかで ごく まれに あらわれる（げきレア）" :
+    quest ? (courseDef(quest.course).label + "「" + quest.name + "」") : "まおうの城" });
+  var actions = [];
+  if (pool.length) {
+    actions.push({
+      label: "⚔️ " + m.name + "の しれん（" + Math.min(5, pool.length) + "もん）",
+      primary: true,
+      onClick: function () { closeCard(); startPractice(pool, { kind: "monster", key: m.name, name: m.name }); },
+      note: "「" + quest.name + "」の もんだいに ちょうせん（" + pool.length + "もんから）"
+    });
+  } else if (quest && quest.course !== currentCourse()) {
+    actions.push({ label: "⚔️ しれん", disabled: true, onClick: function () {},
+      note: courseDef(quest.course).label + " を えらぶと、ここから もんだいに ちょうせんできるよ" });
+  }
+  openCard({
+    kind: "モンスター カード",
+    title: m.name,
+    sub: note ? "キーワード：" + note.key : "",
+    draw: function (cv) { drawSprite(cv, m.shape, shinyPal || m.palette, 5); },
+    sections: sections,
+    actions: actions
+  });
 }
 
 /* ---------- 対策項目を えらぶ ---------- */
@@ -3258,10 +3314,17 @@ function openBestiary() {
     }
 
     div.appendChild(cv); div.appendChild(info);
+    if (seen) {
+      /* であったモンスターは、押すと解説カード（名前のもとになった用語と、試験のポイント）が出る */
+      div.tabIndex = 0;
+      div.setAttribute("role", "button");
+      div.classList.add("has-card");
+      div.onclick = function () { Sound.select(); openMonsterCard(m); };
+    }
     box.appendChild(div);
   });
 
-  $("#bestiary-progress").textContent = seenCount + " / " + list.length + " たいと であった";
+  $("#bestiary-progress").textContent = seenCount + " / " + list.length + " たいと であった（であった モンスターを おすと 解説カードが みられるよ）";
   show("screen-bestiary");
 }
 
@@ -3442,7 +3505,7 @@ window.addEventListener("DOMContentLoaded", function () {
       return;
     }
     /* クエストの一覧は、Enter／スペースでも選べる */
-    if (isGo && e.target.classList && e.target.classList.contains("quest-card") && !e.repeat) {
+    if (isGo && e.target.classList && (e.target.classList.contains("quest-card") || e.target.classList.contains("has-card")) && !e.repeat) {
       e.preventDefault(); e.target.click(); return;
     }
     /* 解説カードは、Esc でも とじられる（開いている間は、うしろの選択肢を キーで えらばない） */
