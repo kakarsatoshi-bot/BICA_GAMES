@@ -346,6 +346,7 @@ function show(id) {
   if (id !== "screen-battle") Juice.holdBanners(false);
   /* 画面を切りかえたら、開いていた解説カード（スタンプカード など）は とじる */
   if ($("#card-modal")) $("#card-modal").classList.add("hidden");
+  if ($("#confirm-modal")) closeConfirm(false);
   if (typeof GachaFx !== "undefined") GachaFx.close();
   /* バトルの外では、ステージの粒を止めて、マップの曲にもどす（リザルトは無音でジングルを聞かせる） */
   if (id !== "screen-battle") { Fx.stopAmbient(); Fx.cancel(); }
@@ -2484,12 +2485,38 @@ function retryBattle() {
 }
 
 /* 「にげる」。めいきゅうは、にげても そこまでの きろくが のこる */
+/* たしかめる画面（ゲームの わくで出す。ブラウザの確認ダイアログは 世界が とぎれるので使わない）。
+ * はじめは「やめる」側にフォーカスを置く。danger のときは「はい」を赤くし、連打で通りぬけないよう 少しの間 押せなくする */
+var confirmCb = null;
+function askConfirm(text, yesLabel, noLabel, onYes, danger) {
+  confirmCb = onYes || null;
+  $("#confirm-text").textContent = text;
+  var yes = $("#confirm-yes"), no = $("#confirm-no");
+  yes.textContent = yesLabel || "はい";
+  no.textContent = noLabel || "やめる";
+  yes.classList.toggle("btn-danger", !!danger);
+  yes.classList.toggle("btn-primary", !danger);
+  yes.disabled = !!danger;
+  if (danger) setTimeout(function () { yes.disabled = false; }, 700);
+  $("#confirm-modal").classList.remove("hidden");
+  no.focus();
+}
+function closeConfirm(yes) {
+  $("#confirm-modal").classList.add("hidden");
+  var cb = confirmCb;
+  confirmCb = null;
+  if (yes && cb) cb();
+}
 function quitBattle() {
+  var b = battle;
+  Sound.select();
   if (battle.mode === "endless") {
-    if (confirm("めいきゅうから だっしゅつしますか？\n（ここまでの きろくは のこります）")) endEndless();
+    askConfirm("めいきゅうから だっしゅつしますか？\n（ここまでの きろくは のこります）", "だっしゅつする", "たたかいを つづける",
+      function () { if (battle === b && $("#screen-battle").classList.contains("active")) endEndless(); });
     return;
   }
-  if (confirm("クエストを ちゅうだんして マップに もどりますか？\n（かくとくした EXPは のこります）")) openMenu();
+  askConfirm("クエストを ちゅうだんして マップに もどりますか？\n（かくとくした EXPは のこります）", "マップに もどる", "たたかいを つづける",
+    function () { if (battle === b && $("#screen-battle").classList.contains("active")) openMenu(); });
 }
 
 /* =========================================================
@@ -3940,6 +3967,8 @@ function openStatus() {
         var cell = document.createElement("span");
         var m = SRS.mastery(save.records, q.id);
         cell.className = "mastery-cell m" + (m < 0 ? "x" : m);
+        /* 色だけに たよらない：マスターは ✓、にがて（箱0）は × を入れる */
+        cell.textContent = m >= SRS.MAX_BOX ? "✓" : (m === 0 ? "×" : "");
         cell.title = q.q;
         row.appendChild(cell);
       });
@@ -4032,10 +4061,12 @@ function openBestiary() {
 }
 
 function resetData() {
-  if (!confirm("ぼうけんのしょを けしますか？\n（レベル・復習記録が すべて きえます）")) return;
-  if (!confirm("ほんとうに よろしいですか？")) return;
-  localStorage.removeItem(SAVE_KEY);
-  location.reload();
+  askConfirm("ぼうけんのしょを けしますか？\n（レベル・復習記録が すべて きえます）", "けす", "やめる", function () {
+    askConfirm("ほんとうに よろしいですか？\nけした きろくは もとに もどせません。", "ほんとうに けす", "やめる", function () {
+      localStorage.removeItem(SAVE_KEY);
+      location.reload();
+    }, true);
+  }, true);
 }
 
 /* =========================================================
@@ -4201,6 +4232,11 @@ window.addEventListener("DOMContentLoaded", function () {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
     /* ご意見箱は、Esc でも とじられる（入力中でも効くように、いちばん先に見る） */
     if (e.key === "Escape" && !$("#feedback-modal").classList.contains("hidden")) { e.preventDefault(); closeFeedback(); return; }
+    /* たしかめる画面：Esc で やめる。開いている間は、うしろの選択肢を キーで えらばない（Enter は フォーカスのあるボタンを押す） */
+    if (!$("#confirm-modal").classList.contains("hidden")) {
+      if (e.key === "Escape") { e.preventDefault(); closeConfirm(false); }
+      return;
+    }
     var tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     var isGo = e.key === "Enter" || e.key === " ";
@@ -4333,6 +4369,9 @@ window.addEventListener("DOMContentLoaded", function () {
     b.onclick = function () { Sound.select(); openMenu(); };
   });
   $("#battle-quit").onclick = quitBattle;
+  $("#confirm-yes").onclick = function () { Sound.select(); closeConfirm(true); };
+  $("#confirm-no").onclick = function () { Sound.select(); closeConfirm(false); };
+  $("#confirm-modal").onclick = function (e) { if (e.target === this) closeConfirm(false); };
   $("#battle-continue").onclick = nextTurn;
   $("#battle-msg").onclick = finishType;
   /* 「すすむ」が出ているときは、ふきだしの どこを押しても すすむ（小さいボタンを ねらわなくてよい） */

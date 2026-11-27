@@ -1274,3 +1274,32 @@ kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px soli
     box-shadow: 0 -8px 8px -4px var(--bg);
   }
 }
+
+
+/* =========================================================
+ * UI の見なおし その4（v3.2.4）
+ * ======================================================= */
+
+/* ---------- たしかめる画面（にげる・ぼうけんのしょを けす） ---------- */
+.confirm-window { width: 100%; max-width: 440px; margin: 0; }
+.confirm-text { white-space: pre-wrap; font-size: 16px; line-height: 1.7; text-align: center; margin: 4px 0 12px; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .btn { flex: 1; margin: 0; text-align: center; min-height: 48px; }
+@media (max-width: 480px) { .confirm-actions { flex-direction: column-reverse; } }
+
+/* ---------- きおくの ちず：色だけでなく しるしでも分かるように ---------- */
+.mastery-cell { font-size: 11px; line-height: 12px; text-align: center; vertical-align: middle; overflow: hidden; font-family: sans-serif; font-weight: bold; }
+.mastery-cell.m5 { color: #05051a; }
+.mastery-cell.m0 { color: #fff; }
+
+/* ---------- タイトル：いちばん大事なボタンは、点滅で暗くなりすぎないようにする ---------- */
+#title-start.blink { animation-name: blinkSoft; }
+@keyframes blinkSoft { 50% { opacity: .8; } }
+/* せまい画面で ますが つぶれないよう、入りきらないぶんは 次の行へ送る（なまえの はばだけ 字下げ） */
+.mastery-row { flex-wrap: wrap; padding-left: 154px; }
+.mastery-label { margin-left: -154px; }
+.mastery-cell { flex: none; }
+@media (max-width: 480px) {
+  .mastery-row { padding-left: 114px; }
+  .mastery-label { margin-left: -114px; }
+}
