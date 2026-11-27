@@ -805,12 +805,13 @@ textarea:focus { border-color: var(--key); outline: none; }
   #screen-battle .battle-body.no-side .battle-side { display: none; }
   #screen-battle .battle-side,
   #screen-battle .battle-main {
-    max-height: calc(100vh - var(--battle-top-h, 260px) - 36px);
+    /* 画面の高さが低いときも、選択肢が見えなくならないように 320px は残す（そのときは ページごと スクロール） */
+    max-height: max(320px, calc(100vh - var(--battle-top-h, 260px) - 36px));
     overflow-y: auto;
     padding-right: 4px;
   }
   #screen-battle .battle-side .battle-passage { margin: 0; }
-  #screen-battle .passage-figure { max-height: calc(100vh - var(--battle-top-h, 260px) - 80px); }
+  #screen-battle .passage-figure { max-height: max(260px, calc(100vh - var(--battle-top-h, 260px) - 80px)); }
 }
 @media (max-width: 899px) {
   #screen-battle .battle-body { display: flex; flex-direction: column; }

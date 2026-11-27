@@ -2199,9 +2199,11 @@ function enterWithScope(kind) {
       persist();
       closeScopeSelect();
       activeScopeKey = sc.key;
+      var before = battle;
       entry.start();
-      /* 入れなかったとき（復習する問題が無い など）は、メニューのまま なので はんいを もどす */
-      if (!$("#screen-battle").classList.contains("active")) activeScopeKey = null;
+      /* 入れなかったとき（復習する問題が無い など）は、メニューのまま なので はんいを もどす。
+       * 画面の切りかえは えんしゅつの あとなので、画面ではなく「新しい戦闘が始まったか」で見る */
+      if (battle === before) activeScopeKey = null;
     };
     box.appendChild(btn);
   });
