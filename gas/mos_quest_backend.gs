@@ -78,10 +78,12 @@ function handleSync(player) {
     "id", "name", "klass", "level", "xp", "rank", "stars", "questsCleared",
     "answered", "correct", "accuracy", "bossWins", "finalClear", "examExcel", "examWord", "updatedAt",
     /* v2.1 で末尾に追加（既存の列の順番は変えない） */
-    "examFe", "course"
+    "examFe", "course",
+    /* v2.4 で末尾に追加：基本情報 科目B の模試の最高点（examFe は科目A） */
+    "examFeB"
   ];
   var sheet = getOrCreateSheet(SHEET_PLAYERS, header);
-  /* 前の版で作ったシートには末尾の列（examFe・course）の見出しが無いので、足りない分だけ書き足す */
+  /* 前の版で作ったシートには末尾の列（examFe・course・examFeB）の見出しが無いので、足りない分だけ書き足す */
   if (sheet.getLastColumn() < header.length) {
     sheet.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight("bold");
   }
@@ -96,7 +98,8 @@ function handleSync(player) {
     player.id, player.name, player.klass, player.level, player.xp, player.rank,
     player.stars, player.questsCleared, player.answered, player.correct, player.accuracy,
     player.bossWins, player.finalClear, player.examExcel, player.examWord, new Date(),
-    player.examFe || 0, player.course || ""
+    player.examFe || 0, player.course || "",
+    player.examFeB || 0
   ];
 
   if (rowIndex > 0) {

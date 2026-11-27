@@ -10,8 +10,7 @@
  *   notation: "fe_pseudo" の問題では、戦闘画面に「擬似言語の記述形式」を見るボタンが出る（FE_NOTATIONS）
  *   id は出典から作る（FE-2025B-02 ＝ 2025年度 科目B 問2）。一度公開したら変更・削除しない
  *
- * ⚠️ まだ index.html では読み込まない。読み込むと生徒の画面に出る。
- *    読み込む前に、先生による解説の読み合わせを済ませること（README「IPA の公開問題の入れ方」）。
+ * ⚠️ index.html で読み込んでいる（生徒の画面に出ている）。問題 id は変更・削除しないこと（復習の記録が id に結びついている）。
  *
  * 検査 : node tools/check_questions.mjs
  * 正解の突き合わせ : python3 -I tools/ipa/extract_fe.py check <西暦の年度> --subject b

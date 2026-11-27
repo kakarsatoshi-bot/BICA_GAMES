@@ -281,7 +281,8 @@ function syncNow() {
     examExcel: save.exams && save.exams.excel ? save.exams.excel.best : 0,
     examWord: save.exams && save.exams.word ? save.exams.word.best : 0,
     examFe: save.exams && save.exams.fe_a ? save.exams.fe_a.best : 0,
-    course: save.course || ""
+    course: save.course || "",
+    examFeB: save.exams && save.exams.fe_b ? save.exams.fe_b.best : 0   // 基本情報 科目B の模試（GAS の列は末尾の examFeB）
   });
 }
 
