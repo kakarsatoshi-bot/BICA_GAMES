@@ -2697,18 +2697,21 @@ function subjectMenuButton(subjectKey) {
   btn.onclick = function () { Sound.select(); openQuestList(subjectKey); };
   return btn;
 }
+/* メニューのうち「あそぶ場所」ではないもの。小さいボタンで、ミッションの下（#menu-sub）にまとめる。
+ * あそぶ場所（科目・ふっかつのほこら・まおうの城…）は、プレイヤーのすぐ下（#menu-grid）に大きく出す */
+var MENU_SUB = { avatar: true, gacha: true, ranking: true, status: true };
 function renderCourseMenu() {
   var def = currentCourseDef();
-  var grid = $("#menu-grid");
+  var grid = $("#menu-grid"), subGrid = $("#menu-sub");
   var shown = {};
   def.menu.forEach(function (item) {
     var btn = item.indexOf("subject:") === 0 ? subjectMenuButton(item.slice(8)) : $("#menu-" + item);
     if (!btn) return;
     btn.classList.remove("hidden");
-    grid.appendChild(btn);   /* 定義の順に並べなおす */
+    (MENU_SUB[item] ? subGrid : grid).appendChild(btn);   /* 定義の順に並べなおす */
     shown[btn.id] = true;
   });
-  Array.prototype.slice.call(grid.querySelectorAll(".menu-btn")).forEach(function (btn) {
+  Array.prototype.slice.call(document.querySelectorAll("#menu-grid .menu-btn, #menu-sub .menu-btn")).forEach(function (btn) {
     if (!shown[btn.id]) btn.classList.add("hidden");
   });
   $("#menu-course-icon").textContent = def.icon;

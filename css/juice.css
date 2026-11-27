@@ -90,23 +90,25 @@ html.hitstop *, html.hitstop *::before, html.hitstop *::after {
   overflow-wrap: anywhere;
   animation: jzBannerIn .35s cubic-bezier(.2, 1.5, .4, 1) both;
 }
-/* バトル中は、上の HUD（にげる・クエスト名・レベル・問題数・ハート）と問題文を隠さないよう、画面の下に出す。
+/* リザルトでも、題名（クエスト クリア！）を隠さないよう 同じく下に出す。
+ * バトル中は、上の HUD（にげる・クエスト名・レベル・問題数・ハート）と問題文を隠さないよう、画面の下に出す。
  * 出すのは こたえたあとだけ（js の Juice.holdBanners）。右下の 📮・♪ のボタンは よける */
-body:has(#screen-battle.active) .jz-banner {
+body:has(:is(#screen-battle, #screen-result).active) .jz-banner {
   top: auto; bottom: 12px;
   max-width: min(calc(100vw - 240px), 520px);
   padding: 4px 12px;
   animation-name: jzBannerInUp;
 }
-body:has(#screen-battle.active) .jz-banner.out { animation-name: jzBannerOutDown; }
+body:has(:is(#screen-battle, #screen-result).active) .jz-banner.out { animation-name: jzBannerOutDown; }
 @keyframes jzBannerInUp    { from { transform: translateY(160%); } to { transform: translateY(0); } }
 @keyframes jzBannerOutDown { from { transform: translateY(0); opacity: 1; } to { transform: translateY(160%); opacity: 0; } }
 @media (max-width: 600px) {
-  body:has(#screen-battle.active) .jz-banner { margin-left: 8px; max-width: calc(100vw - 124px); }
+  /* せまい画面は 右下のボタンが よこ並びなので、その上に出す */
+  body:has(:is(#screen-battle, #screen-result).active) .jz-banner { bottom: 58px; max-width: calc(100vw - 16px); }
 }
-body:has(#screen-battle.active) .jz-banner-icon { font-size: 20px; }
-body:has(#screen-battle.active) .jz-banner-head { font-size: 11px; }
-body:has(#screen-battle.active) .jz-banner-body { font-size: 13px; }
+body:has(:is(#screen-battle, #screen-result).active) .jz-banner-icon { font-size: 20px; }
+body:has(:is(#screen-battle, #screen-result).active) .jz-banner-head { font-size: 11px; }
+body:has(:is(#screen-battle, #screen-result).active) .jz-banner-body { font-size: 13px; }
 .jz-banner.out { animation: jzBannerOut .3s steps(5) forwards; }
 @keyframes jzBannerIn  { from { transform: translateY(-160%); } to { transform: translateY(0); } }
 @keyframes jzBannerOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-160%); opacity: 0; } }
@@ -487,7 +489,7 @@ body:has(#screen-battle.active) .jz-banner-body { font-size: 13px; }
   #result-big-num { font-size: 36px; }
   .fx-cutin { height: 72px; margin-top: -36px; }
   .jz-banner { top: 8px; padding: 6px 12px; }
-  body:has(#screen-battle.active) .jz-banner { top: auto; }
+  body:has(:is(#screen-battle, #screen-result).active) .jz-banner { top: auto; }
 }
 
 /* =========================================================
