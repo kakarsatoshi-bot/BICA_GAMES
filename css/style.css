@@ -902,3 +902,6 @@ html.fx-low #battle-avatar { animation: none !important; }
 .quest-reco-btn { width: auto; margin: 0; padding: 2px 10px; font-size: 12px; }
 .battle-liked { font-size: 12px; color: #0a0a1e; background: #7ab0f0; border-radius: 4px; padding: 0 6px; white-space: nowrap; }
 .scope-reco { font-size: 12px; color: #7ab0f0; margin: 4px 0 0; }
+/* 図鑑：であったモンスターは押すと解説カード */
+.bestiary-card.has-card { cursor: pointer; }
+.bestiary-card.has-card:hover, .bestiary-card.has-card:focus { border-color: var(--key); }
