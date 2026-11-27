@@ -1027,3 +1027,24 @@ html.fx-low .gfx-rays { animation: none !important; }
   .gfx-stage { width: 150px; height: 150px; }
   .gfx-icon { width: 100px; height: 100px; }
 }
+
+/* ===== 読みやすい日本語の折り返し（js/jptext.js が ことばの切れ目に <wbr> を入れる） ===== */
+.jp { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+#battle-msg { line-height: 1.65; }
+#battle-msg .msg-nl { display: none; }
+#battle-msg .msg-tip { margin-top: 8px; padding: 6px 10px 7px; border-left: 4px solid #6ee7ff; background: rgba(110, 231, 255, .08); line-height: 1.75; }
+#battle-msg .msg-tip-miss { border-left-color: #ffd23b; background: rgba(255, 210, 59, .08); }
+#battle-msg .msg-label { display: block; font-size: 0; line-height: 1; margin-bottom: 4px; }
+#battle-msg .msg-label::before { content: "📘 まめちしき"; font-size: 13px; color: #6ee7ff; letter-spacing: 1px; }
+#battle-msg .msg-tip-miss .msg-label::before { content: "📖 かいせつ"; color: #ffd23b; }
+#battle-msg .msg-answer { color: #6ef08c; margin-top: 4px; }
+#battle-msg .msg-note { font-size: .88em; color: #ffd23b; margin-top: 4px; }
+kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px solid #9fb0d0; border-bottom-width: 3px; border-radius: 3px;
+  background: #1d2133; color: #fff; font: inherit; font-size: .92em; line-height: 1.35; white-space: nowrap; vertical-align: 1px; }
+.card-text.jp { line-height: 1.75; }
+.jp .nobr { white-space: nowrap; }
+@media (max-width: 480px) {
+  #battle-msg { line-height: 1.55; }
+  #battle-msg .msg-tip { margin-top: 6px; padding: 4px 8px 5px; line-height: 1.6; }
+  #battle-msg .msg-label { margin-bottom: 2px; }
+}

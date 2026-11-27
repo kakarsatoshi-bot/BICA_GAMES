@@ -224,7 +224,7 @@ var GachaFx = (function () {
     var name = el("div", "gfx-name", scramble(inf.name.length), box);
     var hint = el("div", "gfx-hint", null, box);
     var hintH = el("div", "gfx-hint-h", inf.hintH, hint);
-    var hintT = el("div", "gfx-hint-t", inf.hint, hint);
+    var hintT = JpText.set(el("div", "gfx-hint-t", null, hint), inf.hint);
     var after = el("div", "gfx-after", null, box);
 
     var dur = r === "super" ? 2600 : r === "rare" ? 1700 : 1000;
@@ -245,7 +245,7 @@ var GachaFx = (function () {
       drawGachaIcon(cv, res, 8, false);
       /* こたえ合わせ：かくしていた解説を ぜんぶ見せる */
       hintH.textContent = "💡 こたえ：" + inf.name;
-      hintT.textContent = inf.full;
+      JpText.set(hintT, inf.full);
       var label = el("div", "gfx-rarity r-" + r, ITEM_RARITY[r].stars + " " + GACHA_FX_LABEL[r], box);
       box.insertBefore(label, name);
       el("div", "gfx-note", inf.kind + "　" + (res.dup ? "もっていたので ＋" + MEDAL_DUP + " メダル もどった" : "🆕 はじめて！"), after);
