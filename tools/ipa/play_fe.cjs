@@ -31,7 +31,7 @@ const SHOOT = new Set(["FE-2025A-03", "FE-2025A-06", "FE-2025A-14", "FE-2025A-19
   "FE-2026A-01", "FE-2026A-06", "FE-2026A-07", "FE-2026A-14", "FE-2026A-17",
   "FE-2024A-01", "FE-2024A-03", "FE-2024A-13", "FE-2024A-19",
   "FE-2023A-02", "FE-2023A-06", "FE-2023A-10", "FE-2023A-11", "FE-2023A-13",
-  "FE-2025B-01", "FE-2025B-03", "FE-2025B-05", "FE-2025B-06"]);   // 図・表・SQL・プログラムのある問題
+  "FE-2025B-01", "FE-2025B-03", "FE-2025B-05", "FE-2025B-06", "FE-2026B-02", "FE-2026B-04", "FE-2026B-05", "FE-2026B-06"]);   // 図・表・SQL・プログラムのある問題
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".svg": "image/svg+xml", ".json": "application/json", ".webp": "image/webp", ".ico": "image/x-icon" };
@@ -331,7 +331,8 @@ async function main() {
       const fin = await page.evaluate(() => { startFinal(); return battle.qs.map((q) => q.id); });
       await waitChoices(page);   /* 戦闘の画面に切りかわってから、マップにもどる */
       check(fin.length > 0 && fin.every((id) => sc.re.test(id)), `はんい ${sc.key}: まおうの城の問題に ほかの科目が混ざっている`);
-      if (sc.key === "all") check(fin.some((id) => /A-/.test(id)) && fin.some((id) => /B-/.test(id)) || fin.length < 2, "はんい A＋B: まおうの城に 科目A と科目B が まざっていない");
+      /* A＋B では、出題のもとになる問題に 科目A と科目B の両方が入っている（12問は その中から ランダムに えらぶ） */
+      if (sc.key === "all") check(r.subjects.join(",") === "fe_a,fe_b", `はんい A＋B: 対象の科目が ${r.subjects.join(",")}`);
       await toMenu();
     }
   }
