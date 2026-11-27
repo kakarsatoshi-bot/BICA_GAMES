@@ -60,5 +60,5 @@ var SUBJECT_BUTTONS = {
   excel: { icon: "🗼", label: "エクセルの とう" },
   word:  { icon: "🏰", label: "ワードの しろ" },
   fe_a:  { icon: "💻", label: "科目A の まち" },
-  fe_b:  { icon: "📜", label: "科目B の 道場" }
+  fe_b:  { icon: "🥋", label: "科目B の 道場" }
 };
