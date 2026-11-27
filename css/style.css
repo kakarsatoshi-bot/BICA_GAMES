@@ -695,6 +695,8 @@ textarea:focus { border-color: var(--key); outline: none; }
 .passage-text + * { margin-top: 8px; }
 .passage-figure { display: block; max-width: 100%; height: auto; margin: 6px auto; background: #fff; }
 .passage-scroll { overflow-x: auto; max-width: 100%; }
+.passage-scroll + .passage-scroll { margin-top: 8px; }
+.passage-caption { font-size: 13px; margin: 2px 0; white-space: pre-wrap; }
 .passage-table { border-collapse: collapse; font-size: 13px; margin: 4px 0; }
 .passage-table th, .passage-table td { border: 1px solid #6a6a9a; padding: 3px 8px; white-space: nowrap; text-align: left; }
 .passage-table th { background: #1a1a44; color: var(--key); }

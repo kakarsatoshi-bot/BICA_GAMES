@@ -955,7 +955,7 @@ function labelOnlyChoice(q, ci) {
 }
 /* 問題文のほかに、長文・プログラム・表・図をもつ問題か（クイック判定を出さない） */
 function hasHeavyVisual(q) {
-  return !!(q.passage || q.code || q.table || q.figure);
+  return !!(q.passage || q.code || q.table || q.tables || q.figure);
 }
 
 function showQuestion() {
@@ -1005,6 +1005,32 @@ function renderSource(q) {
   el.classList.toggle("hidden", !q.source);
 }
 
+/* 表を1つ組み立てる。header が true なら1行目を見出しにする（tableHeader: false の表は見出しの行が無い）。
+ * caption があれば表の上に題名（「表」「追加後の表」など）を出す */
+function passageTable(rows, header, caption) {
+  var wrap = document.createElement("div");
+  wrap.className = "passage-scroll";
+  if (caption) {
+    var cap = document.createElement("div");
+    cap.className = "passage-caption";
+    cap.textContent = caption;
+    wrap.appendChild(cap);
+  }
+  var table = document.createElement("table");
+  table.className = "passage-table";
+  rows.forEach(function (row, ri) {
+    var tr = document.createElement("tr");
+    row.forEach(function (cell) {
+      var td = document.createElement(ri === 0 && header ? "th" : "td");
+      td.textContent = cell;
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  wrap.appendChild(table);
+  return wrap;
+}
+
 /* 長文・プログラム（等幅）・表・図を、モンスターの下のスクロール領域に出す。
  * 問題の文字は すべて textContent で入れる（HTML として解釈しない） */
 function renderPassage(q) {
@@ -1028,24 +1054,11 @@ function renderPassage(q) {
     fig.alt = q.figureAlt || "図";
     box.appendChild(fig);
   }
-  if (q.table && q.table.length) {
-    var wrap = document.createElement("div");
-    wrap.className = "passage-scroll";
-    var table = document.createElement("table");
-    table.className = "passage-table";
-    q.table.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      row.forEach(function (cell) {
-        /* tableHeader: false の表（見出しの行が無い表）は、1行目も ふつうのセルにする */
-        var td = document.createElement(ri === 0 && q.tableHeader !== false ? "th" : "td");
-        td.textContent = cell;
-        tr.appendChild(td);
-      });
-      table.appendChild(tr);
-    });
-    wrap.appendChild(table);
-    box.appendChild(wrap);
-  }
+  /* 表は table（1つ）か tables（題名つきで複数。[{ caption, rows, header }]）。どちらも図のあと・プログラムの前に出す */
+  if (q.table && q.table.length) box.appendChild(passageTable(q.table, q.tableHeader !== false, ""));
+  (q.tables || []).forEach(function (t) {
+    box.appendChild(passageTable(t.rows, t.header !== false, t.caption || ""));
+  });
   if (q.code) {
     var pre = document.createElement("pre");
     pre.className = "passage-code";

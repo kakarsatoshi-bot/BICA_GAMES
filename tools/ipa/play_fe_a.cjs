@@ -27,7 +27,8 @@ const QFILE = "js/questions_ipa_fe_a.js";
 const LABELS = "アイウエオカキクケコ";
 const SHOOT = new Set(["FE-2025A-03", "FE-2025A-06", "FE-2025A-14", "FE-2025A-19",
   "FE-2026A-01", "FE-2026A-06", "FE-2026A-07", "FE-2026A-14", "FE-2026A-17",
-  "FE-2024A-01", "FE-2024A-03", "FE-2024A-13", "FE-2024A-19"]);   // 図・表・SQL のある問題
+  "FE-2024A-01", "FE-2024A-03", "FE-2024A-13", "FE-2024A-19",
+  "FE-2023A-02", "FE-2023A-06", "FE-2023A-10", "FE-2023A-11", "FE-2023A-13"]);   // 図・表・SQL のある問題
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png",
   ".svg": "image/svg+xml", ".json": "application/json", ".webp": "image/webp", ".ico": "image/x-icon" };
@@ -79,7 +80,6 @@ async function checkQuestionView(page, q) {
     const $ = (s) => document.querySelector(s);
     const passage = $("#battle-passage");
     const img = passage.querySelector("img.passage-figure");
-    const table = passage.querySelector("table.passage-table");
     return {
       msg: $("#battle-msg").textContent,
       source: $("#battle-source").classList.contains("hidden") ? null : $("#battle-source").textContent,
@@ -91,7 +91,10 @@ async function checkQuestionView(page, q) {
       passageShown: !passage.classList.contains("hidden"),
       passageText: (passage.querySelector(".passage-text") || {}).textContent || null,
       figure: img ? { src: img.getAttribute("src"), ok: img.complete && img.naturalWidth > 0, alt: img.alt } : null,
-      table: table ? [...table.rows].map((r) => [...r.cells].map((c) => c.tagName + ":" + c.textContent)) : null,
+      tables: [...passage.querySelectorAll(".passage-scroll")].map((w) => ({
+        caption: (w.querySelector(".passage-caption") || {}).textContent || "",
+        rows: [...w.querySelector("table").rows].map((r) => [...r.cells].map((c) => c.tagName + ":" + c.textContent)),
+      })),
       code: (passage.querySelector("pre.passage-code") || {}).textContent || null,
     };
   });
@@ -105,17 +108,18 @@ async function checkQuestionView(page, q) {
     const want = q.c[i] === LABELS[i] ? LABELS[i] : LABELS[i] + q.c[i];   // 記号だけの選択肢（図の中から選ぶ問題）
     check(c.text === want, `${id}: ${LABELS[i]} の選択肢が並べ替わっているか、文字が違う`);
   });
-  const heavy = !!(q.passage || q.code || q.table || q.figure);
+  const heavy = !!(q.passage || q.code || q.table || q.tables || q.figure);
   check(v.passageShown === heavy, `${id}: 図・表などの領域の表示が ${v.passageShown}`);
   check(v.passageText === (q.passage || null), `${id}: 長文（passage）が違う`);
   if (q.figure) {
     check(v.figure && v.figure.src === q.figure && v.figure.ok, `${id}: 図 ${q.figure} が読み込めていない`);
     check(v.figure && v.figure.alt === q.figureAlt, `${id}: 図の説明（alt）が違う`);
   } else check(!v.figure, `${id}: 図が残っている`);
-  if (q.table) {
-    const want = q.table.map((r, ri) => r.map((c) => (ri === 0 && q.tableHeader !== false ? "TH:" : "TD:") + c));
-    check(JSON.stringify(v.table) === JSON.stringify(want), `${id}: 表がデータと違う`);
-  } else check(!v.table, `${id}: 表が残っている`);
+  /* 表：table（1つ）と tables（題名つき）を、出る順にくらべる */
+  const cells = (rows, header) => rows.map((r, ri) => r.map((c) => (ri === 0 && header ? "TH:" : "TD:") + c));
+  const wantTables = (q.table ? [{ caption: "", rows: cells(q.table, q.tableHeader !== false) }] : [])
+    .concat((q.tables || []).map((t) => ({ caption: t.caption || "", rows: cells(t.rows, t.header !== false) })));
+  check(JSON.stringify(v.tables) === JSON.stringify(wantTables), `${id}: 表がデータと違う（または前の問題の表が残っている）`);
   check(v.code === (q.code || null), `${id}: プログラム（code）が違う`);
 }
 
