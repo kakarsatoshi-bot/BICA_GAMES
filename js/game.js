@@ -1520,6 +1520,13 @@ function passageTable(rows, header, caption) {
 function renderPassage(q) {
   var box = $("#battle-passage");
   box.innerHTML = "";
+  /* せまい画面用：長い図・プログラムのある問題は、選択肢のすぐ上に問題文を もういちど出す
+   * （下まで送ると ふきだしが見えなくなり、何を きかれているか 分からなくなるため。css で PC では出さない） */
+  var rep = $("#battle-qrepeat");
+  rep.textContent = "";
+  var longVisual = !!(q.q && (q.code || q.tables || (q.passage && q.passage.length > 60)));
+  rep.classList.toggle("hidden", !longVisual);
+  if (longVisual) JpText.append(rep, q.q);
   if (!hasHeavyVisual(q)) {
     $("#battle-ctable").innerHTML = "";
     $("#battle-ctable").classList.add("hidden");

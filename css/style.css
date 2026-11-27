@@ -1153,7 +1153,7 @@ kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px soli
 
   /* 図・表・プログラムのある戦闘：1行が長くなりすぎないようにし、モンスターは小さくして 下の図・プログラムを広く */
   .in-battle.wide-battle #screen-battle #battle-msg { font-size: 16px; max-width: 54em; }
-  .in-battle.wide-battle #screen-battle .choice { font-size: 15px; }
+  .in-battle.wide-battle #screen-battle .choice { font-size: 16px; }
   /* 図などの無い問題のときは、ふきだしと選択肢を同じ はばに そろえて せまくする（画面問題は絵が大きいので そのまま） */
   .in-battle.wide-battle #screen-battle:has(.battle-body.no-side):not(:has(.hotspot-mode)) :is(.battle-head, .battle-body) { max-width: 900px; }
   .in-battle.wide-battle #screen-battle .battle-stage:not(.hotspot-mode) { height: 124px; }
@@ -1225,4 +1225,52 @@ kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px soli
 @media (max-width: 600px) {
   #corner-btns { flex-direction: row; align-items: center; gap: 6px; right: 6px; bottom: 6px; }
   .in-battle #app { padding-bottom: 72px; }   /* いちばん下の選択肢を、ボタンの上まで送れるように */
+}
+
+
+/* =========================================================
+ * UI の見なおし その3（v3.2.3）
+ * ======================================================= */
+
+/* ---------- 読む文字は 16px を基本に ----------
+ * ドット文字（DotGothic16）は 16px の ます目で作られていて、14px 以下では 画数の多い漢字が つぶれる。
+ * 問題文・選択肢・長文・解説カードなど「読ませる文字」は 16px（表・ひとこと は 15px）にする */
+#screen-battle #battle-msg { font-size: 16px; }
+#screen-battle .choice { font-size: 16px; }
+.battle-passage { font-size: 16px; }
+.passage-caption { font-size: 15px; }
+.passage-table { font-size: 15px; }
+.notation-body { font-size: 15px; }
+.notation-note { font-size: 14px; }
+.card-body { font-size: 16px; }
+.messenger-text { font-size: 15px; }
+.mission-row { font-size: 15px; }
+.mission-progress { font-size: 14px; }
+.quest-desc { font-size: 14px; }
+.practical-instructions { font-size: 15px; }
+
+/* ---------- せまい画面：選択肢のすぐ上に 問題文を もういちど（js の renderPassage） ---------- */
+.battle-qrepeat {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-left: 4px solid var(--key);
+  background: rgba(255, 210, 59, .08);
+  font-size: 16px;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.battle-qrepeat::before { content: "もんだい"; display: block; font-size: 12px; color: var(--key); letter-spacing: 1px; }
+@media (min-width: 900px) { .battle-qrepeat { display: none; } }
+
+/* ---------- PC：解答群の表が長いときも、記号のボタン（ア・イ…）は いつも見えるように 下に とめる ---------- */
+@media (min-width: 900px) {
+  #screen-battle .battle-main .choices.label-only {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--bg);
+    padding: 6px 0 2px;
+    box-shadow: 0 -8px 8px -4px var(--bg);
+  }
 }
