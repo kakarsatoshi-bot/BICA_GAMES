@@ -243,6 +243,9 @@ function ensureSaveShape(s) {
   s.jobXp = s.jobXp || {};                 // しょくぎょう -> その しょくぎょうで ためた EXP（しょくぎょうレベル）
   s.jobStyle = s.jobStyle || {};           // しょくぎょう -> 1 なら いろちがいの服（しょくぎょうLv5〜）
   s.subJob = s.subJob || null;             // サブ特ちょう（マスターした しょくぎょうの key）
+  /* v2.9 で足したもの（そうび。js/items.js） */
+  s.items = s.items || {};                 // そうびの key -> もっている数
+  s.equip = s.equip || { weapon: null, armor: null, accessory: null };
   return s;
 }
 function newSave(name, klass) {
@@ -579,7 +582,8 @@ function addJobXp(n) {
 }
 /* じぶんの アバターを描く（いろちがいの服も） */
 function drawMyAvatar(canvas, jobKey, scale) {
-  drawAvatar(canvas, save.avatar, jobKey, scale, !!(save.jobStyle[jobKey] && jobLevel(jobKey) >= JOB_LV_STYLE));
+  drawAvatar(canvas, save.avatar, jobKey, scale, !!(save.jobStyle[jobKey] && jobLevel(jobKey) >= JOB_LV_STYLE),
+    save.equip ? drawMyAvatarWeapon() : null);
 }
 
 /* しょくぎょうの特ちょう（js/avatar.js の JOBS の perks）の、いまの値。持っていなければ 0。
@@ -601,10 +605,78 @@ function jobPerkValue(jobKey, name, boosted) {
 }
 function perkVal(name) {
   if (!save || (battle && battle.mode === "exam")) return 0;
-  var main = jobPerkValue(save.job, name, jobLevel(save.job) >= JOB_LV_BOOST);
-  var sub = save.subJob && save.subJob !== save.job && jobMastered(save.subJob) ? jobPerkValue(save.subJob, name, false) : 0;
-  if (name === "reviewXp" || name === "shiny") return Math.max(main, sub);   /* 倍率は 大きいほう */
-  return main + sub;
+  var vals = [jobPerkValue(save.job, name, jobLevel(save.job) >= JOB_LV_BOOST)];
+  if (save.subJob && save.subJob !== save.job && jobMastered(save.subJob)) vals.push(jobPerkValue(save.subJob, name, false));
+  equippedItems().forEach(function (it) { vals.push(it.perks[name] || 0); });   /* そうびの効果も足す */
+  if (name === "reviewXp" || name === "shiny") return Math.max.apply(null, vals);   /* 倍率は いちばん大きいもの */
+  return vals.reduce(function (a, b) { return a + b; }, 0);
+}
+
+/* ---------- そうび（js/items.js） ---------- */
+function equippedItems() {
+  if (!save || !save.equip) return [];
+  return ITEM_SLOTS.map(function (sl) { return save.equip[sl[0]] && save.items[save.equip[sl[0]]] ? itemDef(save.equip[sl[0]]) : null; })
+    .filter(Boolean);
+}
+function weaponAtk() {
+  var w = save.equip.weapon && save.items[save.equip.weapon] ? itemDef(save.equip.weapon) : null;
+  return w ? w.atk || 0 : 0;
+}
+function itemCourseOk(it) { return it.course === "all" || it.course === currentCourse(); }
+/* そうびを手に入れる。はじめて手に入れたら true（そのスロットが空なら そうびもする） */
+function giveItem(key) {
+  var it = itemDef(key);
+  if (!it) return false;
+  var first = !save.items[key];
+  save.items[key] = (save.items[key] || 0) + 1;
+  if (first && !save.equip[it.slot]) save.equip[it.slot] = key;
+  return first;
+}
+/* それまでの記録から、もらえる はずの そうびを まとめて わたす（レベル・クリアずみのクエスト・まおうの城）。
+ * v2.9 より前から遊んでいる生徒も、記録に合わせて そうびが そろう。新しく手に入れたものの一覧を返す */
+function grantEarnedItems() {
+  var lv = levelInfo(save.xp).level, got = [];
+  ITEMS.forEach(function (it) {
+    if (save.items[it.key]) return;
+    var f = it.from, ok = false;
+    if (f.level) ok = lv >= f.level;
+    else if (f.quest) ok = !!(save.quests[f.quest] && save.quests[f.quest].stars > 0);
+    else if (f.final) ok = it.course === "mos" ? !!save.finalClear : (it.course !== "all" && isFinalCleared(it.course));
+    if (ok && giveItem(it.key)) got.push(it);
+  });
+  return got;
+}
+/* たからばこから出る そうび（いまの対策項目で、まだ もっていないもの） */
+function chestItemPool() {
+  return ITEMS.filter(function (it) { return it.from.chest && itemCourseOk(it) && !save.items[it.key]; });
+}
+/* 効果の説明（解説カード・一覧に出す） */
+var PERK_TEXT = {
+  gaugeCombo: "コンボ5以上の正解で ひっさつゲージ ＋%v", heartGuard: "1回の たたかいで %v回、まちがえても ♥が へらない",
+  comboKeep: "1回の たたかいで %v回、まちがえても コンボが半分のこる", reviewXp: "復習の EXP %x ばい",
+  missionXp: "ミッション たっせいの EXP ＋%v", crit: "かいしんの確率 ＋%p", shiny: "色ちがい・激レアに %x ばい 出会いやすい",
+  gaugeOnMiss: "まちがえても ひっさつゲージ ＋%v", regen: "1回の たたかいで %v回、3問つづけて正解すると ♥が1つ回復",
+  startGauge: "ひっさつゲージ ＋%v で たたかいが はじまる", chestLuck: "たからばこの運が上がる", specialMul: "ひっさつわざの EXP が ふえる",
+  bossXp: "ボスに正解したときの EXP ＋%v"
+};
+function perksText(perks) {
+  return Object.keys(perks || {}).map(function (k) {
+    var v = perks[k];
+    return (PERK_TEXT[k] || k).replace("%v", v).replace("%x", v).replace("%p", Math.round(v * 100) + "%");
+  }).join("／");
+}
+/* ダメージの数字（見た目と、EXP の小さな上のせだけ。ボスに必要な正解の数は変えない） */
+function calcDamage(combo, crit, special) {
+  var base = weaponAtk() * 2 + levelInfo(save.xp).level + 8;
+  var d = base * (1 + Math.min(combo, 10) * 0.05) * (crit ? 1.8 : 1) * (special ? 2.5 : 1) * (0.9 + Math.random() * 0.2);
+  return Math.max(1, Math.round(d));
+}
+function atkXpRate() {
+  if (battle && battle.mode === "exam") return 1;
+  return 1 + Math.min(0.1, weaponAtk() / 250);   /* ぶきの強さで EXP が 最大 1割 ふえる */
+}
+function drawMyAvatarWeapon() {
+  return save.equip.weapon && save.items[save.equip.weapon] ? itemDef(save.equip.weapon) : null;
 }
 /* とくい分野：いまの しょくぎょうが、この問題を とくいとするか（IPA は分野、MOS は科目で決める） */
 var LIKE_XP = 1.2, LIKE_GAUGE = 10;
@@ -1444,6 +1516,8 @@ function answer(isCorrect, btn) {
     if (battle.mode === "review" && perkVal("reviewXp")) gained = Math.round(gained * perkVal("reviewXp"));
     var liked = likedNow(q);   /* とくい分野の問題：EXP 1.2倍・ゲージ多め */
     if (liked) gained = Math.round(gained * LIKE_XP);
+    gained = Math.round(gained * atkXpRate());
+    var damage = calcDamage(battle.combo, crit, special);
     battle.xp += gained; addJobXp(gained);
     save.xp += gained;
 
@@ -1539,7 +1613,10 @@ function answer(isCorrect, btn) {
       } else {
         setEnemyAnim("hit");
       }
-      Fx.floatText((liked ? "とくい！ " : "") + "＋" + gained + " EXP", liked ? "#7ab0f0" : null, (crit || special) ? "crit" : "");
+      Fx.floatText(damage + (crit || special ? "!!" : ""), null, "dmg");
+      setTimeout(function () {
+        if (battleLive(b, turn)) Fx.floatText((liked ? "とくい！ " : "") + "＋" + gained + " EXP", liked ? "#7ab0f0" : null, (crit || special) ? "crit" : "");
+      }, Juice.isLow() ? 0 : 260);
       Juice.orbs(Juice.enemyPoint(), $("#battle-xpfill").parentNode, { n: 6, onDone: renderBattleXp });
       setTimeout(renderBattleXp, 1000);   // 玉が届かなかったときの保険
       if (healed) { Sound.heal(); flashHearts("heal"); }
@@ -1555,7 +1632,7 @@ function answer(isCorrect, btn) {
     } else {
       hitDelay = 160;
       Sound[tier.se]();
-      Fx.attack(tier.kind, { crit: crit, color: weaponFor(levelBefore).color });
+      Fx.attack(tier.kind, { crit: crit, color: drawMyAvatarWeapon() ? drawMyAvatarWeapon().colors[0] : weaponFor(levelBefore).color });
       setTimeout(onHit, hitDelay);
       if (crit) {
         Juice.announce("かいしんの いちげき！", "crit", 900);
@@ -1849,8 +1926,12 @@ function closeLevelUp() {
 function levelUpText(prevLevel, newLevel) {
   var lines = ["レベルアップ！ Lv" + prevLevel + " → Lv" + newLevel];
   if (rankFor(newLevel) !== rankFor(prevLevel)) lines.push("ランクアップ！ →「" + rankFor(newLevel) + "」");
-  if (weaponFor(newLevel).name !== weaponFor(prevLevel).name) lines.push("あたらしい ぶき「" + weaponFor(newLevel).name + "」");
+  levelItems(prevLevel, newLevel).forEach(function (it) { lines.push("あたらしい そうび「" + it.name + "」"); });
   return lines;
+}
+/* レベル prevLevel より上・newLevel 以下で もらえる そうび（js/items.js の from.level） */
+function levelItems(prevLevel, newLevel) {
+  return ITEMS.filter(function (it) { return it.from.level && it.from.level > prevLevel && it.from.level <= newLevel; });
 }
 
 /* レベルアップのえんしゅつ（画面いっぱい）。タップか、数秒で閉じる */
@@ -1859,7 +1940,10 @@ function showLevelUp(prevLevel, newLevel) {
   $("#lvup-from").textContent = "Lv " + prevLevel;
   $("#lvup-to").textContent = "Lv " + newLevel;
   var rankUp = rankFor(newLevel) !== rankFor(prevLevel);
-  var newWeapon = weaponFor(newLevel).name !== weaponFor(prevLevel).name;
+  var gotItems = levelItems(prevLevel, newLevel);
+  gotItems.forEach(function (it) { giveItem(it.key); });
+  if (gotItems.length) persist();
+  var newWeapon = gotItems.length > 0;
   $("#lvup-rank").textContent = rankUp ? "ランクアップ！ →「" + rankFor(newLevel) + "」" : "";
   $("#lvup-rank").classList.toggle("hidden", !rankUp);
   $("#lvup-weapon").textContent = newWeapon ? "⚔ " + lines[lines.length - 1] + "を てにいれた！" : "";
@@ -2076,6 +2160,7 @@ function endBattle(cleared) {
 
   var chestReward = null;
   var missionHits = [];
+  var itemBanners = [];   /* 手に入れた そうびの おしらせ */
   if (cleared) {
     var miss = battle.idx - battle.correct;   /* 実際に解いた数から計算（最終決戦の早期勝利にも対応） */
     stars = miss === 0 ? 3 : (miss <= 2 ? 2 : 1);
@@ -2093,6 +2178,16 @@ function endBattle(cleared) {
       missionHits.push(Missions.record(save, "questClear", 1));
       if (battle.bossCorrect >= 3) missionHits.push(Missions.record(save, "bossWin", 1));
 
+      /* はじめてクリアしたクエストは、そのクエストの内容に合った そうびを もらえる */
+      var qItem = ITEMS.filter(function (it) { return it.from.quest === battle.quest.id; })[0];
+      if (qItem && giveItem(qItem.key)) itemBanners.push(["🎁", "そうび「" + qItem.name + "」を てにいれた！", "アバター・しょくぎょう の画面で 解説カードを みよう", "levelup"]);
+      /* たからばこ：ときどき そうび（まだ もっていないもの）が出る */
+      var cPool = chestItemPool();
+      if (cPool.length && Math.random() < 0.25 + perkVal("chestLuck")) {
+        var cItem = pick(cPool);
+        giveItem(cItem.key);
+        chestReward = { type: "item", rarity: cItem.rarity, item: cItem, label: "そうび「" + cItem.name + "」を てにいれた！" };
+      } else
       chestReward = Treasure.grant(save, battle.quest, { stars: stars, luck: perkVal("chestLuck") });
       if (chestReward.type === "xp") { save.xp += chestReward.xp; battle.xp += chestReward.xp; addJobXp(chestReward.xp); }
     }
@@ -2100,6 +2195,7 @@ function endBattle(cleared) {
       /* MOS は今までどおり finalClear（エキスパートの解放条件）。ほかの項目は finalClears に分ける */
       if (battle.course === "mos") save.finalClear = true;
       else save.finalClears[battle.course] = Date.now();
+      grantEarnedItems().forEach(function (it) { itemBanners.push(["🎁", "そうび「" + it.name + "」を てにいれた！", "まおうを たおした あかし", "levelup"]); });
       save.stats.bossWins++;
       bonus = 100;
     }
@@ -2157,7 +2253,7 @@ function endBattle(cleared) {
     chest: chestReward,
     jingle: cleared ? (grand ? "fanfare" : "clear") : "fail",
     confetti: cleared ? (grand ? 140 : 40) : 0,
-    banners: missionHits.filter(Boolean).map(missionBanner),
+    banners: missionHits.filter(Boolean).map(missionBanner).concat(itemBanners),
     achievements: newAchievements
   });
 }
@@ -2213,6 +2309,14 @@ function openMenu() {
   Juice.clear();
   flushPendingLevelUp();
   activeScopeKey = null;   /* メニューでは はんいを えらんでいない（A＋B として数える） */
+  var newItems = grantEarnedItems();
+  if (newItems.length) {
+    persist();
+    setTimeout(function () {
+      Juice.banner("🎁", "そうびを " + newItems.length + "こ てにいれた！", newItems.map(function (it) { return it.name; }).slice(0, 3).join("・") +
+        (newItems.length > 3 ? " など" : "") + "（アバター・しょくぎょう で みられる）", "levelup");
+    }, 1200);
+  }
   renderPlayerHeader("menu");
   var due = specialistDueList().length;
   var badge = $("#menu-review-badge");
@@ -2445,6 +2549,115 @@ function renderAvatarScreen() {
     box.appendChild(row);
   });
   renderJobList();
+  renderEquip();
+}
+/* そうび：3つのスロットと、もちもの（いまの対策項目で手に入るもの）。もっていないものは影と手に入れ方だけ */
+function renderEquip() {
+  var slots = $("#equip-slots");
+  slots.innerHTML = "";
+  ITEM_SLOTS.forEach(function (sl) {
+    var key = save.equip[sl[0]];
+    var it = key && save.items[key] ? itemDef(key) : null;
+    var d = document.createElement("div");
+    d.className = "equip-slot window";
+    var cv = document.createElement("canvas");
+    if (it) drawItemIcon(cv, it, 4); else { cv.width = 40; cv.height = 40; }
+    var t = document.createElement("div");
+    t.className = "equip-slot-text";
+    t.innerHTML = "";
+    var lab = document.createElement("div"); lab.className = "equip-slot-label"; lab.textContent = sl[1];
+    var nm = document.createElement("div"); nm.className = "equip-slot-name"; nm.textContent = it ? it.name : "なし";
+    t.appendChild(lab); t.appendChild(nm);
+    d.appendChild(cv); d.appendChild(t);
+    if (it) { d.tabIndex = 0; d.classList.add("has-card"); d.onclick = function () { Sound.select(); openItemCard(it.key); }; }
+    slots.appendChild(d);
+  });
+  var list = $("#item-list");
+  list.innerHTML = "";
+  var shown = ITEMS.filter(function (it) { return itemCourseOk(it) || save.items[it.key]; });
+  var owned = 0;
+  shown.forEach(function (it) {
+    var have = !!save.items[it.key];
+    if (have) owned++;
+    var d = document.createElement("div");
+    d.className = "item-cell" + (have ? " has-card" : " locked") + (save.equip[it.slot] === it.key ? " is-equipped" : "");
+    d.tabIndex = 0;
+    d.setAttribute("role", "button");
+    d.title = have ? it.name : "？？？";
+    var cv = document.createElement("canvas");
+    drawItemIcon(cv, it, 4, !have);
+    var nm = document.createElement("div");
+    nm.className = "item-cell-name";
+    nm.textContent = have ? it.name : "？？？";
+    var rr = document.createElement("div");
+    rr.className = "item-cell-rarity rarity-" + it.rarity;
+    rr.textContent = ITEM_RARITY[it.rarity].stars + (save.equip[it.slot] === it.key ? " そうびちゅう" : "");
+    d.appendChild(cv); d.appendChild(nm); d.appendChild(rr);
+    d.onclick = function () { Sound.select(); openItemCard(it.key); };
+    list.appendChild(d);
+  });
+  $("#item-count").textContent = "あつめた そうび " + owned + " / " + shown.length + "（おすと 解説カード。もっていない そうびは 手に入れ方が わかるよ）";
+}
+function itemFromText(it) {
+  var f = it.from;
+  if (f.level) return "レベル " + f.level + " に なると もらえる";
+  if (f.quest) {
+    var q = ALL_QUESTS.filter(function (x) { return x.id === f.quest; })[0];
+    return q ? "クエスト「" + q.name + "」を はじめて クリアすると もらえる" : "クエストを クリアすると もらえる";
+  }
+  if (f.final) return "まおうの城を クリアすると もらえる";
+  if (f.chest) return "クエストの たからばこから ときどき 出る";
+  return "";
+}
+function openItemCard(key) {
+  var it = itemDef(key);
+  var have = !!save.items[key];
+  var slotName = ITEM_SLOTS.filter(function (sl) { return sl[0] === it.slot; })[0][1];
+  if (!have) {
+    openCard({
+      kind: "そうび カード（" + slotName + "・" + ITEM_RARITY[it.rarity].stars + " " + ITEM_RARITY[it.rarity].label + "）",
+      title: "？？？",
+      sub: "まだ もっていない",
+      draw: function (cv) { drawItemIcon(cv, it, 6, true); },
+      sections: [{ h: "🗺️ 手に入れ方", text: itemFromText(it) }],
+      actions: []
+    });
+    return;
+  }
+  var eq = save.equip[it.slot] === key;
+  var effect = (it.atk ? "こうげき力 " + it.atk + "（ダメージの数字が大きくなり、EXP が すこし ふえる）" : "") +
+    (it.atk && Object.keys(it.perks).length ? "\n" : "") + perksText(it.perks);
+  var actions = [{
+    label: eq ? "はずす" : "そうびする",
+    primary: !eq,
+    onClick: function () {
+      save.equip[it.slot] = eq ? null : key;
+      persist(); Sound.heal(); closeCard(); renderAvatarScreen();
+      toast(eq ? it.name + "を はずした" : it.name + "を そうびした！");
+    }
+  }];
+  if (it.from.quest) {
+    var q = ALL_QUESTS.filter(function (x) { return x.id === it.from.quest; })[0];
+    var pool = q && q.course === currentCourse() ? q.questions.map(function (x) { return x.id; }).filter(function (id) { return !!QUESTION_INDEX[id]; }) : [];
+    if (pool.length) actions.push({
+      label: "⚔️ 「" + it.card.key + "」の しれん（" + Math.min(5, pool.length) + "もん）",
+      onClick: function () { closeCard(); startPractice(pool, { kind: "monster", key: q.mob.name, name: it.card.key }); },
+      note: "「" + q.name + "」の もんだいに ちょうせん"
+    });
+  }
+  openCard({
+    kind: "そうび カード（" + slotName + "・" + ITEM_RARITY[it.rarity].stars + " " + ITEM_RARITY[it.rarity].label + "）",
+    title: it.name,
+    sub: "キーワード：" + it.card.key,
+    draw: function (cv) { drawItemIcon(cv, it, 6); },
+    sections: [
+      { h: "📖 キーワード「" + it.card.key + "」", text: it.card.about },
+      { h: "✨ こうか", text: effect + "（もぎしけんでは きかない）" },
+      { h: "💡 こうかの わけ", text: it.card.why },
+      { h: "🗺️ 手に入れ方", text: itemFromText(it) }
+    ],
+    actions: actions
+  });
 }
 function jobUnlocked(job) {
   return levelInfo(save.xp).level >= job.level;
@@ -2947,6 +3160,7 @@ function renderChestBox(reward) {
       Sound.chest();
       cv.className = "opening";
       if (reward.type === "palette") drawSprite(cv, reward.shape, reward.palette, 6);
+      else if (reward.type === "item") drawItemIcon(cv, reward.item, 6);
       else drawSprite(cv, "chestOpen", "gold", 6);
       box.classList.add("rarity-" + (reward.rarity || "normal"));
       rarityText.textContent = rarity.label;
@@ -3209,7 +3423,7 @@ function openStatus() {
     ["ひっさつわざ", save.stats.specials + " 回"],
     ["たおした モンスター", save.stats.kills + " 体"],
     ["むげんの めいきゅう", save.endless.best > 0 ? "ちか " + save.endless.best + " かい" : "—"],
-    ["ぶき", weaponFor(li.level).name],
+    ["そうび", equippedItems().map(function (it) { return it.name; }).join("・") || "なし"],
     ["しょうごう", (save.finalClear || Object.keys(save.finalClears).length) ? "まおうを たおせし者" : rankFor(li.level)]
   ].forEach(function (pair) {
     var dt = document.createElement("dt"); dt.textContent = pair[0];
