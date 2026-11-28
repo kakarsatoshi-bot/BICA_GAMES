@@ -1274,3 +1274,52 @@ kbd.key { display: inline-block; padding: 0 5px; margin: 0 2px; border: 1px soli
     box-shadow: 0 -8px 8px -4px var(--bg);
   }
 }
+
+/* ===== 問題の図（js/visuals.js） ===== */
+.battle-vis { margin: 0 0 10px; }
+.vis { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.vis-panel { flex: 1 1 0; min-width: 0; max-width: 460px; }
+.vis-label { font-size: 13px; color: var(--key); margin-bottom: 3px; }
+.vis-arrow { color: var(--key); font-size: 22px; flex: 0 0 auto; }
+#battle-msg .msg-tip-words { border-left-color: #c79bff; background: rgba(199, 155, 255, .08); }
+#battle-msg .msg-tip-words .msg-label::before { content: "💬 ことばで いうと"; color: #c79bff; }
+/* Word の紙面（ゲームの文字ではなく、ふつうの明朝・ゴシックで見せる） */
+.vp-page { background: #fff; color: #111; padding: 12px 16px; min-height: 84px; border: 2px solid #8c92a4; box-shadow: 3px 3px 0 rgba(0,0,0,.35);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; font-size: 16px; line-height: 1.5; position: relative; }
+.vp-page::before { content: "Word"; position: absolute; top: -2px; right: 6px; font: 10px sans-serif; color: #2b579a; }
+.vp-cols { column-gap: 1.2em; column-rule: 1px dashed #bbb; }
+.vp { white-space: pre-wrap; min-height: 1.5em; }
+.va-left { text-align: left; } .va-center { text-align: center; } .va-right { text-align: right; }
+.va-justify { text-align: justify; }
+.va-distribute { text-align: justify; text-align-last: justify; }
+.vp-border { border: 1px solid #333; padding: 2px 4px; }
+.vp-mark { display: inline-block; width: 1.4em; }
+.vr-dist { display: inline-block; text-align: justify; text-align-last: justify; vertical-align: bottom; }
+.vr-sel { background: #b3d4ff; }
+.vs-s { font-size: .8em; } .vs-m { font-size: 1em; } .vs-l { font-size: 1.35em; } .vs-xl { font-size: 1.7em; }
+/* Excel の表 */
+.vx { background: #fff; color: #111; border: 2px solid #8c92a4; box-shadow: 3px 3px 0 rgba(0,0,0,.35); font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif; font-size: 14px; }
+.vx-bar { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #c6c6c6; padding: 3px 6px; background: #f3f3f3; }
+.vx-name { min-width: 3em; border: 1px solid #c6c6c6; background: #fff; padding: 0 4px; font-size: 12px; }
+.vx-fx { color: #666; font-style: italic; font-size: 12px; }
+.vx-formula { flex: 1; background: #fff; border: 1px solid #c6c6c6; padding: 0 6px; min-height: 1.4em; font-family: Consolas, "Courier New", monospace; }
+.vx-grid { border-collapse: collapse; width: 100%; table-layout: auto; }
+.vx-grid th { background: #ececec; color: #555; font-weight: normal; font-size: 12px; border: 1px solid #d0d0d0; padding: 1px 4px; }
+.vx-grid td { border: 1px solid #e1e1e1; padding: 2px 6px; white-space: nowrap; height: 1.6em; }
+.vx-grid td.vx-num { text-align: right; }
+.vx-grid td.vx-border { border: 1px solid #111; }
+.vx-grid td.vx-sel { background-color: rgba(33, 115, 70, .12); outline: 1px solid #217346; outline-offset: -1px; }
+.vx-grid td.vx-active { outline: 2px solid #217346; outline-offset: -2px; }
+@media (max-width: 600px) {
+  /* スマホでも「まえ ▶ あと」を横に並べる（たてに重ねると 選択肢が 画面の下に おしだされる） */
+  .vis { flex-wrap: nowrap; gap: 4px; align-items: stretch; }
+  .vis-arrow { align-self: center; font-size: 14px; }
+  .vp-page { font-size: 12px; padding: 8px 8px 6px; min-height: 60px; }
+  .vp-page::before { font-size: 8px; }
+  .vx { font-size: 11px; }
+  .vx-bar { padding: 2px 3px; gap: 3px; }
+  .vx-name { min-width: 2.2em; font-size: 10px; }
+  .vx-grid th { font-size: 10px; padding: 0 2px; }
+  .vx-grid td { padding: 1px 3px; height: 1.5em; }
+  .vis-label { font-size: 12px; }
+}

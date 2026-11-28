@@ -368,8 +368,8 @@ function msgBlocks(text) {
   var lines = text.split("\n"), out = [], pos = 0;
   lines.forEach(function (line, i) {
     var b = { start: pos, text: line, nl: i < lines.length - 1, cls: "msg-line", label: "" };
-    var m = line.match(/^(【まめちしき】|【かいせつ】)/);
-    if (m) { b.cls = m[1] === "【まめちしき】" ? "msg-tip" : "msg-tip msg-tip-miss"; b.label = m[1]; }
+    var m = line.match(/^(【まめちしき】|【かいせつ】|【ことばで】)/);
+    if (m) { b.cls = m[1] === "【まめちしき】" ? "msg-tip" : m[1] === "【かいせつ】" ? "msg-tip msg-tip-miss" : "msg-tip msg-tip-words"; b.label = m[1]; }
     else if (/^せいかいは /.test(line)) b.cls = "msg-answer";
     else if (/^(★|✨|♥|💡|🎁|⚠)/.test(line)) b.cls = "msg-note";
     out.push(b);
@@ -1620,6 +1620,7 @@ function layoutAfterPassage(hasPassage) {
  * ＋番号バッジを表示する。通常の問題ではモンスター表示に戻す。 */
 function renderQuestionVisual(q) {
   renderPassage(q);
+  Vis.render($("#battle-vis"), q.vis || null);   /* 問題の図（まえ → あと）。js/visuals.js */
   if (!q.id) { renderSource(q); renderNotationButton(null); }   /* 次の問題へ行くとき（renderQuestionVisual({})）は出典・記述形式のボタンも片づける */
   var hotspotBox = $("#hotspot-stage");
   var stage = $("#battle-stage");
@@ -1942,6 +1943,8 @@ function answer(isCorrect, btn) {
   if (isCorrect && battle.mode === "endless" && battle.bossPhase && battle.bossHp <= 0) syncNow();
   renderGauge();
   var readyAt = performance.now() + hitDelay + 250 + (isCorrect ? 0 : 1200);   // まちがいのときは、解説を読む間をとる
+  /* 図の問題（vis）は、答えたあとに もとの問題文（ことばの説明）を見せて ふりかえる */
+  if (q.qText) msg += "\n【ことばで】" + q.qText;
   typeMsg(msg, function () {
     setTimeout(function () {
       if (!battleLive(b, turn)) return;
